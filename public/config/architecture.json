@@ -1,0 +1,355 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-23T16:30:00.000Z",
+  "kinesisDefaults": {
+    "writeRecordsPerShardPerSecond": 1000,
+    "writeMbPerShardPerSecond": 1,
+    "readMbPerShardPerSecond": 2
+  },
+  "tiers": [
+    { "id": "sources", "name": "Data Sources", "order": 1 },
+    { "id": "ingestion", "name": "Ingestion", "order": 2 },
+    { "id": "processing", "name": "Processing", "order": 3 },
+    { "id": "aggregate", "name": "Aggregate", "order": 4 },
+    { "id": "routing", "name": "Routing", "order": 5 },
+    { "id": "hot", "name": "Hot Tier", "order": 6 },
+    { "id": "cold", "name": "Cold Tier", "order": 7 },
+    { "id": "api", "name": "API", "order": 8 }
+  ],
+  "nodes": [
+    {
+      "id": "web-apps",
+      "name": "Web Apps",
+      "type": "producer",
+      "tier": "sources",
+      "summary": "Browser and server-side web application events",
+      "replicas": 12,
+      "schemas": ["click_event", "purchase_event", "profile_event"],
+      "contributors": ["web", "partner"]
+    },
+    {
+      "id": "mobile-apps",
+      "name": "Mobile Apps",
+      "type": "producer",
+      "tier": "sources",
+      "summary": "iOS and Android event producers",
+      "replicas": 6,
+      "schemas": ["click_event", "purchase_event", "session_event"],
+      "contributors": ["mobile"]
+    },
+    {
+      "id": "partner-apis",
+      "name": "Partner APIs",
+      "type": "producer",
+      "tier": "sources",
+      "summary": "Partner integration producers",
+      "replicas": 18,
+      "schemas": ["order_event", "inventory_event", "partner_update"],
+      "contributors": ["partner-a", "partner-b", "partner-c"]
+    },
+    {
+      "id": "log-processor",
+      "name": "Log Processor",
+      "type": "service",
+      "tier": "ingestion",
+      "summary": "Normalizes web log traffic before publishing to ingestion streams",
+      "replicas": 8,
+      "throttleTypes": ["schema", "contributor", "schemaContributor"],
+      "capacity": { "maxTps": 42000, "instances": 8, "workersPerInstance": 4 }
+    },
+    {
+      "id": "clickstream-processor",
+      "name": "Clickstream Processor",
+      "type": "service",
+      "tier": "ingestion",
+      "summary": "Builds clickstream records for Kinesis ingestion",
+      "replicas": 6,
+      "throttleTypes": ["schema", "contributor"],
+      "capacity": { "maxTps": 36000, "instances": 6, "workersPerInstance": 4 }
+    },
+    {
+      "id": "transaction-processor",
+      "name": "Transaction Processor",
+      "type": "service",
+      "tier": "ingestion",
+      "summary": "Processes purchase, order, and inventory events",
+      "replicas": 10,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 52000, "instances": 10, "workersPerInstance": 4 }
+    },
+    {
+      "id": "logs-stream",
+      "name": "logs-stream",
+      "type": "kinesisStream",
+      "tier": "processing",
+      "summary": "Raw and normalized log records",
+      "kinesis": { "shardCount": 18, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "clicks-stream",
+      "name": "clicks-stream",
+      "type": "kinesisStream",
+      "tier": "processing",
+      "summary": "Clickstream event stream",
+      "kinesis": { "shardCount": 16, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "transactions-stream",
+      "name": "transactions-stream",
+      "type": "kinesisStream",
+      "tier": "processing",
+      "summary": "High-value transaction and order stream",
+      "kinesis": { "shardCount": 28, "consumerCount": 3 },
+      "throttleTypes": ["schema", "contributor", "schemaContributor"]
+    },
+    {
+      "id": "event-enrichment",
+      "name": "Event Enrichment KCL",
+      "type": "service",
+      "tier": "processing",
+      "summary": "KCL readers that enrich events and publish to aggregate or slow lane",
+      "replicas": 14,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 118000, "instances": 14, "workersPerInstance": 6 }
+    },
+    {
+      "id": "pre-aggregate-slow-lane",
+      "name": "Pre-Aggregate Slow Lane",
+      "type": "slowLane",
+      "tier": "processing",
+      "summary": "SQS slow lane for ingestion and enrichment throttling",
+      "queue": { "queueCount": 4, "maxBacklog": 150000, "maxAgeSeconds": 900 },
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"]
+    },
+    {
+      "id": "pre-aggregate-slow-lane-worker",
+      "name": "Pre-Aggregate Slow Lane Processor",
+      "type": "service",
+      "tier": "processing",
+      "summary": "Drains ingestion slow-lane queues into the aggregate stream",
+      "replicas": 5,
+      "throttleTypes": ["schema", "contributor", "priorityLane"],
+      "capacity": { "maxTps": 9000, "instances": 5, "workersPerInstance": 3 }
+    },
+    {
+      "id": "aggregate-stream",
+      "name": "aggregate-stream",
+      "type": "kinesisStream",
+      "tier": "aggregate",
+      "summary": "Single aggregate Kinesis stream consumed by routing services",
+      "kinesis": { "shardCount": 96, "consumerCount": 3 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "stream-router",
+      "name": "Stream Router",
+      "type": "router",
+      "tier": "routing",
+      "summary": "Routes aggregate stream traffic into hot and cold tier streams",
+      "replicas": 8,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 98000, "instances": 8, "workersPerInstance": 5 }
+    },
+    {
+      "id": "hot-index-slow-lane",
+      "name": "Hot Index Slow Lane",
+      "type": "slowLane",
+      "tier": "hot",
+      "summary": "SQS slow lane used by hot router and hot indexers",
+      "queue": { "queueCount": 4, "maxBacklog": 120000, "maxAgeSeconds": 600 },
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"]
+    },
+    {
+      "id": "cold-index-slow-lane",
+      "name": "Cold Index Slow Lane",
+      "type": "slowLane",
+      "tier": "cold",
+      "summary": "SQS slow lane used by cold router and cold indexers",
+      "queue": { "queueCount": 4, "maxBacklog": 180000, "maxAgeSeconds": 1200 },
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"]
+    },
+    {
+      "id": "products-hot-stream",
+      "name": "products-hot-stream",
+      "type": "kinesisStream",
+      "tier": "hot",
+      "summary": "Hot product events",
+      "kinesis": { "shardCount": 24, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "orders-hot-stream",
+      "name": "orders-hot-stream",
+      "type": "kinesisStream",
+      "tier": "hot",
+      "summary": "Hot order events",
+      "kinesis": { "shardCount": 32, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "users-hot-stream",
+      "name": "users-hot-stream",
+      "type": "kinesisStream",
+      "tier": "hot",
+      "summary": "Hot user/profile events",
+      "kinesis": { "shardCount": 18, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "hot-indexers",
+      "name": "Hot Tier Indexers",
+      "type": "service",
+      "tier": "hot",
+      "summary": "Latency-sensitive writers into hot OpenSearch clusters",
+      "replicas": 12,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 88000, "instances": 12, "workersPerInstance": 5 }
+    },
+    {
+      "id": "products-hot-cluster",
+      "name": "products-hot-cluster",
+      "type": "openSearchCluster",
+      "tier": "hot",
+      "summary": "Hot product search cluster",
+      "cluster": { "nodeCount": 12, "maxIndexTps": 32000, "maxSearchTps": 9000 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "orders-hot-cluster",
+      "name": "orders-hot-cluster",
+      "type": "openSearchCluster",
+      "tier": "hot",
+      "summary": "Hot order search cluster",
+      "cluster": { "nodeCount": 16, "maxIndexTps": 38000, "maxSearchTps": 11000 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "users-hot-cluster",
+      "name": "users-hot-cluster",
+      "type": "openSearchCluster",
+      "tier": "hot",
+      "summary": "Hot user search cluster",
+      "cluster": { "nodeCount": 10, "maxIndexTps": 24000, "maxSearchTps": 7000 },
+      "throttleTypes": ["schema"]
+    },
+    {
+      "id": "hot-search-api",
+      "name": "Hot Search API",
+      "type": "api",
+      "tier": "api",
+      "summary": "Reads from hot OpenSearch clusters",
+      "throttleTypes": ["schema", "contributor"],
+      "capacity": { "maxTps": 18000, "instances": 8, "workersPerInstance": 8 }
+    },
+    {
+      "id": "cold-tier-router",
+      "name": "Cold Tier Router",
+      "type": "router",
+      "tier": "cold",
+      "summary": "Routes aggregate stream traffic into cold tier streams",
+      "replicas": 6,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 82000, "instances": 6, "workersPerInstance": 6 }
+    },
+    {
+      "id": "products-cold-stream",
+      "name": "products-cold-stream",
+      "type": "kinesisStream",
+      "tier": "cold",
+      "summary": "Cold product events",
+      "kinesis": { "shardCount": 20, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "orders-cold-stream",
+      "name": "orders-cold-stream",
+      "type": "kinesisStream",
+      "tier": "cold",
+      "summary": "Cold order events",
+      "kinesis": { "shardCount": 24, "consumerCount": 2 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "cold-indexers",
+      "name": "Cold Tier Indexers",
+      "type": "service",
+      "tier": "cold",
+      "summary": "Bulk writers into cold OpenSearch clusters",
+      "replicas": 10,
+      "throttleTypes": ["schema", "contributor", "schemaContributor", "priorityLane"],
+      "capacity": { "maxTps": 62000, "instances": 10, "workersPerInstance": 4 }
+    },
+    {
+      "id": "products-cold-cluster",
+      "name": "products-cold-cluster",
+      "type": "openSearchCluster",
+      "tier": "cold",
+      "summary": "Cold product search cluster",
+      "cluster": { "nodeCount": 18, "maxIndexTps": 28000, "maxSearchTps": 4000 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "orders-cold-cluster",
+      "name": "orders-cold-cluster",
+      "type": "openSearchCluster",
+      "tier": "cold",
+      "summary": "Cold order search cluster",
+      "cluster": { "nodeCount": 20, "maxIndexTps": 31000, "maxSearchTps": 4500 },
+      "throttleTypes": ["schema", "contributor"]
+    },
+    {
+      "id": "cold-search-api",
+      "name": "Cold Search API",
+      "type": "api",
+      "tier": "api",
+      "summary": "Reads from cold OpenSearch clusters",
+      "throttleTypes": ["schema", "contributor"],
+      "capacity": { "maxTps": 7000, "instances": 4, "workersPerInstance": 4 }
+    }
+  ],
+  "edges": [
+    { "from": "web-apps", "to": "log-processor", "label": "events" },
+    { "from": "mobile-apps", "to": "clickstream-processor", "label": "events" },
+    { "from": "partner-apis", "to": "transaction-processor", "label": "events" },
+    { "from": "log-processor", "to": "logs-stream", "label": "publish" },
+    { "from": "clickstream-processor", "to": "clicks-stream", "label": "publish" },
+    { "from": "transaction-processor", "to": "transactions-stream", "label": "publish" },
+    { "from": "logs-stream", "to": "event-enrichment", "label": "KCL" },
+    { "from": "clicks-stream", "to": "event-enrichment", "label": "KCL" },
+    { "from": "transactions-stream", "to": "event-enrichment", "label": "KCL" },
+    { "from": "event-enrichment", "to": "aggregate-stream", "label": "normal path" },
+    { "from": "event-enrichment", "to": "pre-aggregate-slow-lane", "label": "throttled", "mode": "slowLane" },
+    { "from": "pre-aggregate-slow-lane", "to": "pre-aggregate-slow-lane-worker", "label": "drain" },
+    { "from": "pre-aggregate-slow-lane-worker", "to": "aggregate-stream", "label": "replay" },
+    { "from": "aggregate-stream", "to": "stream-router", "label": "KCL" },
+    { "from": "aggregate-stream", "to": "cold-tier-router", "label": "dual reader" },
+    { "from": "stream-router", "to": "products-hot-stream", "label": "route" },
+    { "from": "stream-router", "to": "orders-hot-stream", "label": "route" },
+    { "from": "stream-router", "to": "users-hot-stream", "label": "route" },
+    { "from": "stream-router", "to": "hot-index-slow-lane", "label": "throttled", "mode": "slowLane" },
+    { "from": "products-hot-stream", "to": "hot-indexers", "label": "KCL" },
+    { "from": "orders-hot-stream", "to": "hot-indexers", "label": "KCL" },
+    { "from": "users-hot-stream", "to": "hot-indexers", "label": "KCL" },
+    { "from": "hot-indexers", "to": "hot-index-slow-lane", "label": "throttled", "mode": "slowLane" },
+    { "from": "hot-index-slow-lane", "to": "hot-indexers", "label": "replay" },
+    { "from": "hot-indexers", "to": "products-hot-cluster", "label": "index" },
+    { "from": "hot-indexers", "to": "orders-hot-cluster", "label": "index" },
+    { "from": "hot-indexers", "to": "users-hot-cluster", "label": "index" },
+    { "from": "products-hot-cluster", "to": "hot-search-api", "label": "read" },
+    { "from": "orders-hot-cluster", "to": "hot-search-api", "label": "read" },
+    { "from": "users-hot-cluster", "to": "hot-search-api", "label": "read" },
+    { "from": "cold-tier-router", "to": "products-cold-stream", "label": "route" },
+    { "from": "cold-tier-router", "to": "orders-cold-stream", "label": "route" },
+    { "from": "cold-tier-router", "to": "cold-index-slow-lane", "label": "throttled", "mode": "slowLane" },
+    { "from": "products-cold-stream", "to": "cold-indexers", "label": "KCL" },
+    { "from": "orders-cold-stream", "to": "cold-indexers", "label": "KCL" },
+    { "from": "cold-indexers", "to": "cold-index-slow-lane", "label": "throttled", "mode": "slowLane" },
+    { "from": "cold-index-slow-lane", "to": "cold-indexers", "label": "replay" },
+    { "from": "cold-indexers", "to": "products-cold-cluster", "label": "index" },
+    { "from": "cold-indexers", "to": "orders-cold-cluster", "label": "index" },
+    { "from": "products-cold-cluster", "to": "cold-search-api", "label": "read" },
+    { "from": "orders-cold-cluster", "to": "cold-search-api", "label": "read" }
+  ]
+}

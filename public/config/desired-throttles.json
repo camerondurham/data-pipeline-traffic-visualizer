@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "snapshotKind": "desired",
+  "source": "dynamic-config desired state export",
+  "updatedAt": "2026-05-23T16:31:00.000Z",
+  "services": {
+    "log-processor": {
+      "updatedAt": "2026-05-23T16:29:00.000Z",
+      "rules": [
+        {
+          "id": "log-default",
+          "name": "Default log processor guardrail",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 2000,
+          "maxTps": 38000,
+          "priority": 500,
+          "enabled": true,
+          "notes": "Broad cap for all log schemas."
+        },
+        {
+          "id": "log-click-web",
+          "name": "Click events from web",
+          "throttleType": "schemaContributor",
+          "dimensions": { "schema": "click_event", "contributor": "web" },
+          "minTps": 1200,
+          "maxTps": 15000,
+          "priority": 100,
+          "enabled": true,
+          "notes": "Protects downstream enrichment during traffic spikes."
+        }
+      ]
+    },
+    "clickstream-processor": {
+      "updatedAt": "2026-05-23T16:27:00.000Z",
+      "rules": [
+        {
+          "id": "click-default",
+          "name": "Clickstream default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 1500,
+          "maxTps": 33000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "click-mobile-session",
+          "name": "Mobile session events",
+          "throttleType": "schema",
+          "dimensions": { "schema": "session_event", "contributor": "mobile" },
+          "minTps": 400,
+          "maxTps": 9000,
+          "priority": 160,
+          "enabled": true
+        }
+      ]
+    },
+    "transaction-processor": {
+      "updatedAt": "2026-05-23T16:28:00.000Z",
+      "rules": [
+        {
+          "id": "txn-default",
+          "name": "Transaction default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 3000,
+          "maxTps": 46000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "txn-partner-a-orders",
+          "name": "Partner A orders",
+          "throttleType": "schemaContributor",
+          "dimensions": { "schema": "order_event", "contributor": "partner-a" },
+          "minTps": 900,
+          "maxTps": 12000,
+          "priority": 80,
+          "enabled": true,
+          "notes": "Higher priority than the broad partner guardrail."
+        },
+        {
+          "id": "txn-priority-inventory",
+          "name": "Inventory priority lane",
+          "throttleType": "priorityLane",
+          "dimensions": { "schema": "inventory_event", "contributor": "*" },
+          "minTps": 600,
+          "maxTps": 8500,
+          "priority": 90,
+          "enabled": true
+        }
+      ]
+    },
+    "event-enrichment": {
+      "updatedAt": "2026-05-23T16:30:00.000Z",
+      "rules": [
+        {
+          "id": "enrich-default",
+          "name": "Enrichment default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 6000,
+          "maxTps": 105000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "enrich-profile",
+          "name": "Profile enrichment throttle",
+          "throttleType": "schema",
+          "dimensions": { "schema": "profile_event", "contributor": "*" },
+          "minTps": 1000,
+          "maxTps": 18000,
+          "priority": 140,
+          "enabled": true
+        },
+        {
+          "id": "enrich-partner-b",
+          "name": "Partner B contribution cap",
+          "throttleType": "contributor",
+          "dimensions": { "schema": "*", "contributor": "partner-b" },
+          "minTps": 500,
+          "maxTps": 14000,
+          "priority": 120,
+          "enabled": true
+        }
+      ]
+    },
+    "pre-aggregate-slow-lane": {
+      "updatedAt": "2026-05-23T16:26:00.000Z",
+      "rules": [
+        {
+          "id": "preagg-drain-default",
+          "name": "Pre-aggregate drain floor",
+          "throttleType": "priorityLane",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 500,
+          "maxTps": 7200,
+          "priority": 300,
+          "enabled": true
+        }
+      ]
+    },
+    "pre-aggregate-slow-lane-worker": {
+      "updatedAt": "2026-05-23T16:26:00.000Z",
+      "rules": [
+        {
+          "id": "preagg-worker-default",
+          "name": "Replay worker default",
+          "throttleType": "priorityLane",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 500,
+          "maxTps": 7800,
+          "priority": 300,
+          "enabled": true
+        }
+      ]
+    },
+    "stream-router": {
+      "updatedAt": "2026-05-23T16:31:00.000Z",
+      "rules": [
+        {
+          "id": "router-default",
+          "name": "Router default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 5000,
+          "maxTps": 90000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "router-products-hot",
+          "name": "Products hot route",
+          "throttleType": "schema",
+          "dimensions": { "schema": "product_event", "contributor": "*" },
+          "minTps": 1200,
+          "maxTps": 26000,
+          "priority": 120,
+          "enabled": true
+        },
+        {
+          "id": "router-partner-c",
+          "name": "Partner C route cap",
+          "throttleType": "contributor",
+          "dimensions": { "schema": "*", "contributor": "partner-c" },
+          "minTps": 500,
+          "maxTps": 9500,
+          "priority": 110,
+          "enabled": true
+        }
+      ]
+    },
+    "cold-tier-router": {
+      "updatedAt": "2026-05-23T16:31:00.000Z",
+      "rules": [
+        {
+          "id": "cold-router-default",
+          "name": "Cold router default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 3000,
+          "maxTps": 76000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "cold-router-orders",
+          "name": "Cold order route",
+          "throttleType": "schema",
+          "dimensions": { "schema": "order_event", "contributor": "*" },
+          "minTps": 900,
+          "maxTps": 21000,
+          "priority": 120,
+          "enabled": true
+        }
+      ]
+    },
+    "hot-indexers": {
+      "updatedAt": "2026-05-23T16:30:00.000Z",
+      "rules": [
+        {
+          "id": "hot-index-default",
+          "name": "Hot indexing default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 4000,
+          "maxTps": 82000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "hot-index-orders",
+          "name": "Order indexing protection",
+          "throttleType": "schema",
+          "dimensions": { "schema": "order_event", "contributor": "*" },
+          "minTps": 1000,
+          "maxTps": 28000,
+          "priority": 100,
+          "enabled": true
+        },
+        {
+          "id": "hot-index-partner-a",
+          "name": "Partner A hot index cap",
+          "throttleType": "contributor",
+          "dimensions": { "schema": "*", "contributor": "partner-a" },
+          "minTps": 600,
+          "maxTps": 16000,
+          "priority": 105,
+          "enabled": true
+        }
+      ]
+    },
+    "hot-index-slow-lane": {
+      "updatedAt": "2026-05-23T16:30:00.000Z",
+      "rules": [
+        {
+          "id": "hot-slow-drain",
+          "name": "Hot slow-lane drain",
+          "throttleType": "priorityLane",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 300,
+          "maxTps": 6800,
+          "priority": 250,
+          "enabled": true
+        }
+      ]
+    },
+    "cold-indexers": {
+      "updatedAt": "2026-05-23T16:30:00.000Z",
+      "rules": [
+        {
+          "id": "cold-index-default",
+          "name": "Cold indexing default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 3000,
+          "maxTps": 58000,
+          "priority": 500,
+          "enabled": true
+        },
+        {
+          "id": "cold-index-products",
+          "name": "Product bulk indexing",
+          "throttleType": "schema",
+          "dimensions": { "schema": "product_event", "contributor": "*" },
+          "minTps": 700,
+          "maxTps": 19000,
+          "priority": 130,
+          "enabled": true
+        }
+      ]
+    },
+    "cold-index-slow-lane": {
+      "updatedAt": "2026-05-23T16:29:00.000Z",
+      "rules": [
+        {
+          "id": "cold-slow-drain",
+          "name": "Cold slow-lane drain",
+          "throttleType": "priorityLane",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 250,
+          "maxTps": 5000,
+          "priority": 250,
+          "enabled": true
+        }
+      ]
+    },
+    "hot-search-api": {
+      "updatedAt": "2026-05-23T16:25:00.000Z",
+      "rules": [
+        {
+          "id": "hot-api-default",
+          "name": "Hot search API default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 500,
+          "maxTps": 16000,
+          "priority": 400,
+          "enabled": true
+        }
+      ]
+    },
+    "cold-search-api": {
+      "updatedAt": "2026-05-23T16:25:00.000Z",
+      "rules": [
+        {
+          "id": "cold-api-default",
+          "name": "Cold search API default",
+          "throttleType": "schema",
+          "dimensions": { "schema": "*", "contributor": "*" },
+          "minTps": 250,
+          "maxTps": 5800,
+          "priority": 400,
+          "enabled": true
+        }
+      ]
+    }
+  }
+}

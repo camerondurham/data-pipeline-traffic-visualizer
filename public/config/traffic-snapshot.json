@@ -1,0 +1,374 @@
+{
+  "version": 1,
+  "snapshotKind": "traffic",
+  "updatedAt": "2026-05-23T16:42:30.000Z",
+  "window": "Last 15 minutes",
+  "summary": {
+    "totalIngestTps": 128512,
+    "totalProcessingTps": 96430,
+    "aggregateStreamTps": 87935,
+    "routerTps": 85210,
+    "hotIndexingTps": 82194,
+    "coldIndexingTps": 68332,
+    "apiSearchTps": 14104,
+    "successRate": 99.62
+  },
+  "nodes": {
+    "web-apps": {
+      "tps": 25231,
+      "successRate": 98.7,
+      "latencyP95Ms": 44,
+      "throttlePercent": 0.01,
+      "schemaTps": { "click_event": 13240, "purchase_event": 7420, "profile_event": 4571 },
+      "contributorTps": { "web": 21120, "partner": 4111 }
+    },
+    "mobile-apps": {
+      "tps": 18101,
+      "successRate": 98.6,
+      "latencyP95Ms": 62,
+      "throttlePercent": 0.02,
+      "schemaTps": { "click_event": 9321, "purchase_event": 2881, "session_event": 5899 },
+      "contributorTps": { "mobile": 18101 }
+    },
+    "partner-apis": {
+      "tps": 22412,
+      "successRate": 98.8,
+      "latencyP95Ms": 91,
+      "throttlePercent": 0.05,
+      "schemaTps": { "order_event": 11012, "inventory_event": 6321, "partner_update": 5079 },
+      "contributorTps": { "partner-a": 8180, "partner-b": 7721, "partner-c": 6511 }
+    },
+    "log-processor": {
+      "tps": 18231,
+      "processingTps": 18002,
+      "successRate": 99.7,
+      "latencyP95Ms": 88,
+      "throttlePercent": 0.02,
+      "schemaTps": { "click_event": 10622, "purchase_event": 4230, "profile_event": 3379 },
+      "contributorTps": { "web": 15021, "partner": 3210 }
+    },
+    "clickstream-processor": {
+      "tps": 14875,
+      "processingTps": 14694,
+      "successRate": 98.6,
+      "latencyP95Ms": 105,
+      "throttlePercent": 0.04,
+      "schemaTps": { "click_event": 9112, "session_event": 5763 },
+      "contributorTps": { "mobile": 14875 }
+    },
+    "transaction-processor": {
+      "tps": 24879,
+      "processingTps": 24120,
+      "successRate": 99.6,
+      "latencyP95Ms": 96,
+      "throttlePercent": 0.08,
+      "schemaTps": { "order_event": 12320, "inventory_event": 7190, "purchase_event": 5369 },
+      "contributorTps": { "partner-a": 10221, "partner-b": 7632, "partner-c": 7026 }
+    },
+    "logs-stream": {
+      "tps": 18231,
+      "writeTps": 18231,
+      "readTps": 18102,
+      "successRate": 99.7,
+      "latencyP95Ms": 80,
+      "throttlePercent": 0.02,
+      "iteratorAgeMs": 4100,
+      "schemaTps": { "click_event": 10622, "purchase_event": 4230, "profile_event": 3379 },
+      "contributorTps": { "web": 15021, "partner": 3210 }
+    },
+    "clicks-stream": {
+      "tps": 14875,
+      "writeTps": 14875,
+      "readTps": 14694,
+      "successRate": 99.5,
+      "latencyP95Ms": 92,
+      "throttlePercent": 0.01,
+      "iteratorAgeMs": 3200,
+      "schemaTps": { "click_event": 9112, "session_event": 5763 },
+      "contributorTps": { "mobile": 14875 }
+    },
+    "transactions-stream": {
+      "tps": 24879,
+      "writeTps": 24879,
+      "readTps": 24120,
+      "successRate": 99.6,
+      "latencyP95Ms": 108,
+      "throttlePercent": 0.02,
+      "iteratorAgeMs": 6300,
+      "schemaTps": { "order_event": 12320, "inventory_event": 7190, "purchase_event": 5369 },
+      "contributorTps": { "partner-a": 10221, "partner-b": 7632, "partner-c": 7026 }
+    },
+    "event-enrichment": {
+      "tps": 96430,
+      "processingTps": 92780,
+      "successRate": 99.4,
+      "latencyP95Ms": 118,
+      "throttlePercent": 0.08,
+      "schemaTps": { "click_event": 26401, "order_event": 24012, "product_event": 17110, "profile_event": 12890, "inventory_event": 16017 },
+      "contributorTps": { "web": 28101, "mobile": 19012, "partner-a": 18210, "partner-b": 16091, "partner-c": 15016 }
+    },
+    "pre-aggregate-slow-lane": {
+      "tps": 2499,
+      "backlog": 71222,
+      "oldestAgeSeconds": 190,
+      "successRate": 99.7,
+      "latencyP95Ms": 420,
+      "throttlePercent": 0.0,
+      "schemaTps": { "order_event": 881, "profile_event": 704, "inventory_event": 914 },
+      "contributorTps": { "partner-a": 842, "partner-b": 880, "partner-c": 777 }
+    },
+    "pre-aggregate-slow-lane-worker": {
+      "tps": 2499,
+      "processingTps": 2410,
+      "successRate": 99.7,
+      "latencyP95Ms": 360,
+      "throttlePercent": 0.0,
+      "schemaTps": { "order_event": 881, "profile_event": 704, "inventory_event": 914 },
+      "contributorTps": { "partner-a": 842, "partner-b": 880, "partner-c": 777 }
+    },
+    "aggregate-stream": {
+      "tps": 87935,
+      "writeTps": 87935,
+      "readTps": 171600,
+      "successRate": 99.5,
+      "latencyP95Ms": 82,
+      "throttlePercent": 0.04,
+      "iteratorAgeMs": 9200,
+      "schemaTps": { "click_event": 23860, "order_event": 22340, "product_event": 16082, "profile_event": 12002, "inventory_event": 13651 },
+      "contributorTps": { "web": 25120, "mobile": 17820, "partner-a": 16442, "partner-b": 15081, "partner-c": 13472 }
+    },
+    "stream-router": {
+      "tps": 85210,
+      "processingTps": 83220,
+      "successRate": 99.6,
+      "latencyP95Ms": 120,
+      "throttlePercent": 0.05,
+      "schemaTps": { "product_event": 18231, "order_event": 24531, "profile_event": 16972, "click_event": 14210, "inventory_event": 11266 },
+      "contributorTps": { "web": 24102, "mobile": 16620, "partner-a": 16011, "partner-b": 14892, "partner-c": 13585 }
+    },
+    "hot-index-slow-lane": {
+      "tps": 1104,
+      "backlog": 25231,
+      "oldestAgeSeconds": 45,
+      "successRate": 99.8,
+      "latencyP95Ms": 260,
+      "throttlePercent": 0.0,
+      "schemaTps": { "order_event": 510, "product_event": 399, "profile_event": 195 },
+      "contributorTps": { "partner-a": 421, "partner-b": 352, "partner-c": 331 }
+    },
+    "products-hot-stream": {
+      "tps": 18231,
+      "writeTps": 18231,
+      "readTps": 18092,
+      "successRate": 99.7,
+      "latencyP95Ms": 85,
+      "throttlePercent": 0.03,
+      "iteratorAgeMs": 2800,
+      "schemaTps": { "product_event": 18231 },
+      "contributorTps": { "web": 6210, "partner-a": 5201, "partner-b": 4032, "partner-c": 2788 }
+    },
+    "orders-hot-stream": {
+      "tps": 24531,
+      "writeTps": 24531,
+      "readTps": 24220,
+      "successRate": 99.6,
+      "latencyP95Ms": 94,
+      "throttlePercent": 0.02,
+      "iteratorAgeMs": 3400,
+      "schemaTps": { "order_event": 24531 },
+      "contributorTps": { "partner-a": 9821, "partner-b": 7862, "partner-c": 6848 }
+    },
+    "users-hot-stream": {
+      "tps": 16972,
+      "writeTps": 16972,
+      "readTps": 16799,
+      "successRate": 99.7,
+      "latencyP95Ms": 90,
+      "throttlePercent": 0.03,
+      "iteratorAgeMs": 2900,
+      "schemaTps": { "profile_event": 16972 },
+      "contributorTps": { "web": 9082, "mobile": 7890 }
+    },
+    "hot-indexers": {
+      "tps": 82194,
+      "processingTps": 80421,
+      "successRate": 99.7,
+      "latencyP95Ms": 205,
+      "throttlePercent": 0.09,
+      "schemaTps": { "product_event": 20120, "order_event": 28810, "profile_event": 17420, "click_event": 15844 },
+      "contributorTps": { "web": 22501, "mobile": 15083, "partner-a": 17520, "partner-b": 14300, "partner-c": 12790 }
+    },
+    "products-hot-cluster": {
+      "tps": 18231,
+      "indexTps": 17980,
+      "searchTps": 5200,
+      "successRate": 99.8,
+      "latencyP95Ms": 72,
+      "throttlePercent": 0.01,
+      "cpuPercent": 45,
+      "heapPercent": 62,
+      "documentsMillions": 256.3,
+      "schemaTps": { "product_event": 18231 },
+      "contributorTps": { "web": 6210, "partner-a": 5201, "partner-b": 4032, "partner-c": 2788 }
+    },
+    "orders-hot-cluster": {
+      "tps": 24531,
+      "indexTps": 24111,
+      "searchTps": 6100,
+      "successRate": 99.6,
+      "latencyP95Ms": 76,
+      "throttlePercent": 0.02,
+      "cpuPercent": 52,
+      "heapPercent": 58,
+      "documentsMillions": 512.8,
+      "schemaTps": { "order_event": 24531 },
+      "contributorTps": { "partner-a": 9821, "partner-b": 7862, "partner-c": 6848 }
+    },
+    "users-hot-cluster": {
+      "tps": 16752,
+      "indexTps": 16581,
+      "searchTps": 2804,
+      "successRate": 99.6,
+      "latencyP95Ms": 70,
+      "throttlePercent": 0.01,
+      "cpuPercent": 47,
+      "heapPercent": 55,
+      "documentsMillions": 198.7,
+      "schemaTps": { "profile_event": 16752 },
+      "contributorTps": { "web": 8940, "mobile": 7812 }
+    },
+    "hot-search-api": {
+      "tps": 11873,
+      "successRate": 99.8,
+      "latencyP95Ms": 80,
+      "throttlePercent": 0.02,
+      "schemaTps": { "product_event": 4580, "order_event": 5120, "profile_event": 2173 },
+      "contributorTps": { "web": 5102, "mobile": 2130, "partner-a": 2281, "partner-b": 1411, "partner-c": 949 }
+    },
+    "cold-tier-router": {
+      "tps": 87512,
+      "processingTps": 86100,
+      "successRate": 99.6,
+      "latencyP95Ms": 130,
+      "throttlePercent": 0.03,
+      "schemaTps": { "product_event": 15321, "order_event": 18741, "click_event": 21002, "profile_event": 14900, "inventory_event": 17548 },
+      "contributorTps": { "web": 25220, "mobile": 17301, "partner-a": 16921, "partner-b": 15102, "partner-c": 12968 }
+    },
+    "cold-index-slow-lane": {
+      "tps": 1024,
+      "backlog": 38231,
+      "oldestAgeSeconds": 112,
+      "successRate": 99.7,
+      "latencyP95Ms": 390,
+      "throttlePercent": 0.0,
+      "schemaTps": { "product_event": 401, "order_event": 312, "inventory_event": 311 },
+      "contributorTps": { "partner-a": 312, "partner-b": 381, "partner-c": 331 }
+    },
+    "products-cold-stream": {
+      "tps": 15321,
+      "writeTps": 15321,
+      "readTps": 15120,
+      "successRate": 99.7,
+      "latencyP95Ms": 115,
+      "throttlePercent": 0.02,
+      "iteratorAgeMs": 6100,
+      "schemaTps": { "product_event": 15321 },
+      "contributorTps": { "web": 4301, "partner-a": 3902, "partner-b": 3822, "partner-c": 3296 }
+    },
+    "orders-cold-stream": {
+      "tps": 18741,
+      "writeTps": 18741,
+      "readTps": 18401,
+      "successRate": 99.6,
+      "latencyP95Ms": 126,
+      "throttlePercent": 0.02,
+      "iteratorAgeMs": 6500,
+      "schemaTps": { "order_event": 18741 },
+      "contributorTps": { "partner-a": 7340, "partner-b": 6120, "partner-c": 5281 }
+    },
+    "cold-indexers": {
+      "tps": 68332,
+      "processingTps": 66180,
+      "successRate": 99.6,
+      "latencyP95Ms": 225,
+      "throttlePercent": 0.04,
+      "schemaTps": { "product_event": 15782, "order_event": 19202, "click_event": 16021, "inventory_event": 17327 },
+      "contributorTps": { "web": 18920, "mobile": 12020, "partner-a": 14120, "partner-b": 12320, "partner-c": 10952 }
+    },
+    "products-cold-cluster": {
+      "tps": 12521,
+      "indexTps": 12340,
+      "searchTps": 1850,
+      "successRate": 99.8,
+      "latencyP95Ms": 128,
+      "throttlePercent": 0.01,
+      "cpuPercent": 48,
+      "heapPercent": 60,
+      "documentsMillions": 1200,
+      "schemaTps": { "product_event": 12521 },
+      "contributorTps": { "web": 3510, "partner-a": 3210, "partner-b": 3101, "partner-c": 2700 }
+    },
+    "orders-cold-cluster": {
+      "tps": 15321,
+      "indexTps": 15111,
+      "searchTps": 2010,
+      "successRate": 99.7,
+      "latencyP95Ms": 136,
+      "throttlePercent": 0.02,
+      "cpuPercent": 49,
+      "heapPercent": 57,
+      "documentsMillions": 1800,
+      "schemaTps": { "order_event": 15321 },
+      "contributorTps": { "partner-a": 5991, "partner-b": 5000, "partner-c": 4330 }
+    },
+    "cold-search-api": {
+      "tps": 2231,
+      "successRate": 98.7,
+      "latencyP95Ms": 120,
+      "throttlePercent": 0.03,
+      "schemaTps": { "product_event": 1011, "order_event": 1220 },
+      "contributorTps": { "web": 441, "partner-a": 620, "partner-b": 601, "partner-c": 569 }
+    }
+  },
+  "timeSeries": [
+    { "time": "10:27", "ingest": 120000, "processing": 151000, "aggregate": 162100, "router": 84100, "hotIndexing": 62100, "coldIndexing": 29100, "apiSearch": 31200, "throttle": 0.06, "slowLaneBacklog": 108000 },
+    { "time": "10:28", "ingest": 124900, "processing": 153200, "aggregate": 161200, "router": 86200, "hotIndexing": 64200, "coldIndexing": 30700, "apiSearch": 31900, "throttle": 0.07, "slowLaneBacklog": 112300 },
+    { "time": "10:29", "ingest": 121800, "processing": 150900, "aggregate": 159800, "router": 85200, "hotIndexing": 62800, "coldIndexing": 31600, "apiSearch": 32150, "throttle": 0.06, "slowLaneBacklog": 110200 },
+    { "time": "10:30", "ingest": 129600, "processing": 155800, "aggregate": 163500, "router": 87400, "hotIndexing": 65100, "coldIndexing": 31900, "apiSearch": 32900, "throttle": 0.09, "slowLaneBacklog": 101100 },
+    { "time": "10:31", "ingest": 132100, "processing": 154700, "aggregate": 164200, "router": 88200, "hotIndexing": 66400, "coldIndexing": 32700, "apiSearch": 33100, "throttle": 0.11, "slowLaneBacklog": 95400 },
+    { "time": "10:32", "ingest": 130400, "processing": 156900, "aggregate": 162900, "router": 86700, "hotIndexing": 68100, "coldIndexing": 33100, "apiSearch": 33900, "throttle": 0.09, "slowLaneBacklog": 90600 },
+    { "time": "10:33", "ingest": 128200, "processing": 158400, "aggregate": 165400, "router": 89100, "hotIndexing": 69400, "coldIndexing": 33300, "apiSearch": 34120, "throttle": 0.1, "slowLaneBacklog": 87800 },
+    { "time": "10:34", "ingest": 131800, "processing": 159200, "aggregate": 167100, "router": 90300, "hotIndexing": 72100, "coldIndexing": 34100, "apiSearch": 34800, "throttle": 0.08, "slowLaneBacklog": 84500 },
+    { "time": "10:35", "ingest": 134200, "processing": 158900, "aggregate": 168300, "router": 89900, "hotIndexing": 73400, "coldIndexing": 34900, "apiSearch": 35200, "throttle": 0.08, "slowLaneBacklog": 80300 },
+    { "time": "10:36", "ingest": 133000, "processing": 160100, "aggregate": 166900, "router": 89100, "hotIndexing": 74200, "coldIndexing": 35100, "apiSearch": 35700, "throttle": 0.07, "slowLaneBacklog": 77000 },
+    { "time": "10:37", "ingest": 135200, "processing": 161400, "aggregate": 169200, "router": 90500, "hotIndexing": 76500, "coldIndexing": 35800, "apiSearch": 36100, "throttle": 0.08, "slowLaneBacklog": 74500 },
+    { "time": "10:38", "ingest": 133800, "processing": 160900, "aggregate": 170100, "router": 91100, "hotIndexing": 78100, "coldIndexing": 36300, "apiSearch": 36500, "throttle": 0.09, "slowLaneBacklog": 76800 },
+    { "time": "10:39", "ingest": 136100, "processing": 162300, "aggregate": 171400, "router": 92400, "hotIndexing": 79200, "coldIndexing": 37100, "apiSearch": 37200, "throttle": 0.08, "slowLaneBacklog": 82100 },
+    { "time": "10:40", "ingest": 137200, "processing": 164800, "aggregate": 173200, "router": 93100, "hotIndexing": 80400, "coldIndexing": 38200, "apiSearch": 37900, "throttle": 0.08, "slowLaneBacklog": 86900 },
+    { "time": "10:41", "ingest": 136600, "processing": 163900, "aggregate": 172800, "router": 94400, "hotIndexing": 81600, "coldIndexing": 39100, "apiSearch": 38600, "throttle": 0.08, "slowLaneBacklog": 90400 },
+    { "time": "10:42", "ingest": 141900, "processing": 166700, "aggregate": 175300, "router": 95800, "hotIndexing": 82194, "coldIndexing": 40200, "apiSearch": 39800, "throttle": 0.09, "slowLaneBacklog": 92100 }
+  ],
+  "alerts": [
+    {
+      "id": "alert-router-drift",
+      "severity": "warning",
+      "time": "10:38",
+      "message": "router-partner-c live throttle is disabled while desired config is enabled",
+      "nodeId": "stream-router"
+    },
+    {
+      "id": "alert-hot-index-cap",
+      "severity": "warning",
+      "time": "10:34",
+      "message": "Hot indexing default live cap is below desired cap",
+      "nodeId": "hot-indexers"
+    },
+    {
+      "id": "alert-ingest-spike",
+      "severity": "info",
+      "time": "10:27",
+      "message": "Ingestion traffic spike detected",
+      "nodeId": "aggregate-stream"
+    }
+  ]
+}
