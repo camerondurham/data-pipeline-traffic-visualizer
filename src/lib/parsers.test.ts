@@ -54,4 +54,22 @@ describe("snapshot parsers", () => {
 
     expect(() => parseArchitecture(broken)).toThrow(/unknown node/);
   });
+
+  it("rejects unsupported node types before rendering can crash", () => {
+    const broken = {
+      ...architectureFixture,
+      nodes: [
+        {
+          id: "bad-node",
+          name: "Bad Node",
+          type: "lambdaFunction",
+          tier: "sources",
+          summary: "unsupported"
+        }
+      ],
+      edges: []
+    };
+
+    expect(() => parseArchitecture(broken)).toThrow(/must be one of/);
+  });
 });

@@ -33,6 +33,13 @@ function clampUtilization(value: number): number {
   return value;
 }
 
+function calculateUtilization(observed: number, capacity: number): number {
+  if (capacity <= 0) {
+    return 1;
+  }
+  return clampUtilization(observed / capacity);
+}
+
 export function getKinesisWriteCapacity(node: ArchitectureNode, defaults: KinesisDefaults): number {
   if (!node.kinesis) {
     return 0;
@@ -67,7 +74,7 @@ export function getNodeCapacity(
 
   if (node.type === "kinesisStream" && node.kinesis) {
     const capacityTps = getKinesisWriteCapacity(node, architecture.kinesisDefaults);
-    const utilization = clampUtilization(observedTps / capacityTps);
+    const utilization = calculateUtilization(observedTps, capacityTps);
     return {
       label: "Shard write capacity",
       observedTps,
@@ -81,7 +88,7 @@ export function getNodeCapacity(
 
   if ((node.type === "service" || node.type === "router" || node.type === "api") && node.capacity) {
     const capacityTps = node.capacity.maxTps;
-    const utilization = clampUtilization(observedTps / capacityTps);
+    const utilization = calculateUtilization(observedTps, capacityTps);
     return {
       label: "Processing capacity",
       observedTps,
@@ -95,7 +102,7 @@ export function getNodeCapacity(
 
   if (node.type === "slowLane" && node.queue) {
     const backlog = metrics?.backlog ?? 0;
-    const utilization = clampUtilization(backlog / node.queue.maxBacklog);
+    const utilization = calculateUtilization(backlog, node.queue.maxBacklog);
     const ageCritical = (metrics?.oldestAgeSeconds ?? 0) >= node.queue.maxAgeSeconds;
     const status = ageCritical ? "critical" : statusFromUtilization(utilization);
     return {
@@ -111,7 +118,7 @@ export function getNodeCapacity(
 
   if (node.type === "openSearchCluster" && node.cluster) {
     const capacityTps = node.cluster.maxIndexTps;
-    const utilization = clampUtilization((metrics?.indexTps ?? metrics?.tps ?? 0) / capacityTps);
+    const utilization = calculateUtilization(metrics?.indexTps ?? metrics?.tps ?? 0, capacityTps);
     const resourceCritical = (metrics?.cpuPercent ?? 0) >= 90 || (metrics?.heapPercent ?? 0) >= 90;
     const resourceWarning = (metrics?.cpuPercent ?? 0) >= 75 || (metrics?.heapPercent ?? 0) >= 75;
     return {

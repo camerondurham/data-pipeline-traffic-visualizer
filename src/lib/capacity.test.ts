@@ -41,4 +41,36 @@ describe("capacity helpers", () => {
 
     expect(getNodeStatus(node!, traffic.nodes["stream-router"], architecture, true)).toBe("critical");
   });
+
+  it("treats zero stream capacity as fully saturated and critical", () => {
+    const node: ArchitectureNode = {
+      id: "zero-shard-stream",
+      name: "Zero Shard Stream",
+      type: "kinesisStream",
+      tier: "test",
+      summary: "misconfigured",
+      kinesis: { shardCount: 0 }
+    };
+    const capacity = getNodeCapacity(node, { writeTps: 100 }, architecture);
+
+    expect(capacity?.capacityTps).toBe(0);
+    expect(capacity?.utilization).toBe(1);
+    expect(capacity?.status).toBe("critical");
+  });
+
+  it("treats zero processing capacity as fully saturated and critical", () => {
+    const node: ArchitectureNode = {
+      id: "zero-service",
+      name: "Zero Service",
+      type: "service",
+      tier: "test",
+      summary: "misconfigured",
+      capacity: { maxTps: 0 }
+    };
+    const capacity = getNodeCapacity(node, { processingTps: 10 }, architecture);
+
+    expect(capacity?.capacityTps).toBe(0);
+    expect(capacity?.utilization).toBe(1);
+    expect(capacity?.status).toBe("critical");
+  });
 });

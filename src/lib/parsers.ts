@@ -2,10 +2,21 @@ import type {
   ArchitectureConfig,
   ArchitectureEdge,
   ArchitectureNode,
+  NodeType,
   ThrottleRule,
   ThrottleSnapshot,
   TrafficSnapshot
 } from "../types";
+
+const SUPPORTED_NODE_TYPES: NodeType[] = [
+  "producer",
+  "service",
+  "router",
+  "kinesisStream",
+  "slowLane",
+  "openSearchCluster",
+  "api"
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -32,6 +43,14 @@ function assertArray<T>(value: unknown, label: string): T[] {
   return value as T[];
 }
 
+function assertNodeType(value: unknown, label: string): NodeType {
+  const nodeType = assertString(value, label);
+  if (!SUPPORTED_NODE_TYPES.includes(nodeType as NodeType)) {
+    throw new Error(`${label} must be one of: ${SUPPORTED_NODE_TYPES.join(", ")}`);
+  }
+  return nodeType as NodeType;
+}
+
 export function parseArchitecture(input: unknown): ArchitectureConfig {
   if (!isRecord(input)) {
     throw new Error("architecture config must be an object");
@@ -43,7 +62,7 @@ export function parseArchitecture(input: unknown): ArchitectureConfig {
   for (const node of nodes) {
     assertString(node.id, "node.id");
     assertString(node.name, `node(${node.id}).name`);
-    assertString(node.type, `node(${node.id}).type`);
+    assertNodeType(node.type, `node(${node.id}).type`);
     assertString(node.tier, `node(${node.id}).tier`);
   }
 
