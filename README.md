@@ -23,7 +23,20 @@ npm test
 npm run build
 ```
 
+Update the README diagram screenshot:
+
+```sh
+npx playwright install chromium # first time only
+npm run screenshot:architecture
+```
+
 Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml`, which runs `npm ci`, `npm test`, and `npm run build`.
+
+## Sample Workflow
+
+The screenshot below is generated from `public/architecture.yaml` by `npm run screenshot:architecture`.
+
+![Seed architecture workflow](docs/architecture-workflow.png)
 
 ## Manifest Contract
 
