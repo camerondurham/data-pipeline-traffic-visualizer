@@ -206,8 +206,14 @@ function makeGraphNodes(
 }
 
 function isHiddenByCollapsedAncestor(node: GraphNode, nodeById: Map<string, GraphNode>): boolean {
+  const seen = new Set<string>();
   let parentId = node.parent;
   while (parentId) {
+    if (seen.has(parentId)) {
+      throw new Error(`Parent cycle detected while checking visibility for node ${node.id}`);
+    }
+    seen.add(parentId);
+
     const parent = nodeById.get(parentId);
     if (!parent) {
       return false;
@@ -221,8 +227,14 @@ function isHiddenByCollapsedAncestor(node: GraphNode, nodeById: Map<string, Grap
 }
 
 function getVisibleAncestor(nodeId: string, nodeById: Map<string, GraphNode>): string {
+  const seen = new Set<string>();
   let current = nodeById.get(nodeId);
   while (current && isHiddenByCollapsedAncestor(current, nodeById)) {
+    if (seen.has(current.id)) {
+      throw new Error(`Parent cycle detected while resolving visible ancestor for node ${nodeId}`);
+    }
+    seen.add(current.id);
+
     if (!current.parent) {
       return current.id;
     }
