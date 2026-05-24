@@ -9,7 +9,7 @@ import type {
   RegionView
 } from "./zod";
 
-export const REGIONAL_ZONE_ORDER = ["pre_aggregate", "aggregate", "hot", "cold", "partner"] as const;
+const REGIONAL_ZONE_ORDER = ["pre_aggregate", "aggregate", "hot", "cold", "partner"] as const;
 export const DEFAULT_FLOW_LANES: FlowLane[] = [
   { id: "cold", label: "Cold branch" },
   { id: "normal", label: "Pre-aggregate and aggregate" },
@@ -53,13 +53,6 @@ export interface GraphModel {
   nodeById: Map<string, GraphNode>;
   edgeById: Map<string, ArchitectureEdge>;
   viewById: Map<string, ArchitectureView>;
-}
-
-export interface RegionalViewModel {
-  view: RegionView;
-  region: string;
-  zones: { zone: string; nodes: GraphNode[] }[];
-  edges: VisualEdge[];
 }
 
 export interface FlowStageModel {
@@ -310,28 +303,6 @@ export function buildGraphModel(
     nodeById,
     edgeById,
     viewById
-  };
-}
-
-export function getRegionalView(model: GraphModel, view: RegionView): RegionalViewModel {
-  const regionalNodeIds = new Set(
-    model.visibleNodes.filter((node) => node.region === view.region).map((node) => node.id)
-  );
-
-  const zones = REGIONAL_ZONE_ORDER.map((zone) => ({
-    zone,
-    nodes: model.visibleNodes
-      .filter((node) => node.region === view.region && node.zone === zone)
-      .sort((left, right) => left.id.localeCompare(right.id))
-  }));
-
-  return {
-    view,
-    region: view.region,
-    zones,
-    edges: model.visualEdges.filter(
-      (edge) => regionalNodeIds.has(edge.visibleFrom) && regionalNodeIds.has(edge.visibleTo)
-    )
   };
 }
 

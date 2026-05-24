@@ -6,7 +6,6 @@ import {
   getCrossRegionGroups,
   getFlowLayout,
   getFocusView,
-  getRegionalView,
   requireView
 } from "./graphBuilder";
 import { validateArchitectureManifest, type ArchitectureManifest } from "./zod";
@@ -84,12 +83,10 @@ describe("graphBuilder", () => {
     expect(model.visualEdges.some((edge) => edge.sourceEdgeIds.includes("edge.a.to.b"))).toBe(false);
   });
 
-  it("builds the seed regional zones and destination-region cross-region groups", () => {
+  it("builds the seed destination-region cross-region groups", () => {
     const model = buildGraphModel(loadSeedManifest());
-    const regionalView = getRegionalView(model, requireView(model, "regional_end_to_end", "region"));
     const crossRegionGroups = getCrossRegionGroups(model, requireView(model, "cross_region_detail", "cross_region"));
 
-    expect(regionalView.zones.map((zone) => zone.zone)).toEqual(["pre_aggregate", "aggregate", "hot", "cold", "partner"]);
     expect(crossRegionGroups.map((group) => group.destinationRegion)).toEqual(["euw1", "usw2"]);
     expect(crossRegionGroups.flatMap((group) => group.edges.flatMap((edge) => edge.sourceEdgeIds))).toEqual(
       expect.arrayContaining([

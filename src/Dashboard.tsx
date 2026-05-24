@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronRight, GitBranch, Layers3 } from "lucide-react";
 import {
   buildGraphModel,
+  DEFAULT_FLOW_LANES,
   getCrossRegionGroups,
   getFlowLayout,
   getFocusView,
@@ -26,13 +27,7 @@ const CANVAS_MARGIN_Y = 28;
 const STAGE_HEADER_HEIGHT = 34;
 const NODE_HEIGHT = 76;
 const NODE_GAP = 10;
-
-const LANE_ORDER = ["cold", "normal", "hot", "slow_lane", "partner"] as const;
-
-function laneIndex(lane: string): number {
-  const index = LANE_ORDER.indexOf(lane as (typeof LANE_ORDER)[number]);
-  return index >= 0 ? index : LANE_ORDER.length;
-}
+const SLOW_EDGE_TYPES = new Set(["sideline", "drain", "replay"]);
 
 function nodeLabel(model: GraphModel, id: string): string {
   return model.nodeById.get(id)?.label ?? id;
@@ -42,13 +37,22 @@ function edgeTone(edge: VisualEdge): string {
   if (edge.emphasis === "primary") {
     return "primary";
   }
-  if (edge.emphasis === "secondary" || ["sideline", "drain", "replay"].includes(edge.type)) {
+  if (edge.emphasis === "secondary" || SLOW_EDGE_TYPES.has(edge.type)) {
     return "secondary";
   }
   if (edge.crossRegion) {
     return "cross";
   }
   return "default";
+}
+
+function edgeKey(edge: VisualEdge): string {
+  return `${edge.visibleFrom}-${edge.visibleTo}-${edge.type}-${edge.emphasis}-${edge.sourceEdgeIds.join(".")}`;
+}
+
+function laneIndex(lanes: { id: string }[], lane: string): number {
+  const index = lanes.findIndex((candidate) => candidate.id === lane);
+  return index >= 0 ? index : lanes.length;
 }
 
 function ErrorPanel({ title, message }: { title: string; message: string }) {
@@ -60,6 +64,26 @@ function ErrorPanel({ title, message }: { title: string; message: string }) {
         <pre>{message}</pre>
       </div>
     </section>
+  );
+}
+
+function CollapseButton({
+  node,
+  onToggle
+}: {
+  node: GraphNode;
+  onToggle: (nodeId: string, collapsed: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="collapse-button"
+      onClick={() => onToggle(node.id, !node.isCollapsed)}
+      aria-label={`${node.isCollapsed ? "Expand" : "Collapse"} ${node.label}`}
+    >
+      {node.isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
+      {node.isCollapsed ? "Expand" : "Collapse"}
+    </button>
   );
 }
 
@@ -77,17 +101,7 @@ function NodeCard({
         <span>{node.id}</span>
       </div>
       <small>{node.type}</small>
-      {node.isGroup ? (
-        <button
-          type="button"
-          className="collapse-button"
-          onClick={() => onToggle(node.id, !node.isCollapsed)}
-          aria-label={`${node.isCollapsed ? "Expand" : "Collapse"} ${node.label}`}
-        >
-          {node.isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-          {node.isCollapsed ? "Expand" : "Collapse"}
-        </button>
-      ) : null}
+      {node.isGroup ? <CollapseButton node={node} onToggle={onToggle} /> : null}
     </article>
   );
 }
@@ -123,7 +137,7 @@ function EdgePanel({ title, edges, model }: { title: string; edges: VisualEdge[]
       </div>
       <div className="edge-list">
         {edges.map((edge) => (
-          <EdgeRow key={`${edge.visibleFrom}-${edge.visibleTo}-${edge.type}-${edge.emphasis}-${edge.sourceEdgeIds.join(".")}`} edge={edge} model={model} />
+          <EdgeRow key={edgeKey(edge)} edge={edge} model={model} />
         ))}
       </div>
     </section>
@@ -136,18 +150,18 @@ interface FlowPoint {
   lane: string;
 }
 
-function getStagePosition(stageIndex: number, lane: string): { left: number; top: number } {
+function getStagePosition(stageIndex: number, lane: string, lanes: { id: string }[]): { left: number; top: number } {
   return {
     left: CANVAS_MARGIN_X + stageIndex * (STAGE_WIDTH + STAGE_GAP),
-    top: CANVAS_MARGIN_Y + laneIndex(lane) * LANE_HEIGHT
+    top: CANVAS_MARGIN_Y + laneIndex(lanes, lane) * LANE_HEIGHT
   };
 }
 
-function buildNodePositions(stages: FlowStageModel[]): Map<string, FlowPoint> {
+function buildNodePositions(stages: FlowStageModel[], lanes: { id: string }[]): Map<string, FlowPoint> {
   const positions = new Map<string, FlowPoint>();
 
   stages.forEach((stage, stageIndex) => {
-    const { left, top } = getStagePosition(stageIndex, stage.lane);
+    const { left, top } = getStagePosition(stageIndex, stage.lane, lanes);
     stage.nodes.forEach((node, nodeIndex) => {
       positions.set(node.id, {
         x: left + STAGE_WIDTH / 2,
@@ -167,7 +181,7 @@ function edgePath(from: FlowPoint, to: FlowPoint, edge: VisualEdge): string {
   const endY = to.y;
   const dx = Math.max(Math.abs(endX - startX), 80);
   const curve = edge.type === "replay" || endX < startX ? dx * 0.35 : dx * 0.5;
-  const slowOffset = ["sideline", "drain", "replay"].includes(edge.type) ? 34 : 0;
+  const slowOffset = SLOW_EDGE_TYPES.has(edge.type) ? 34 : 0;
 
   return `M ${startX} ${startY} C ${startX + curve} ${startY + slowOffset}, ${endX - curve} ${endY + slowOffset}, ${endX} ${endY}`;
 }
@@ -188,8 +202,8 @@ function FlowDiagram({
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
   const width = CANVAS_MARGIN_X * 2 + layout.stages.length * STAGE_WIDTH + Math.max(layout.stages.length - 1, 0) * STAGE_GAP;
-  const height = CANVAS_MARGIN_Y * 2 + LANE_ORDER.length * LANE_HEIGHT;
-  const nodePositions = buildNodePositions(layout.stages);
+  const height = CANVAS_MARGIN_Y * 2 + layout.lanes.length * LANE_HEIGHT;
+  const nodePositions = buildNodePositions(layout.stages, layout.lanes);
   const drawableEdges = layout.edges.filter((edge) => nodePositions.has(edge.visibleFrom) && nodePositions.has(edge.visibleTo));
 
   return (
@@ -204,16 +218,7 @@ function FlowDiagram({
       {groups.length > 0 ? (
         <div className="flow-group-controls" aria-label="Collapsible topology groups">
           {groups.map((group) => (
-            <button
-              key={group.id}
-              type="button"
-              className="collapse-button"
-              onClick={() => onToggle(group.id, !group.isCollapsed)}
-              aria-label={`${group.isCollapsed ? "Expand" : "Collapse"} ${group.label}`}
-            >
-              {group.isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
-              {group.label}
-            </button>
+            <CollapseButton key={group.id} node={group} onToggle={onToggle} />
           ))}
         </div>
       ) : null}
@@ -224,7 +229,7 @@ function FlowDiagram({
               <span
                 key={lane.id}
                 className={`lane-label lane-${lane.id}`}
-                style={{ top: CANVAS_MARGIN_Y + laneIndex(lane.id) * LANE_HEIGHT + 8 }}
+                style={{ top: CANVAS_MARGIN_Y + laneIndex(layout.lanes, lane.id) * LANE_HEIGHT + 8 }}
               >
                 {lane.label}
               </span>
@@ -244,7 +249,7 @@ function FlowDiagram({
               }
               return (
                 <path
-                  key={`${edge.visibleFrom}-${edge.visibleTo}-${edge.type}-${edge.emphasis}-${edge.sourceEdgeIds.join(".")}`}
+                  key={edgeKey(edge)}
                   className={`flow-edge tone-${edgeTone(edge)}`}
                   d={edgePath(from, to, edge)}
                   markerEnd="url(#arrow-default)"
@@ -253,7 +258,7 @@ function FlowDiagram({
             })}
           </svg>
           {layout.stages.map((stage, stageIndex) => {
-            const { left, top } = getStagePosition(stageIndex, stage.lane);
+            const { left, top } = getStagePosition(stageIndex, stage.lane, layout.lanes);
             return (
               <section
                 key={stage.id}
@@ -321,7 +326,7 @@ function CrossRegionView({ model }: { model: GraphModel }) {
           </div>
           <div className="edge-list">
             {group.edges.map((edge) => (
-              <EdgeRow key={`${edge.visibleFrom}-${edge.visibleTo}-${edge.type}-${edge.sourceEdgeIds.join(".")}`} edge={edge} model={model} />
+              <EdgeRow key={edgeKey(edge)} edge={edge} model={model} />
             ))}
           </div>
         </section>
@@ -339,57 +344,26 @@ function FocusView({
 }) {
   const view = requireView(model, "representative_partner_path", "focus");
   const focus = getFocusView(model, view);
-  const focusStages: FlowStageModel[] = [
-    {
-      id: "focus_hot_router",
-      label: "USE1 hot router",
-      lane: "hot",
-      nodes: focus.nodes.filter((node) => node.id === "use1.hot.router")
-    },
-    {
-      id: "focus_slow_streams",
-      label: "Source-region slow streams",
-      lane: "slow_lane",
-      nodes: focus.nodes.filter((node) => node.id === "use1.partner.slow_streams")
-    },
-    {
-      id: "focus_slow_processor",
-      label: "Source-region slow processor",
-      lane: "slow_lane",
-      nodes: focus.nodes.filter((node) => node.id === "use1.partner.slow_processor")
-    },
-    {
-      id: "focus_partner_stream",
-      label: "USW2 partner stream",
-      lane: "partner",
-      nodes: focus.nodes.filter((node) => node.id === "usw2.partner.stream.example")
-    },
-    {
-      id: "focus_partner_indexer",
-      label: "USW2 partner indexer/app",
-      lane: "partner",
-      nodes: focus.nodes.filter((node) => node.id === "usw2.partner.indexer.example")
-    },
-    {
-      id: "focus_partner_clusters",
-      label: "Multiple USW2 partner clusters",
-      lane: "partner",
-      nodes: focus.nodes.filter((node) => node.id.startsWith("usw2.partner.cluster."))
-    }
-  ].filter((stage) => stage.nodes.length > 0);
+  const focusStages = [
+    ["focus_hot_router", "USE1 hot router", "hot", "use1.hot.router"],
+    ["focus_slow_streams", "Source-region slow streams", "slow_lane", "use1.partner.slow_streams"],
+    ["focus_slow_processor", "Source-region slow processor", "slow_lane", "use1.partner.slow_processor"],
+    ["focus_partner_stream", "USW2 partner stream", "partner", "usw2.partner.stream.example"],
+    ["focus_partner_indexer", "USW2 partner indexer/app", "partner", "usw2.partner.indexer.example"],
+    ["focus_partner_clusters", "Multiple USW2 partner clusters", "partner", "usw2.partner.cluster."]
+  ].map<FlowStageModel>(([id, label, lane, nodeId]) => ({
+    id,
+    label,
+    lane,
+    nodes: focus.nodes.filter((node) => node.id === nodeId || node.id.startsWith(nodeId))
+  })).filter((stage) => stage.nodes.length > 0);
 
   return (
     <section className="topology-view focus-layout" aria-label="Representative partner path">
       <FlowDiagram
         title="Representative partner cross-region path"
         subtitle="Primary route branches to multiple clusters; secondary source-local slow lane stays visible"
-        layout={{ view, lanes: [
-          { id: "cold", label: "Cold branch" },
-          { id: "normal", label: "Aggregate" },
-          { id: "hot", label: "Hot branch" },
-          { id: "slow_lane", label: "Source-region fallback" },
-          { id: "partner", label: "Destination partner route" }
-        ], stages: focusStages, edges: focus.edges }}
+        layout={{ view, lanes: DEFAULT_FLOW_LANES, stages: focusStages, edges: focus.edges }}
         model={model}
         onToggle={onToggle}
       />
