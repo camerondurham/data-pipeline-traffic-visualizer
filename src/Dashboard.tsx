@@ -19,14 +19,19 @@ import {
   getCrossRegionGroups,
   getFlowLayout,
   getFocusView,
-  requireView,
   type FlowLayoutModel,
   type FlowStageModel,
   type GraphModel,
   type GraphNode,
   type VisualEdge
 } from "./graphBuilder";
-import type { ArchitectureManifest, ArchitectureView } from "./zod";
+import type {
+  ArchitectureManifest,
+  ArchitectureView,
+  CrossRegionView as CrossRegionViewManifest,
+  FocusView as FocusViewManifest,
+  RegionView as RegionViewManifest
+} from "./zod";
 
 interface DashboardProps {
   manifest: ArchitectureManifest;
@@ -581,13 +586,14 @@ function FlowDiagram({
 }
 
 function RegionalView({
+  view,
   model,
   onToggle
 }: {
+  view: RegionViewManifest;
   model: GraphModel;
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
-  const view = requireView(model, "regional_end_to_end", "region");
   const layout = getFlowLayout(model, view);
 
   return (
@@ -604,8 +610,7 @@ function RegionalView({
   );
 }
 
-function CrossRegionView({ model }: { model: GraphModel }) {
-  const view = requireView(model, "cross_region_detail", "cross_region");
+function CrossRegionView({ view, model }: { view: CrossRegionViewManifest; model: GraphModel }) {
   const groups = getCrossRegionGroups(model, view);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
   const routeMap = useMemo(() => buildCrossRegionRouteMap(model, groups, selectedEdgeId), [model, groups, selectedEdgeId]);
@@ -668,13 +673,14 @@ function CrossRegionView({ model }: { model: GraphModel }) {
 }
 
 function FocusView({
+  view,
   model,
   onToggle
 }: {
+  view: FocusViewManifest;
   model: GraphModel;
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
-  const view = requireView(model, "representative_partner_path", "focus");
   const focus = getFocusView(model, view);
   const focusStages = [
     ["focus_hot_router", "USE1 hot router", "hot", "use1.hot.router"],
@@ -713,12 +719,12 @@ function ViewBody({
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
   if (activeView.mode === "region") {
-    return <RegionalView model={model} onToggle={onToggle} />;
+    return <RegionalView view={activeView} model={model} onToggle={onToggle} />;
   }
   if (activeView.mode === "cross_region") {
-    return <CrossRegionView model={model} />;
+    return <CrossRegionView view={activeView} model={model} />;
   }
-  return <FocusView model={model} onToggle={onToggle} />;
+  return <FocusView view={activeView} model={model} onToggle={onToggle} />;
 }
 
 export function Dashboard({ manifest }: DashboardProps) {

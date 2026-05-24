@@ -1,6 +1,7 @@
 import { z, ZodError } from "zod";
 
 const RequiredString = z.string().min(1);
+export const ArchitectureZoneSchema = z.enum(["pre_aggregate", "aggregate", "hot", "cold", "partner"]);
 
 export const ArchitectureNodeSchema = z
   .object({
@@ -8,7 +9,7 @@ export const ArchitectureNodeSchema = z
     label: RequiredString,
     type: RequiredString,
     region: RequiredString,
-    zone: RequiredString,
+    zone: ArchitectureZoneSchema,
     parent: RequiredString.optional(),
     collapsed: z.boolean().optional()
   })

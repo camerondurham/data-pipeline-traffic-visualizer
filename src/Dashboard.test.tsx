@@ -29,6 +29,23 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
   });
 
+  it("renders selected views from manifest IDs instead of fixed canonical IDs", async () => {
+    const user = userEvent.setup();
+    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const manifest = validateArchitectureManifest(parse(yaml));
+    manifest.views = manifest.views.map((view) => ({ ...view, id: `custom_${view.id}` }));
+
+    render(<Dashboard manifest={manifest} />);
+
+    expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("View"), "custom_cross_region_detail");
+    expect(screen.getByTestId("cross-region-map")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("View"), "custom_representative_partner_path");
+    expect(screen.getByTestId("flow-stage-focus_partner_clusters")).toBeInTheDocument();
+  });
+
   it("keeps the core sequential path and slow-lane replay edges visible in the regional diagram details", () => {
     renderSeedDashboard();
 

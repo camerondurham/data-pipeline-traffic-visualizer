@@ -60,6 +60,27 @@ describe("graphBuilder", () => {
     expect(() => buildGraphModel(manifest)).toThrow(/Duplicate edge id/);
   });
 
+  it("rejects unsupported node zones and parent-reference cycles", () => {
+    expect(() =>
+      validateArchitectureManifest({
+        nodes: [{ id: "a", label: "A", type: "app", region: "use1", zone: "pre_agregate" }],
+        edges: [{ id: "edge.a.to.a", from: "a", to: "a", type: "publish" }],
+        views: [{ id: "regional_end_to_end", label: "Regional", mode: "region", region: "use1" }]
+      })
+    ).toThrow();
+
+    expect(() =>
+      buildGraphModel({
+        nodes: [
+          { id: "a", label: "A", type: "app", region: "use1", zone: "hot", parent: "b" },
+          { id: "b", label: "B", type: "app", region: "use1", zone: "hot", parent: "a" }
+        ],
+        edges: [{ id: "edge.a.to.b", from: "a", to: "b", type: "publish" }],
+        views: [{ id: "regional_end_to_end", label: "Regional", mode: "region", region: "use1" }]
+      })
+    ).toThrow(/Parent cycle detected/);
+  });
+
   it("derives crossRegion from original endpoints and preserves rolled-up sourceEdgeIds", () => {
     const model = buildGraphModel(smallManifest());
     const edge = model.visualEdges.find((candidate) => candidate.visibleFrom === "use1.group" && candidate.visibleTo === "usw2.group");

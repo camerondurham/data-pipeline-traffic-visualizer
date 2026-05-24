@@ -107,12 +107,28 @@ function assertSubset(subset: string[], superset: Set<string>, label: string, vi
   }
 }
 
+function assertAcyclicParents(nodesById: Map<string, ArchitectureNode>): void {
+  for (const node of nodesById.values()) {
+    const seen = new Set([node.id]);
+    let parentId = node.parent;
+
+    while (parentId) {
+      if (seen.has(parentId)) {
+        throw new Error(`Parent cycle detected at node ${node.id}: ${[...seen, parentId].join(" -> ")}`);
+      }
+      seen.add(parentId);
+      parentId = nodesById.get(parentId)?.parent;
+    }
+  }
+}
+
 export function validateGraphReferences(manifest: ArchitectureManifest): void {
   assertUniqueIds(manifest.nodes, "node");
   assertUniqueIds(manifest.edges, "edge");
   assertUniqueIds(manifest.views, "view");
 
-  const nodeIds = new Set(manifest.nodes.map((node) => node.id));
+  const nodesById = new Map(manifest.nodes.map((node) => [node.id, node]));
+  const nodeIds = new Set(nodesById.keys());
   const edgeIds = new Set(manifest.edges.map((edge) => edge.id));
 
   for (const node of manifest.nodes) {
@@ -120,6 +136,7 @@ export function validateGraphReferences(manifest: ArchitectureManifest): void {
       throw new Error(`Node ${node.id} references missing parent: ${node.parent}`);
     }
   }
+  assertAcyclicParents(nodesById);
 
   for (const edge of manifest.edges) {
     if (!nodeIds.has(edge.from)) {
