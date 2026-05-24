@@ -1,4 +1,17 @@
 import { useMemo, useState } from "react";
+import {
+  BaseEdge,
+  EdgeLabelRenderer,
+  Handle,
+  MarkerType,
+  Position,
+  ReactFlow,
+  getBezierPath,
+  type Edge,
+  type EdgeProps,
+  type Node,
+  type NodeProps
+} from "@xyflow/react";
 import { AlertTriangle, ChevronDown, ChevronRight, GitBranch, Layers3 } from "lucide-react";
 import {
   buildGraphModel,
@@ -28,6 +41,29 @@ const STAGE_HEADER_HEIGHT = 34;
 const NODE_HEIGHT = 76;
 const NODE_GAP = 10;
 const SLOW_EDGE_TYPES = new Set(["sideline", "drain", "replay"]);
+const NODE_TYPES = { topology: TopologyNode };
+const EDGE_TYPES = { topology: TopologyEdge };
+
+interface EdgeOverlayData {
+  thickness?: number;
+  badges?: string[];
+  warning?: boolean;
+  metricLabel?: string;
+  tooltip?: string;
+}
+
+interface TopologyNodeData extends Record<string, unknown> {
+  node: GraphNode;
+  onToggle: (nodeId: string, collapsed: boolean) => void;
+}
+
+interface TopologyEdgeData extends Record<string, unknown> {
+  edge: VisualEdge;
+  overlay?: EdgeOverlayData;
+}
+
+type TopologyFlowNode = Node<TopologyNodeData, "topology">;
+type TopologyFlowEdge = Edge<TopologyEdgeData, "topology">;
 
 function nodeLabel(model: GraphModel, id: string): string {
   return model.nodeById.get(id)?.label ?? id;
@@ -48,6 +84,10 @@ function edgeTone(edge: VisualEdge): string {
 
 function edgeKey(edge: VisualEdge): string {
   return `${edge.visibleFrom}-${edge.visibleTo}-${edge.type}-${edge.emphasis}-${edge.sourceEdgeIds.join(".")}`;
+}
+
+function flowEdgeId(edge: VisualEdge): string {
+  return edge.sourceEdgeIds.length === 1 ? edge.sourceEdgeIds[0] : `rollup:${edge.sourceEdgeIds.join("+")}`;
 }
 
 function laneIndex(lanes: { id: string }[], lane: string): number {
@@ -106,6 +146,72 @@ function NodeCard({
   );
 }
 
+function TopologyNode({ data }: NodeProps<TopologyFlowNode>) {
+  return (
+    <>
+      <Handle className="flow-handle" type="target" position={Position.Left} />
+      <NodeCard node={data.node} onToggle={data.onToggle} />
+      <Handle className="flow-handle" type="source" position={Position.Right} />
+    </>
+  );
+}
+
+function edgeTooltip(edge: VisualEdge): string {
+  return [
+    edge.label ?? edge.type,
+    `${edge.originalFrom} -> ${edge.originalTo}`,
+    `${edge.sourceRegion} -> ${edge.destinationRegion}`,
+    edge.crossRegion ? "cross_region: true" : "cross_region: false"
+  ].join("\n");
+}
+
+function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
+  const edge = props.data?.edge;
+  const overlay = props.data?.overlay;
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX: props.sourceX,
+    sourceY: props.sourceY,
+    sourcePosition: props.sourcePosition,
+    targetX: props.targetX,
+    targetY: props.targetY,
+    targetPosition: props.targetPosition,
+    curvature: edge && SLOW_EDGE_TYPES.has(edge.type) ? 0.3 : 0.5
+  });
+
+  if (!edge) {
+    return <BaseEdge id={props.id} path={path} markerEnd={props.markerEnd} interactionWidth={24} />;
+  }
+
+  const label = overlay?.metricLabel ?? edge.label ?? edge.type;
+  const badges = overlay?.badges ?? [];
+
+  return (
+    <>
+      <BaseEdge
+        id={props.id}
+        path={path}
+        markerEnd={props.markerEnd}
+        interactionWidth={28}
+        className={`topology-edge tone-${edgeTone(edge)} ${props.selected ? "is-selected" : ""} ${overlay?.warning ? "is-warning" : ""}`}
+        style={{ ...props.style, strokeWidth: overlay?.thickness }}
+        data-testid={`flow-edge-${props.id}`}
+      />
+      <EdgeLabelRenderer>
+        <div
+          className={`edge-label tone-${edgeTone(edge)} ${props.selected ? "is-selected" : ""}`}
+          style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          title={overlay?.tooltip ?? edgeTooltip(edge)}
+        >
+          <span>{label}</span>
+          {badges.map((badge) => (
+            <b key={badge}>{badge}</b>
+          ))}
+        </div>
+      </EdgeLabelRenderer>
+    </>
+  );
+}
+
 function EdgeRow({ edge, model }: { edge: VisualEdge; model: GraphModel }) {
   const sourceLabel = nodeLabel(model, edge.visibleFrom);
   const targetLabel = nodeLabel(model, edge.visibleTo);
@@ -145,9 +251,8 @@ function EdgePanel({ title, edges, model }: { title: string; edges: VisualEdge[]
 }
 
 interface FlowPoint {
-  x: number;
-  y: number;
-  lane: string;
+  left: number;
+  top: number;
 }
 
 function getStagePosition(stageIndex: number, lane: string, lanes: { id: string }[]): { left: number; top: number } {
@@ -164,9 +269,8 @@ function buildNodePositions(stages: FlowStageModel[], lanes: { id: string }[]): 
     const { left, top } = getStagePosition(stageIndex, stage.lane, lanes);
     stage.nodes.forEach((node, nodeIndex) => {
       positions.set(node.id, {
-        x: left + STAGE_WIDTH / 2,
-        y: top + STAGE_HEADER_HEIGHT + NODE_HEIGHT / 2 + nodeIndex * (NODE_HEIGHT + NODE_GAP),
-        lane: stage.lane
+        left,
+        top: top + STAGE_HEADER_HEIGHT + nodeIndex * (NODE_HEIGHT + NODE_GAP)
       });
     });
   });
@@ -174,16 +278,95 @@ function buildNodePositions(stages: FlowStageModel[], lanes: { id: string }[]): 
   return positions;
 }
 
-function edgePath(from: FlowPoint, to: FlowPoint, edge: VisualEdge): string {
-  const startX = from.x + STAGE_WIDTH / 2 - 12;
-  const endX = to.x - STAGE_WIDTH / 2 + 12;
-  const startY = from.y;
-  const endY = to.y;
-  const dx = Math.max(Math.abs(endX - startX), 80);
-  const curve = edge.type === "replay" || endX < startX ? dx * 0.35 : dx * 0.5;
-  const slowOffset = SLOW_EDGE_TYPES.has(edge.type) ? 34 : 0;
+function buildFlowElements(
+  layout: FlowLayoutModel,
+  onToggle: (nodeId: string, collapsed: boolean) => void,
+  selectedEdgeId?: string
+): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[] } {
+  const nodePositions = buildNodePositions(layout.stages, layout.lanes);
+  const nodes = layout.stages.flatMap<TopologyFlowNode>((stage) =>
+    stage.nodes.flatMap((node) => {
+      const position = nodePositions.get(node.id);
+      return position
+        ? [{
+            id: node.id,
+            type: "topology",
+            position: { x: position.left, y: position.top },
+            data: { node, onToggle },
+            width: STAGE_WIDTH,
+            height: NODE_HEIGHT,
+            initialWidth: STAGE_WIDTH,
+            initialHeight: NODE_HEIGHT,
+            measured: { width: STAGE_WIDTH, height: NODE_HEIGHT },
+            sourcePosition: Position.Right,
+            targetPosition: Position.Left,
+            handles: [
+              { id: null, type: "target", position: Position.Left, x: 0, y: NODE_HEIGHT / 2, width: 1, height: 1 },
+              { id: null, type: "source", position: Position.Right, x: STAGE_WIDTH, y: NODE_HEIGHT / 2, width: 1, height: 1 }
+            ],
+            style: { width: STAGE_WIDTH, height: NODE_HEIGHT },
+            draggable: false,
+            selectable: false
+          }]
+        : [];
+    })
+  );
 
-  return `M ${startX} ${startY} C ${startX + curve} ${startY + slowOffset}, ${endX - curve} ${endY + slowOffset}, ${endX} ${endY}`;
+  const edges = layout.edges
+    .filter((edge) => nodePositions.has(edge.visibleFrom) && nodePositions.has(edge.visibleTo))
+    .map<TopologyFlowEdge>((edge) => {
+      const id = flowEdgeId(edge);
+      return {
+        id,
+        type: "topology",
+        source: edge.visibleFrom,
+        target: edge.visibleTo,
+        markerEnd: { type: MarkerType.ArrowClosed },
+        data: { edge },
+        selected: id === selectedEdgeId,
+        focusable: true,
+        selectable: true,
+        reconnectable: false,
+        ariaRole: "button"
+      };
+    });
+
+  return { nodes, edges };
+}
+
+function EdgeDetailPanel({ edge, model, onClose }: { edge: VisualEdge; model: GraphModel; onClose: () => void }) {
+  const fields = [
+    ["originalFrom", edge.originalFrom],
+    ["originalTo", edge.originalTo],
+    ["visibleFrom", edge.visibleFrom],
+    ["visibleTo", edge.visibleTo],
+    ["type", edge.type],
+    ["label", edge.label ?? ""],
+    ["sourceRegion", edge.sourceRegion],
+    ["destinationRegion", edge.destinationRegion],
+    ["cross_region", String(edge.crossRegion)],
+    ["sourceEdgeIds", edge.sourceEdgeIds.join(", ")]
+  ];
+
+  return (
+    <aside className="selected-edge-panel" aria-label="Selected edge details">
+      <div className="panel-heading">
+        <div>
+          <h2>Selected edge</h2>
+          <p>{nodeLabel(model, edge.visibleFrom)} to {nodeLabel(model, edge.visibleTo)}</p>
+        </div>
+        <button type="button" onClick={onClose}>Close</button>
+      </div>
+      <dl>
+        {fields.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value || "none"}</dd>
+          </div>
+        ))}
+      </dl>
+    </aside>
+  );
 }
 
 function FlowDiagram({
@@ -201,10 +384,14 @@ function FlowDiagram({
   groups?: GraphNode[];
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
   const width = CANVAS_MARGIN_X * 2 + layout.stages.length * STAGE_WIDTH + Math.max(layout.stages.length - 1, 0) * STAGE_GAP;
   const height = CANVAS_MARGIN_Y * 2 + layout.lanes.length * LANE_HEIGHT;
-  const nodePositions = buildNodePositions(layout.stages, layout.lanes);
-  const drawableEdges = layout.edges.filter((edge) => nodePositions.has(edge.visibleFrom) && nodePositions.has(edge.visibleTo));
+  const { nodes, edges } = useMemo(
+    () => buildFlowElements(layout, onToggle, selectedEdgeId),
+    [layout, onToggle, selectedEdgeId]
+  );
+  const selectedEdge = edges.find((edge) => edge.id === selectedEdgeId)?.data?.edge;
 
   return (
     <section className="flow-panel" aria-label={title}>
@@ -235,48 +422,39 @@ function FlowDiagram({
               </span>
             ))}
           </div>
-          <svg className="flow-edges" width={width} height={height} aria-hidden="true">
-            <defs>
-              <marker id="arrow-default" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="strokeWidth">
-                <path d="M 0 0 L 9 4.5 L 0 9 z" />
-              </marker>
-            </defs>
-            {drawableEdges.map((edge) => {
-              const from = nodePositions.get(edge.visibleFrom);
-              const to = nodePositions.get(edge.visibleTo);
-              if (!from || !to) {
-                return null;
-              }
-              return (
-                <path
-                  key={edgeKey(edge)}
-                  className={`flow-edge tone-${edgeTone(edge)}`}
-                  d={edgePath(from, to, edge)}
-                  markerEnd="url(#arrow-default)"
-                />
-              );
-            })}
-          </svg>
           {layout.stages.map((stage, stageIndex) => {
             const { left, top } = getStagePosition(stageIndex, stage.lane, layout.lanes);
             return (
               <section
                 key={stage.id}
-                className={`flow-stage lane-${stage.lane}`}
+                className={`flow-stage-heading lane-${stage.lane}`}
                 style={{ left, top, width: STAGE_WIDTH }}
                 data-testid={`flow-stage-${stage.id}`}
               >
                 <h3>{stage.label}</h3>
-                <div className="flow-node-stack">
-                  {stage.nodes.map((node) => (
-                    <NodeCard key={node.id} node={node} onToggle={onToggle} />
-                  ))}
-                </div>
               </section>
             );
           })}
+          <ReactFlow<TopologyFlowNode, TopologyFlowEdge>
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            edgesReconnectable={false}
+            panOnDrag={false}
+            zoomOnScroll={false}
+            zoomOnPinch={false}
+            zoomOnDoubleClick={false}
+            preventScrolling={false}
+            proOptions={{ hideAttribution: true }}
+            onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+            onPaneClick={() => setSelectedEdgeId(undefined)}
+          />
         </div>
       </div>
+      {selectedEdge ? <EdgeDetailPanel edge={selectedEdge} model={model} onClose={() => setSelectedEdgeId(undefined)} /> : null}
       <details className="flow-details">
         <summary>Edge inventory for this view</summary>
         <EdgePanel title="Directional edges" edges={layout.edges} model={model} />

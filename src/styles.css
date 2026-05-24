@@ -60,7 +60,7 @@ button {
 .region-title p,
 .panel-heading h2,
 .zone-lane h3,
-.flow-stage h3 {
+.flow-stage-heading h3 {
   margin: 0;
 }
 
@@ -221,43 +221,108 @@ button {
   color: #bfc6ff;
 }
 
-.flow-edges {
+.flow-canvas .react-flow {
   position: absolute;
   inset: 0;
-  z-index: 1;
-  overflow: visible;
-  pointer-events: none;
+  z-index: 2;
 }
 
-.flow-edge {
+.flow-canvas .react-flow__renderer {
+  overflow: visible;
+}
+
+.react-flow__node-topology {
+  width: 166px;
+}
+
+.flow-handle {
+  width: 8px;
+  height: 8px;
+  border: 0;
+  background: transparent;
+}
+
+.topology-edge {
   fill: none;
   stroke: rgba(182, 203, 218, 0.74);
   stroke-width: 2.2;
   stroke-linecap: round;
 }
 
-.flow-edge.tone-primary {
+.topology-edge.tone-primary {
   stroke: var(--green);
   stroke-width: 3;
 }
 
-.flow-edge.tone-secondary {
+.topology-edge.tone-secondary {
   stroke: var(--amber);
   stroke-dasharray: 8 7;
 }
 
-.flow-edge.tone-cross {
+.topology-edge.tone-cross {
   stroke: var(--blue);
   stroke-width: 2.8;
 }
 
-.flow-stage {
-  position: absolute;
-  z-index: 2;
-  min-height: 130px;
+.topology-edge.is-selected,
+.topology-edge.is-warning {
+  stroke: var(--red);
+  stroke-width: 4;
 }
 
-.flow-stage h3 {
+.edge-label {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 150px;
+  padding: 3px 7px;
+  border: 1px solid rgba(143, 170, 190, 0.24);
+  border-radius: 999px;
+  background: rgba(7, 16, 23, 0.9);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 1.1;
+  pointer-events: all;
+  white-space: nowrap;
+}
+
+.edge-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edge-label b {
+  color: var(--amber);
+  font-size: 9px;
+}
+
+.edge-label.tone-primary {
+  color: #9cf0c0;
+}
+
+.edge-label.tone-secondary {
+  color: #ffe29a;
+}
+
+.edge-label.tone-cross {
+  color: #b8e6ff;
+}
+
+.edge-label.is-selected {
+  border-color: rgba(255, 107, 107, 0.72);
+  color: #ffd2d2;
+}
+
+.flow-stage-heading {
+  position: absolute;
+  z-index: 3;
+  min-height: 130px;
+  pointer-events: none;
+}
+
+.flow-stage-heading h3 {
   min-height: 34px;
   display: flex;
   align-items: flex-end;
@@ -268,44 +333,38 @@ button {
   font-weight: 800;
 }
 
-.flow-node-stack {
-  display: grid;
-  gap: 10px;
-}
-
-.flow-stage .node-card {
+.react-flow__node-topology .node-card {
   min-height: 76px;
   padding: 10px;
   background: rgba(19, 38, 54, 0.96);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
 }
 
-.flow-stage .node-card strong {
+.react-flow__node-topology .node-card strong {
   font-size: 13px;
 }
 
-.flow-stage .node-card span {
+.react-flow__node-topology .node-card span {
   display: none;
 }
 
-.flow-stage .node-card small {
+.react-flow__node-topology .node-card small {
   font-size: 11px;
 }
 
-.flow-stage.lane-cold .node-card {
-  background: rgba(16, 31, 48, 0.96);
-}
-
-.flow-stage.lane-hot .node-card {
+.react-flow__node-topology:has(.type-router) .node-card,
+.react-flow__node-topology:has(.type-indexer) .node-card,
+.react-flow__node-topology:has(.type-processor) .node-card {
   background: rgba(14, 43, 31, 0.96);
 }
 
-.flow-stage.lane-slow_lane .node-card {
+.react-flow__node-topology:has(.type-queue) .node-card {
   background: rgba(54, 39, 12, 0.96);
 }
 
-.flow-stage.lane-partner .node-card {
-  background: rgba(30, 31, 64, 0.96);
+.react-flow__node-topology:has(.type-cluster) .node-card,
+.react-flow__node-topology:has(.type-api) .node-card {
+  background: rgba(16, 31, 48, 0.96);
 }
 
 .flow-details {
@@ -459,6 +518,51 @@ button {
   padding: 0 8px;
   border: 1px solid rgba(143, 170, 190, 0.16);
   border-radius: 999px;
+}
+
+.selected-edge-panel {
+  border-top: 1px solid var(--border);
+  background: rgba(7, 16, 23, 0.42);
+}
+
+.selected-edge-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.selected-edge-panel .panel-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.selected-edge-panel button {
+  min-height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.selected-edge-panel dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+}
+
+.selected-edge-panel div {
+  min-width: 0;
+}
+
+.selected-edge-panel dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.selected-edge-panel dd {
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .error-panel,

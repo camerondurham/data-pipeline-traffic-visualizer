@@ -1,6 +1,6 @@
 import "./test/setup";
 import { readFileSync } from "node:fs";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import { Dashboard } from "./Dashboard";
@@ -40,6 +40,25 @@ describe("Dashboard", () => {
     expect(screen.getByText("edge.use1.hot.router.to.partner.stream")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.slow")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.processor.to.products.stream")).toBeInTheDocument();
+  });
+
+  it("selects rendered edges and shows original and visible endpoint metadata", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[data-id="edge.use1.sources.to.ingestion"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    await user.click(edge as Element);
+
+    const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
+    expect(within(detailPanel).getByText("originalFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getAllByText("use1.sources.apps").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getByText("visibleFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("cross_region")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.sources.to.ingestion")).toBeInTheDocument();
   });
 
   it("switches to destination-region grouped cross-region detail", async () => {
