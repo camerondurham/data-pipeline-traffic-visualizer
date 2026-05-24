@@ -76,7 +76,8 @@ const CROSS_REGION_SOURCE_Y = new Map([
 ]);
 const CROSS_REGION_TARGET_Y = {
   aggregate: 96,
-  partner: 226
+  partner: 226,
+  regionGap: 200
 };
 
 function nodeLabel(model: GraphModel, id: string): string {
@@ -363,24 +364,29 @@ function crossRegionOverlay(edge: VisualEdge): EdgeOverlayData {
     return { tone: "secondary", metricLabel: "remote replay", badges: ["recovery"], thickness: 3 };
   }
   if (edge.label === "partner route") {
-    return { tone: "primary", metricLabel: "steady partner publish", badges: ["steady state"], thickness: 3.6 };
+    return { tone: "primary", metricLabel: "partner route", badges: ["steady"], thickness: 3.6 };
   }
-  return { tone: "cross", metricLabel: "remote aggregate publish", badges: ["steady state"], thickness: 3 };
+  return { tone: "cross", metricLabel: "remote aggregate", badges: ["steady"], thickness: 3 };
 }
 
-function targetYFor(node: GraphNode): number {
-  return node.zone === "aggregate" ? CROSS_REGION_TARGET_Y.aggregate : CROSS_REGION_TARGET_Y.partner;
+function targetYFor(node: GraphNode, regionIndex: number): number {
+  const rowOffset = regionIndex * CROSS_REGION_TARGET_Y.regionGap;
+  return rowOffset + (node.zone === "aggregate" ? CROSS_REGION_TARGET_Y.aggregate : CROSS_REGION_TARGET_Y.partner);
 }
 
 function buildCrossRegionRouteMap(
   model: GraphModel,
   groups: CrossRegionGroupModel[],
   selectedEdgeId?: string
-): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number }[]; width: number; height: number } {
+): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number; top: number }[]; width: number; height: number } {
   const sourceX = 40;
   const destinationStartX = 380;
   const destinationGap = 320;
-  const regions = groups.map((group, index) => ({ id: group.destinationRegion, left: destinationStartX + index * destinationGap }));
+  const regions = groups.map((group, index) => ({
+    id: group.destinationRegion,
+    left: destinationStartX + index * destinationGap,
+    top: 24 + index * CROSS_REGION_TARGET_Y.regionGap
+  }));
   const nodeById = new Map<string, TopologyFlowNode>();
 
   for (const nodeId of CROSS_REGION_SOURCE_IDS) {
@@ -396,7 +402,7 @@ function buildCrossRegionRouteMap(
     for (const edge of group.edges) {
       const target = model.nodeById.get(edge.visibleTo);
       if (target) {
-        nodeById.set(target.id, makeFlowNode(target, { left, top: targetYFor(target) }, NOOP_TOGGLE));
+        nodeById.set(target.id, makeFlowNode(target, { left, top: targetYFor(target, groupIndex) }, NOOP_TOGGLE));
       }
     }
   });
@@ -425,7 +431,7 @@ function buildCrossRegionRouteMap(
     edges,
     regions,
     width: destinationStartX + Math.max(groups.length, 1) * destinationGap,
-    height: 500
+    height: 260 + Math.max(groups.length - 1, 0) * CROSS_REGION_TARGET_Y.regionGap
   };
 }
 
@@ -608,7 +614,7 @@ function CrossRegionView({ model }: { model: GraphModel }) {
           <div className="cross-region-canvas" style={{ width: routeMap.width, height: routeMap.height }} data-testid="cross-region-map">
             <div className="region-column-label source-region" style={{ left: 40 }}>Source use1</div>
             {routeMap.regions.map((region) => (
-              <div key={region.id} className="region-column-label destination-region-label" style={{ left: region.left }}>
+              <div key={region.id} className="region-column-label destination-region-label" style={{ left: region.left, top: region.top }}>
                 Destination {region.id}
               </div>
             ))}
