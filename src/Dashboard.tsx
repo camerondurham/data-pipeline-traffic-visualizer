@@ -68,12 +68,6 @@ type TopologyFlowEdge = Edge<TopologyEdgeData, "topology">;
 type CrossRegionGroupModel = ReturnType<typeof getCrossRegionGroups>[number];
 
 const NOOP_TOGGLE = () => undefined;
-const CROSS_REGION_SOURCE_IDS = ["use1.processing.apps", "use1.hot.router", "use1.partner.slow_processor"];
-const CROSS_REGION_SOURCE_Y = new Map([
-  ["use1.processing.apps", 96],
-  ["use1.hot.router", 226],
-  ["use1.partner.slow_processor", 356]
-]);
 const CROSS_REGION_TARGET_Y = {
   aggregate: 96,
   partner: 226,
@@ -177,8 +171,8 @@ function TopologyNode({ data }: NodeProps<TopologyFlowNode>) {
 function edgeTooltip(edge: VisualEdge): string {
   return [
     edge.label ?? edge.type,
-    `${edge.originalFrom} -> ${edge.originalTo}`,
-    `${edge.sourceRegion} -> ${edge.destinationRegion}`,
+    `${uniqueOriginalValues(edge, "from")} -> ${uniqueOriginalValues(edge, "to")}`,
+    `${uniqueOriginalValues(edge, "sourceRegion")} -> ${uniqueOriginalValues(edge, "destinationRegion")}`,
     edge.crossRegion ? "cross_region: true" : "cross_region: false"
   ].join("\n");
 }
@@ -245,7 +239,7 @@ function EdgeRow({ edge, model }: { edge: VisualEdge; model: GraphModel }) {
       </div>
       <div className="edge-meta">
         <span>{edge.label ?? edge.type}</span>
-        <span>{edge.sourceRegion} to {edge.destinationRegion}</span>
+        <span>{uniqueOriginalValues(edge, "sourceRegion")} to {uniqueOriginalValues(edge, "destinationRegion")}</span>
         <span>{edge.sourceEdgeIds.join(", ")}</span>
         {rolledUp ? <span>rolled up from original endpoints</span> : null}
       </div>
@@ -359,12 +353,18 @@ function makeFlowNode(
   };
 }
 
-function crossRegionOverlay(edge: VisualEdge): EdgeOverlayData {
+function crossRegionOverlay(edge: VisualEdge, model: GraphModel): EdgeOverlayData {
+  const source = model.nodeById.get(edge.originalFrom);
+  const target = model.nodeById.get(edge.originalTo);
+
   if (edge.type === "replay") {
     return { tone: "secondary", metricLabel: "remote replay", badges: ["recovery"], thickness: 3 };
   }
-  if (edge.label === "partner route") {
+  if (edge.type === "publish" && source?.zone === "hot" && target?.zone === "partner") {
     return { tone: "primary", metricLabel: "partner route", badges: ["steady"], thickness: 3.6 };
+  }
+  if (edge.type === "publish" && target?.zone === "aggregate") {
+    return { tone: "cross", metricLabel: "remote aggregate", badges: ["steady"], thickness: 3 };
   }
   return { tone: "cross", metricLabel: "remote aggregate", badges: ["steady"], thickness: 3 };
 }
@@ -372,6 +372,21 @@ function crossRegionOverlay(edge: VisualEdge): EdgeOverlayData {
 function targetYFor(node: GraphNode, regionIndex: number): number {
   const rowOffset = regionIndex * CROSS_REGION_TARGET_Y.regionGap;
   return rowOffset + (node.zone === "aggregate" ? CROSS_REGION_TARGET_Y.aggregate : CROSS_REGION_TARGET_Y.partner);
+}
+
+function crossRegionSourceNodes(model: GraphModel, groups: CrossRegionGroupModel[]): GraphNode[] {
+  const zoneOrder = new Map(["pre_aggregate", "hot", "partner"].map((zone, index) => [zone, index]));
+  const sourceIds = Array.from(new Set(groups.flatMap((group) => group.edges.map((edge) => edge.visibleFrom))));
+  return sourceIds
+    .flatMap((id) => {
+      const node = model.nodeById.get(id);
+      return node ? [node] : [];
+    })
+    .sort((left, right) => {
+      const leftRank = zoneOrder.get(left.zone) ?? zoneOrder.size;
+      const rightRank = zoneOrder.get(right.zone) ?? zoneOrder.size;
+      return leftRank - rightRank || left.label.localeCompare(right.label);
+    });
 }
 
 function buildCrossRegionRouteMap(
@@ -388,14 +403,11 @@ function buildCrossRegionRouteMap(
     top: 24 + index * CROSS_REGION_TARGET_Y.regionGap
   }));
   const nodeById = new Map<string, TopologyFlowNode>();
+  const sourceNodes = crossRegionSourceNodes(model, groups);
 
-  for (const nodeId of CROSS_REGION_SOURCE_IDS) {
-    const node = model.nodeById.get(nodeId);
-    const top = CROSS_REGION_SOURCE_Y.get(nodeId);
-    if (node && top !== undefined) {
-      nodeById.set(node.id, makeFlowNode(node, { left: sourceX, top }, NOOP_TOGGLE));
-    }
-  }
+  sourceNodes.forEach((node, index) => {
+    nodeById.set(node.id, makeFlowNode(node, { left: sourceX, top: 96 + index * 130 }, NOOP_TOGGLE));
+  });
 
   groups.forEach((group, groupIndex) => {
     const left = destinationStartX + groupIndex * destinationGap;
@@ -416,7 +428,7 @@ function buildCrossRegionRouteMap(
         source: edge.visibleFrom,
         target: edge.visibleTo,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge, overlay: crossRegionOverlay(edge) },
+        data: { edge, overlay: crossRegionOverlay(edge, model) },
         selected: id === selectedEdgeId,
         focusable: true,
         selectable: true,
@@ -435,16 +447,20 @@ function buildCrossRegionRouteMap(
   };
 }
 
+function uniqueOriginalValues(edge: VisualEdge, field: "from" | "to" | "sourceRegion" | "destinationRegion"): string {
+  return Array.from(new Set(edge.originalEdges.map((original) => original[field]))).join(", ");
+}
+
 function EdgeDetailPanel({ edge, model, onClose }: { edge: VisualEdge; model: GraphModel; onClose: () => void }) {
   const fields = [
-    ["originalFrom", edge.originalFrom],
-    ["originalTo", edge.originalTo],
+    ["originalFrom", uniqueOriginalValues(edge, "from")],
+    ["originalTo", uniqueOriginalValues(edge, "to")],
     ["visibleFrom", edge.visibleFrom],
     ["visibleTo", edge.visibleTo],
     ["type", edge.type],
     ["label", edge.label ?? ""],
-    ["sourceRegion", edge.sourceRegion],
-    ["destinationRegion", edge.destinationRegion],
+    ["sourceRegion", uniqueOriginalValues(edge, "sourceRegion")],
+    ["destinationRegion", uniqueOriginalValues(edge, "destinationRegion")],
     ["cross_region", String(edge.crossRegion)],
     ["sourceEdgeIds", edge.sourceEdgeIds.join(", ")]
   ];

@@ -74,6 +74,10 @@ describe("graphBuilder", () => {
       crossRegion: true
     });
     expect(edge?.sourceEdgeIds).toEqual(["edge.a.to.remote.a", "edge.b.to.remote.b"]);
+    expect(edge?.originalEdges.map((original) => `${original.from}->${original.to}`)).toEqual([
+      "use1.a->usw2.a",
+      "use1.b->usw2.b"
+    ]);
   });
 
   it("deduplicates rolled-up visual edges and suppresses collapse self-loops", () => {

@@ -30,6 +30,7 @@ export interface DerivedEdge {
   id: string;
   originalFrom: string;
   originalTo: string;
+  originalEdges: OriginalEdgeEndpoint[];
   sourceEdgeIds: string[];
   sourceRegion: string;
   destinationRegion: string;
@@ -42,6 +43,14 @@ export interface VisualEdge extends DerivedEdge {
   visibleFrom: string;
   visibleTo: string;
   emphasis: EdgeEmphasis;
+}
+
+export interface OriginalEdgeEndpoint {
+  id: string;
+  from: string;
+  to: string;
+  sourceRegion: string;
+  destinationRegion: string;
 }
 
 export interface GraphModel {
@@ -236,6 +245,15 @@ function deriveEdge(edge: ArchitectureEdge, nodeById: Map<string, GraphNode>): D
     id: edge.id,
     originalFrom: edge.from,
     originalTo: edge.to,
+    originalEdges: [
+      {
+        id: edge.id,
+        from: edge.from,
+        to: edge.to,
+        sourceRegion: source.region,
+        destinationRegion: target.region
+      }
+    ],
     sourceEdgeIds: [edge.id],
     sourceRegion: source.region,
     destinationRegion: target.region,
@@ -262,10 +280,11 @@ function visualEdgesFor(
       continue;
     }
 
-    const key = `${visibleFrom}|${visibleTo}|${edge.type}|${emphasis}`;
+    const key = `${visibleFrom}|${visibleTo}|${edge.type}|${emphasis}|${derived.sourceRegion}|${derived.destinationRegion}`;
     const existing = rolledUp.get(key);
     if (existing) {
       existing.sourceEdgeIds = Array.from(new Set([...existing.sourceEdgeIds, edge.id])).sort();
+      existing.originalEdges = [...existing.originalEdges, ...derived.originalEdges].sort((left, right) => left.id.localeCompare(right.id));
       existing.crossRegion = existing.crossRegion || derived.crossRegion;
       continue;
     }
