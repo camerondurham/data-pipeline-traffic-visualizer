@@ -1,0 +1,609 @@
+nodes:
+  - id: use1.pre_aggregate
+    label: USE1 Pre-Aggregate
+    type: group
+    region: use1
+    zone: pre_aggregate
+    collapsed: false
+  - id: use1.sources.apps
+    label: Sourcing Apps
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+  - id: use1.ingestion.streams
+    label: Ingestion Streams
+    type: stream
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+  - id: use1.processing.apps
+    label: Processing Apps
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+  - id: use1.pre_agg.slow_queues
+    label: Pre-Aggregate SQS Slow Queues
+    type: queue
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+  - id: use1.pre_agg.slow_processor
+    label: Pre-Aggregate Slow Processor
+    type: processor
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+
+  - id: use1.aggregate
+    label: USE1 Aggregate
+    type: group
+    region: use1
+    zone: aggregate
+    collapsed: false
+  - id: use1.aggregate.stream
+    label: Aggregate Stream
+    type: stream
+    region: use1
+    zone: aggregate
+    parent: use1.aggregate
+
+  - id: use1.hot
+    label: USE1 Hot
+    type: group
+    region: use1
+    zone: hot
+    collapsed: false
+  - id: use1.hot.router
+    label: Hot Router
+    type: router
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.stream.products
+    label: Products Hot Stream
+    type: stream
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.stream.orders
+    label: Orders Hot Stream
+    type: stream
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.indexers
+    label: Hot Indexers
+    type: indexer
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.cluster.products
+    label: Products Hot Cluster
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.cluster.orders
+    label: Orders Hot Cluster
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.api
+    label: Hot API
+    type: api
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.slow_queues
+    label: Hot Slow Queues
+    type: queue
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.slow_processor
+    label: Hot Slow Processor
+    type: processor
+    region: use1
+    zone: hot
+    parent: use1.hot
+
+  - id: use1.cold
+    label: USE1 Cold
+    type: group
+    region: use1
+    zone: cold
+    collapsed: false
+  - id: use1.cold.router
+    label: Cold Router
+    type: router
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.stream.products
+    label: Products Cold Stream
+    type: stream
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.stream.orders
+    label: Orders Cold Stream
+    type: stream
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.indexers
+    label: Cold Indexers
+    type: indexer
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.cluster.products
+    label: Products Cold Cluster
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.cluster.orders
+    label: Orders Cold Cluster
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.api
+    label: Cold API
+    type: api
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.slow_queues
+    label: Cold Slow Queues
+    type: queue
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.slow_processor
+    label: Cold Slow Processor
+    type: processor
+    region: use1
+    zone: cold
+    parent: use1.cold
+
+  - id: use1.partner
+    label: USE1 Partner
+    type: group
+    region: use1
+    zone: partner
+    collapsed: false
+  - id: use1.partner.stream
+    label: Partner Stream
+    type: stream
+    region: use1
+    zone: partner
+    parent: use1.partner
+  - id: use1.partner.indexer
+    label: Partner Indexer/App
+    type: indexer
+    region: use1
+    zone: partner
+    parent: use1.partner
+  - id: use1.partner.cluster.a
+    label: Partner Cluster A
+    type: cluster
+    region: use1
+    zone: partner
+    parent: use1.partner
+  - id: use1.partner.cluster.b
+    label: Partner Cluster B
+    type: cluster
+    region: use1
+    zone: partner
+    parent: use1.partner
+  - id: use1.partner.slow_streams
+    label: Partner Slow Streams
+    type: stream
+    region: use1
+    zone: partner
+    parent: use1.partner
+  - id: use1.partner.slow_processor
+    label: Partner Slow Processor
+    type: processor
+    region: use1
+    zone: partner
+    parent: use1.partner
+
+  - id: usw2.aggregate
+    label: USW2 Aggregate
+    type: group
+    region: usw2
+    zone: aggregate
+    collapsed: false
+  - id: usw2.aggregate.stream
+    label: USW2 Aggregate Stream
+    type: stream
+    region: usw2
+    zone: aggregate
+    parent: usw2.aggregate
+  - id: usw2.partner
+    label: USW2 Partner
+    type: group
+    region: usw2
+    zone: partner
+    collapsed: false
+  - id: usw2.partner.stream.example
+    label: USW2 Partner Stream
+    type: stream
+    region: usw2
+    zone: partner
+    parent: usw2.partner
+  - id: usw2.partner.indexer.example
+    label: USW2 Partner Indexer/App
+    type: indexer
+    region: usw2
+    zone: partner
+    parent: usw2.partner
+  - id: usw2.partner.cluster.a
+    label: USW2 Partner Cluster A
+    type: cluster
+    region: usw2
+    zone: partner
+    parent: usw2.partner
+  - id: usw2.partner.cluster.b
+    label: USW2 Partner Cluster B
+    type: cluster
+    region: usw2
+    zone: partner
+    parent: usw2.partner
+  - id: usw2.partner.cluster.c
+    label: USW2 Partner Cluster C
+    type: cluster
+    region: usw2
+    zone: partner
+    parent: usw2.partner
+
+  - id: euw1.aggregate
+    label: EUW1 Aggregate
+    type: group
+    region: euw1
+    zone: aggregate
+    collapsed: false
+  - id: euw1.aggregate.stream
+    label: EUW1 Aggregate Stream
+    type: stream
+    region: euw1
+    zone: aggregate
+    parent: euw1.aggregate
+  - id: euw1.partner
+    label: EUW1 Partner
+    type: group
+    region: euw1
+    zone: partner
+    collapsed: false
+  - id: euw1.partner.stream.example
+    label: EUW1 Partner Stream
+    type: stream
+    region: euw1
+    zone: partner
+    parent: euw1.partner
+  - id: euw1.partner.indexer.example
+    label: EUW1 Partner Indexer/App
+    type: indexer
+    region: euw1
+    zone: partner
+    parent: euw1.partner
+  - id: euw1.partner.cluster.a
+    label: EUW1 Partner Cluster A
+    type: cluster
+    region: euw1
+    zone: partner
+    parent: euw1.partner
+
+edges:
+  - id: edge.use1.sources.to.ingestion
+    from: use1.sources.apps
+    to: use1.ingestion.streams
+    type: publish
+    label: publish
+  - id: edge.use1.sources.to.preagg.slow
+    from: use1.sources.apps
+    to: use1.pre_agg.slow_queues
+    type: sideline
+    label: sideline
+  - id: edge.use1.ingestion.to.processing
+    from: use1.ingestion.streams
+    to: use1.processing.apps
+    type: consume
+    label: consume
+  - id: edge.use1.processing.to.aggregate
+    from: use1.processing.apps
+    to: use1.aggregate.stream
+    type: publish
+    label: local aggregate
+  - id: edge.use1.processing.to.usw2.aggregate
+    from: use1.processing.apps
+    to: usw2.aggregate.stream
+    type: publish
+    label: remote aggregate
+  - id: edge.use1.processing.to.euw1.aggregate
+    from: use1.processing.apps
+    to: euw1.aggregate.stream
+    type: publish
+    label: remote aggregate
+  - id: edge.use1.preagg.slow.to.processor
+    from: use1.pre_agg.slow_queues
+    to: use1.pre_agg.slow_processor
+    type: drain
+    label: drain
+  - id: edge.use1.preagg.processor.to.aggregate
+    from: use1.pre_agg.slow_processor
+    to: use1.aggregate.stream
+    type: replay
+    label: replay
+  - id: edge.use1.aggregate.to.hot.router
+    from: use1.aggregate.stream
+    to: use1.hot.router
+    type: feed
+    label: hot feed
+  - id: edge.use1.aggregate.to.cold.router
+    from: use1.aggregate.stream
+    to: use1.cold.router
+    type: feed
+    label: cold feed
+
+  - id: edge.use1.hot.router.to.products.stream
+    from: use1.hot.router
+    to: use1.hot.stream.products
+    type: route
+    label: route
+  - id: edge.use1.hot.router.to.orders.stream
+    from: use1.hot.router
+    to: use1.hot.stream.orders
+    type: route
+    label: route
+  - id: edge.use1.hot.products.stream.to.indexers
+    from: use1.hot.stream.products
+    to: use1.hot.indexers
+    type: consume
+    label: consume
+  - id: edge.use1.hot.orders.stream.to.indexers
+    from: use1.hot.stream.orders
+    to: use1.hot.indexers
+    type: consume
+    label: consume
+  - id: edge.use1.hot.indexers.to.products.cluster
+    from: use1.hot.indexers
+    to: use1.hot.cluster.products
+    type: index
+    label: index
+  - id: edge.use1.hot.indexers.to.orders.cluster
+    from: use1.hot.indexers
+    to: use1.hot.cluster.orders
+    type: index
+    label: index
+  - id: edge.use1.hot.products.cluster.to.api
+    from: use1.hot.cluster.products
+    to: use1.hot.api
+    type: serve
+    label: read
+  - id: edge.use1.hot.orders.cluster.to.api
+    from: use1.hot.cluster.orders
+    to: use1.hot.api
+    type: serve
+    label: read
+  - id: edge.use1.hot.router.to.slow
+    from: use1.hot.router
+    to: use1.hot.slow_queues
+    type: sideline
+    label: throttled
+  - id: edge.use1.hot.indexers.to.slow
+    from: use1.hot.indexers
+    to: use1.hot.slow_queues
+    type: sideline
+    label: throttled
+  - id: edge.use1.hot.slow.to.processor
+    from: use1.hot.slow_queues
+    to: use1.hot.slow_processor
+    type: drain
+    label: drain
+  - id: edge.use1.hot.processor.to.products.stream
+    from: use1.hot.slow_processor
+    to: use1.hot.stream.products
+    type: replay
+    label: replay
+  - id: edge.use1.hot.processor.to.orders.stream
+    from: use1.hot.slow_processor
+    to: use1.hot.stream.orders
+    type: replay
+    label: replay
+
+  - id: edge.use1.cold.router.to.products.stream
+    from: use1.cold.router
+    to: use1.cold.stream.products
+    type: route
+    label: route
+  - id: edge.use1.cold.router.to.orders.stream
+    from: use1.cold.router
+    to: use1.cold.stream.orders
+    type: route
+    label: route
+  - id: edge.use1.cold.products.stream.to.indexers
+    from: use1.cold.stream.products
+    to: use1.cold.indexers
+    type: consume
+    label: consume
+  - id: edge.use1.cold.orders.stream.to.indexers
+    from: use1.cold.stream.orders
+    to: use1.cold.indexers
+    type: consume
+    label: consume
+  - id: edge.use1.cold.indexers.to.products.cluster
+    from: use1.cold.indexers
+    to: use1.cold.cluster.products
+    type: index
+    label: index
+  - id: edge.use1.cold.indexers.to.orders.cluster
+    from: use1.cold.indexers
+    to: use1.cold.cluster.orders
+    type: index
+    label: index
+  - id: edge.use1.cold.products.cluster.to.api
+    from: use1.cold.cluster.products
+    to: use1.cold.api
+    type: serve
+    label: read
+  - id: edge.use1.cold.orders.cluster.to.api
+    from: use1.cold.cluster.orders
+    to: use1.cold.api
+    type: serve
+    label: read
+  - id: edge.use1.cold.router.to.slow
+    from: use1.cold.router
+    to: use1.cold.slow_queues
+    type: sideline
+    label: throttled
+  - id: edge.use1.cold.indexers.to.slow
+    from: use1.cold.indexers
+    to: use1.cold.slow_queues
+    type: sideline
+    label: throttled
+  - id: edge.use1.cold.slow.to.processor
+    from: use1.cold.slow_queues
+    to: use1.cold.slow_processor
+    type: drain
+    label: drain
+  - id: edge.use1.cold.processor.to.products.stream
+    from: use1.cold.slow_processor
+    to: use1.cold.stream.products
+    type: replay
+    label: replay
+  - id: edge.use1.cold.processor.to.orders.stream
+    from: use1.cold.slow_processor
+    to: use1.cold.stream.orders
+    type: replay
+    label: replay
+
+  - id: edge.use1.hot.router.to.partner.stream
+    from: use1.hot.router
+    to: use1.partner.stream
+    type: publish
+    label: partner local
+  - id: edge.use1.hot.router.to.usw2.partner.stream
+    from: use1.hot.router
+    to: usw2.partner.stream.example
+    type: publish
+    label: partner route
+  - id: edge.use1.hot.router.to.euw1.partner.stream
+    from: use1.hot.router
+    to: euw1.partner.stream.example
+    type: publish
+    label: partner route
+  - id: edge.use1.partner.stream.to.indexer
+    from: use1.partner.stream
+    to: use1.partner.indexer
+    type: consume
+    label: consume
+  - id: edge.use1.partner.indexer.to.cluster.a
+    from: use1.partner.indexer
+    to: use1.partner.cluster.a
+    type: index
+    label: index
+  - id: edge.use1.partner.indexer.to.cluster.b
+    from: use1.partner.indexer
+    to: use1.partner.cluster.b
+    type: index
+    label: index
+  - id: edge.use1.hot.router.to.partner.slow_streams
+    from: use1.hot.router
+    to: use1.partner.slow_streams
+    type: sideline
+    label: failed partner publish
+  - id: edge.use1.partner.indexer.to.slow_streams
+    from: use1.partner.indexer
+    to: use1.partner.slow_streams
+    type: sideline
+    label: failed partner index
+  - id: edge.use1.partner.slow_streams.to.processor
+    from: use1.partner.slow_streams
+    to: use1.partner.slow_processor
+    type: drain
+    label: drain
+  - id: edge.use1.partner.slow_processor.to.partner.stream
+    from: use1.partner.slow_processor
+    to: use1.partner.stream
+    type: replay
+    label: local replay
+  - id: edge.use1.partner.slow_processor.to.usw2.partner.stream
+    from: use1.partner.slow_processor
+    to: usw2.partner.stream.example
+    type: replay
+    label: remote replay
+  - id: edge.use1.partner.slow_processor.to.euw1.partner.stream
+    from: use1.partner.slow_processor
+    to: euw1.partner.stream.example
+    type: replay
+    label: remote replay
+
+  - id: edge.usw2.partner.stream.to.indexer
+    from: usw2.partner.stream.example
+    to: usw2.partner.indexer.example
+    type: consume
+    label: consume
+  - id: edge.usw2.partner.indexer.to.cluster.a
+    from: usw2.partner.indexer.example
+    to: usw2.partner.cluster.a
+    type: index
+    label: index
+  - id: edge.usw2.partner.indexer.to.cluster.b
+    from: usw2.partner.indexer.example
+    to: usw2.partner.cluster.b
+    type: index
+    label: index
+  - id: edge.usw2.partner.indexer.to.cluster.c
+    from: usw2.partner.indexer.example
+    to: usw2.partner.cluster.c
+    type: index
+    label: index
+  - id: edge.euw1.partner.stream.to.indexer
+    from: euw1.partner.stream.example
+    to: euw1.partner.indexer.example
+    type: consume
+    label: consume
+  - id: edge.euw1.partner.indexer.to.cluster.a
+    from: euw1.partner.indexer.example
+    to: euw1.partner.cluster.a
+    type: index
+    label: index
+
+views:
+  - id: regional_end_to_end
+    label: Regional End-to-End
+    mode: region
+    region: use1
+  - id: cross_region_detail
+    label: Cross-Region Detail
+    mode: cross_region
+    group_by: destination_region
+  - id: representative_partner_path
+    label: Representative Partner Cross-Region Path
+    mode: focus
+    focus_edges:
+      - edge.use1.hot.router.to.usw2.partner.stream
+      - edge.usw2.partner.stream.to.indexer
+      - edge.usw2.partner.indexer.to.cluster.a
+      - edge.usw2.partner.indexer.to.cluster.b
+      - edge.usw2.partner.indexer.to.cluster.c
+      - edge.use1.hot.router.to.partner.slow_streams
+      - edge.use1.partner.slow_streams.to.processor
+      - edge.use1.partner.slow_processor.to.usw2.partner.stream
+    primary_edges:
+      - edge.use1.hot.router.to.usw2.partner.stream
+      - edge.usw2.partner.stream.to.indexer
+      - edge.usw2.partner.indexer.to.cluster.a
+      - edge.usw2.partner.indexer.to.cluster.b
+      - edge.usw2.partner.indexer.to.cluster.c
+    secondary_edges:
+      - edge.use1.hot.router.to.partner.slow_streams
+      - edge.use1.partner.slow_streams.to.processor
+      - edge.use1.partner.slow_processor.to.usw2.partner.stream
