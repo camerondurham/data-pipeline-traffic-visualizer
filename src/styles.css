@@ -59,7 +59,8 @@ button {
 .region-title h2,
 .region-title p,
 .panel-heading h2,
-.zone-lane h3 {
+.zone-lane h3,
+.flow-stage h3 {
   margin: 0;
 }
 
@@ -122,6 +123,7 @@ button {
 }
 
 .region-shell,
+.flow-panel,
 .destination-region,
 .edge-panel,
 .error-panel,
@@ -152,6 +154,176 @@ button {
   gap: 12px;
   overflow-x: auto;
   padding: 14px;
+}
+
+.flow-panel {
+  overflow: hidden;
+}
+
+.flow-scroll {
+  overflow: auto;
+  padding: 0;
+}
+
+.flow-group-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 16, 23, 0.34);
+}
+
+.flow-canvas {
+  position: relative;
+  min-height: 960px;
+  background:
+    linear-gradient(rgba(143, 170, 190, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 170, 190, 0.04) 1px, transparent 1px),
+    rgba(7, 16, 23, 0.46);
+  background-size: 28px 28px;
+}
+
+.lane-labels {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.lane-label {
+  position: absolute;
+  left: 10px;
+  min-width: 130px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(143, 170, 190, 0.18);
+  color: var(--muted);
+  background: rgba(14, 27, 37, 0.78);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.lane-label.lane-cold {
+  color: #b9d4ff;
+}
+
+.lane-label.lane-hot {
+  color: #9cf0c0;
+}
+
+.lane-label.lane-slow_lane {
+  color: #ffe29a;
+}
+
+.lane-label.lane-partner {
+  color: #bfc6ff;
+}
+
+.flow-edges {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.flow-edge {
+  fill: none;
+  stroke: rgba(182, 203, 218, 0.74);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.flow-edge.tone-primary {
+  stroke: var(--green);
+  stroke-width: 3;
+}
+
+.flow-edge.tone-secondary {
+  stroke: var(--amber);
+  stroke-dasharray: 8 7;
+}
+
+.flow-edge.tone-cross {
+  stroke: var(--blue);
+  stroke-width: 2.8;
+}
+
+.flow-stage {
+  position: absolute;
+  z-index: 2;
+  min-height: 130px;
+}
+
+.flow-stage h3 {
+  min-height: 34px;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 4px 7px;
+  color: #d9e7f2;
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 800;
+}
+
+.flow-node-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.flow-stage .node-card {
+  min-height: 76px;
+  padding: 10px;
+  background: rgba(19, 38, 54, 0.96);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.flow-stage .node-card strong {
+  font-size: 13px;
+}
+
+.flow-stage .node-card span {
+  display: none;
+}
+
+.flow-stage .node-card small {
+  font-size: 11px;
+}
+
+.flow-stage.lane-cold .node-card {
+  background: rgba(16, 31, 48, 0.96);
+}
+
+.flow-stage.lane-hot .node-card {
+  background: rgba(14, 43, 31, 0.96);
+}
+
+.flow-stage.lane-slow_lane .node-card {
+  background: rgba(54, 39, 12, 0.96);
+}
+
+.flow-stage.lane-partner .node-card {
+  background: rgba(30, 31, 64, 0.96);
+}
+
+.flow-details {
+  border-top: 1px solid var(--border);
+}
+
+.flow-details summary {
+  cursor: pointer;
+  padding: 13px 16px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.flow-details .edge-panel {
+  border-width: 1px 0 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: rgba(7, 16, 23, 0.28);
 }
 
 .focus-zones {
@@ -207,6 +379,7 @@ button {
 
 .type-stream {
   border-color: rgba(67, 186, 244, 0.5);
+  border-left-width: 5px;
 }
 
 .type-router,
@@ -217,11 +390,16 @@ button {
 
 .type-queue {
   border-color: rgba(247, 201, 72, 0.52);
+  border-style: dashed;
 }
 
 .type-cluster,
 .type-api {
   border-color: rgba(20, 184, 166, 0.5);
+}
+
+.type-cluster {
+  border-radius: 18px 18px 8px 8px;
 }
 
 .collapse-button {

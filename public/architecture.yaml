@@ -581,6 +581,122 @@ views:
     label: Regional End-to-End
     mode: region
     region: use1
+    lanes:
+      - id: cold
+        label: Cold branch
+      - id: normal
+        label: Pre-aggregate and aggregate
+      - id: hot
+        label: Hot branch
+      - id: slow_lane
+        label: Slow-lane replay
+      - id: partner
+        label: Partner routes
+    stages:
+      - id: sourcing_apps
+        label: Sourcing apps
+        lane: normal
+        node_ids:
+          - use1.sources.apps
+      - id: ingestion_streams
+        label: Ingestion streams
+        lane: normal
+        node_ids:
+          - use1.ingestion.streams
+      - id: processing_apps
+        label: Data processing applications
+        lane: normal
+        node_ids:
+          - use1.processing.apps
+      - id: preagg_slow_queues
+        label: Pre-aggregate slow queues
+        lane: slow_lane
+        node_ids:
+          - use1.pre_agg.slow_queues
+      - id: preagg_slow_processor
+        label: Pre-aggregate slow processor
+        lane: slow_lane
+        node_ids:
+          - use1.pre_agg.slow_processor
+      - id: aggregate_stream
+        label: Aggregate Kinesis stream
+        lane: normal
+        node_ids:
+          - use1.aggregate.stream
+      - id: cold_router
+        label: Cold-tier router
+        lane: cold
+        node_ids:
+          - use1.cold.router
+      - id: cold_streams
+        label: Cold streams
+        lane: cold
+        node_ids:
+          - use1.cold.stream.products
+          - use1.cold.stream.orders
+      - id: cold_indexers
+        label: Cold-tier indexers
+        lane: cold
+        node_ids:
+          - use1.cold.indexers
+      - id: cold_clusters_api
+        label: Cold OpenSearch clusters/API
+        lane: cold
+        node_ids:
+          - use1.cold.cluster.products
+          - use1.cold.cluster.orders
+          - use1.cold.api
+      - id: hot_router
+        label: Hot-tier router
+        lane: hot
+        node_ids:
+          - use1.hot.router
+      - id: hot_streams
+        label: Hot streams
+        lane: hot
+        node_ids:
+          - use1.hot.stream.products
+          - use1.hot.stream.orders
+      - id: hot_indexers
+        label: Hot-tier indexers
+        lane: hot
+        node_ids:
+          - use1.hot.indexers
+      - id: hot_clusters_api
+        label: Hot OpenSearch clusters/API
+        lane: hot
+        node_ids:
+          - use1.hot.cluster.products
+          - use1.hot.cluster.orders
+          - use1.hot.api
+      - id: hot_slow_queues
+        label: Hot slow queues
+        lane: slow_lane
+        node_ids:
+          - use1.hot.slow_queues
+      - id: hot_slow_processor
+        label: Hot slow-lane processor
+        lane: slow_lane
+        node_ids:
+          - use1.hot.slow_processor
+      - id: partner_streams
+        label: Partner streams
+        lane: partner
+        node_ids:
+          - use1.partner.stream
+          - use1.partner.slow_streams
+      - id: partner_processors
+        label: Partner indexers/processors
+        lane: partner
+        node_ids:
+          - use1.partner.indexer
+          - use1.partner.slow_processor
+      - id: partner_clusters
+        label: Dedicated partner clusters
+        lane: partner
+        node_ids:
+          - use1.partner.cluster.a
+          - use1.partner.cluster.b
   - id: cross_region_detail
     label: Cross-Region Detail
     mode: cross_region

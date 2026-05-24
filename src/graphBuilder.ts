@@ -4,11 +4,19 @@ import type {
   ArchitectureNode,
   ArchitectureView,
   CrossRegionView,
+  FlowLane,
   FocusView,
   RegionView
 } from "./zod";
 
 export const REGIONAL_ZONE_ORDER = ["pre_aggregate", "aggregate", "hot", "cold", "partner"] as const;
+export const DEFAULT_FLOW_LANES: FlowLane[] = [
+  { id: "cold", label: "Cold branch" },
+  { id: "normal", label: "Pre-aggregate and aggregate" },
+  { id: "hot", label: "Hot branch" },
+  { id: "slow_lane", label: "Slow-lane replay" },
+  { id: "partner", label: "Partner routes" }
+];
 
 export type EdgeEmphasis = "default" | "primary" | "secondary";
 
@@ -51,6 +59,20 @@ export interface RegionalViewModel {
   view: RegionView;
   region: string;
   zones: { zone: string; nodes: GraphNode[] }[];
+  edges: VisualEdge[];
+}
+
+export interface FlowStageModel {
+  id: string;
+  label: string;
+  lane: string;
+  nodes: GraphNode[];
+}
+
+export interface FlowLayoutModel {
+  view: RegionView | FocusView;
+  lanes: FlowLane[];
+  stages: FlowStageModel[];
   edges: VisualEdge[];
 }
 
@@ -107,6 +129,23 @@ export function validateGraphReferences(manifest: ArchitectureManifest): void {
   }
 
   for (const view of manifest.views) {
+    if (view.mode === "region") {
+      const laneIds = new Set((view.lanes ?? DEFAULT_FLOW_LANES).map((lane) => lane.id));
+      assertUniqueIds(view.stages ?? [], `${view.id} stage`);
+      assertUniqueIds(view.lanes ?? [], `${view.id} lane`);
+
+      for (const stage of view.stages ?? []) {
+        if (!laneIds.has(stage.lane)) {
+          throw new Error(`View ${view.id} stage ${stage.id} references missing lane: ${stage.lane}`);
+        }
+        for (const nodeId of stage.node_ids) {
+          if (!nodeIds.has(nodeId)) {
+            throw new Error(`View ${view.id} stage ${stage.id} references missing node: ${nodeId}`);
+          }
+        }
+      }
+    }
+
     if (view.mode !== "focus") {
       continue;
     }
@@ -171,6 +210,26 @@ function getVisibleAncestor(nodeId: string, nodeById: Map<string, GraphNode>): s
     current = nodeById.get(current.parent);
   }
   return current?.id ?? nodeId;
+}
+
+function uniqueNodesByVisibleAncestor(nodeIds: string[], nodeById: Map<string, GraphNode>): GraphNode[] {
+  const visibleIds = new Set<string>();
+  const nodes: GraphNode[] = [];
+
+  for (const nodeId of nodeIds) {
+    const visibleId = getVisibleAncestor(nodeId, nodeById);
+    if (visibleIds.has(visibleId)) {
+      continue;
+    }
+    const node = nodeById.get(visibleId);
+    if (!node) {
+      continue;
+    }
+    visibleIds.add(visibleId);
+    nodes.push(node);
+  }
+
+  return nodes;
 }
 
 function deriveEdge(edge: ArchitectureEdge, nodeById: Map<string, GraphNode>): DerivedEdge {
@@ -273,6 +332,41 @@ export function getRegionalView(model: GraphModel, view: RegionView): RegionalVi
     edges: model.visualEdges.filter(
       (edge) => regionalNodeIds.has(edge.visibleFrom) && regionalNodeIds.has(edge.visibleTo)
     )
+  };
+}
+
+export function getFlowLayout(model: GraphModel, view: RegionView): FlowLayoutModel {
+  if (!view.stages || view.stages.length === 0) {
+    const stages = REGIONAL_ZONE_ORDER.map<FlowStageModel>((zone) => ({
+      id: zone,
+      label: zone.replace("_", " "),
+      lane: zone === "pre_aggregate" || zone === "aggregate" ? "normal" : zone,
+      nodes: model.visibleNodes
+        .filter((node) => node.region === view.region && node.zone === zone)
+        .sort((left, right) => left.id.localeCompare(right.id))
+    }));
+    const nodeIds = new Set(stages.flatMap((stage) => stage.nodes.map((node) => node.id)));
+    return {
+      view,
+      lanes: DEFAULT_FLOW_LANES,
+      stages,
+      edges: model.visualEdges.filter((edge) => nodeIds.has(edge.visibleFrom) && nodeIds.has(edge.visibleTo))
+    };
+  }
+
+  const stages = view.stages.map<FlowStageModel>((stage) => ({
+    id: stage.id,
+    label: stage.label,
+    lane: stage.lane,
+    nodes: uniqueNodesByVisibleAncestor(stage.node_ids, model.nodeById)
+  }));
+  const nodeIds = new Set(stages.flatMap((stage) => stage.nodes.map((node) => node.id)));
+
+  return {
+    view,
+    lanes: view.lanes ?? DEFAULT_FLOW_LANES,
+    stages,
+    edges: model.visualEdges.filter((edge) => nodeIds.has(edge.visibleFrom) && nodeIds.has(edge.visibleTo))
   };
 }
 

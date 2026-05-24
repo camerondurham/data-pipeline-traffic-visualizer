@@ -24,12 +24,30 @@ export const ArchitectureEdgeSchema = z
   })
   .strict();
 
+export const FlowLaneSchema = z
+  .object({
+    id: RequiredString,
+    label: RequiredString
+  })
+  .strict();
+
+export const FlowStageSchema = z
+  .object({
+    id: RequiredString,
+    label: RequiredString,
+    lane: RequiredString,
+    node_ids: z.array(RequiredString).min(1)
+  })
+  .strict();
+
 export const RegionViewSchema = z
   .object({
     id: RequiredString,
     label: RequiredString,
     mode: z.literal("region"),
-    region: RequiredString
+    region: RequiredString,
+    lanes: z.array(FlowLaneSchema).optional(),
+    stages: z.array(FlowStageSchema).optional()
   })
   .strict();
 
@@ -69,6 +87,8 @@ export const ArchitectureManifestSchema = z
 
 export type ArchitectureNode = z.infer<typeof ArchitectureNodeSchema>;
 export type ArchitectureEdge = z.infer<typeof ArchitectureEdgeSchema>;
+export type FlowLane = z.infer<typeof FlowLaneSchema>;
+export type FlowStage = z.infer<typeof FlowStageSchema>;
 export type RegionView = z.infer<typeof RegionViewSchema>;
 export type CrossRegionView = z.infer<typeof CrossRegionViewSchema>;
 export type FocusView = z.infer<typeof FocusViewSchema>;

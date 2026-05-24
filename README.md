@@ -49,6 +49,13 @@ Every edge requires:
 
 Views are explicit. Region views select a region, cross-region views group derived cross-region edges by destination region, and focus views use `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs.
 
+Region views can also define presentation metadata:
+
+- `lanes`: named horizontal bands such as `cold`, `normal`, `hot`, `slow_lane`, and `partner`.
+- `stages`: ordered left-to-right columns. Each stage has `id`, `label`, `lane`, and `node_ids`.
+
+Stage `node_ids` must reference existing nodes. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
+
 ## Topology Invariants
 
 - `architecture.yaml` must not contain metrics, overlay values, AWS discovery output, CDK data, shard counts, replica counts, capacity settings, route keys, fanout semantics, or message metadata.
@@ -62,4 +69,5 @@ Views are explicit. Region views select a region, cross-region views group deriv
 1. Add the node with a stable `id`, required display fields, and optional `parent`.
 2. Add edges with stable IDs. Do not reuse or rename edge IDs once overlays depend on them.
 3. Add edge IDs to focus views when a route should be highlighted.
-4. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
+4. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
+5. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.

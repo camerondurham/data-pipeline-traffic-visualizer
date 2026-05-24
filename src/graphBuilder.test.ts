@@ -4,6 +4,7 @@ import { parse } from "yaml";
 import {
   buildGraphModel,
   getCrossRegionGroups,
+  getFlowLayout,
   getFocusView,
   getRegionalView,
   requireView
@@ -96,6 +97,29 @@ describe("graphBuilder", () => {
         "edge.use1.processing.to.euw1.aggregate",
         "edge.use1.hot.router.to.usw2.partner.stream",
         "edge.use1.partner.slow_processor.to.usw2.partner.stream"
+      ])
+    );
+  });
+
+  it("builds the seed whiteboard-style regional flow stages from manifest node references", () => {
+    const model = buildGraphModel(loadSeedManifest());
+    const layout = getFlowLayout(model, requireView(model, "regional_end_to_end", "region"));
+
+    expect(layout.stages.map((stage) => stage.id).slice(0, 4)).toEqual([
+      "sourcing_apps",
+      "ingestion_streams",
+      "processing_apps",
+      "preagg_slow_queues"
+    ]);
+    expect(layout.stages.find((stage) => stage.id === "aggregate_stream")?.nodes.map((node) => node.id)).toEqual([
+      "use1.aggregate.stream"
+    ]);
+    expect(layout.edges.flatMap((edge) => edge.sourceEdgeIds)).toEqual(
+      expect.arrayContaining([
+        "edge.use1.sources.to.ingestion",
+        "edge.use1.aggregate.to.hot.router",
+        "edge.use1.aggregate.to.cold.router",
+        "edge.use1.hot.router.to.partner.stream"
       ])
     );
   });

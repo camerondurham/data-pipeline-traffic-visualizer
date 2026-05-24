@@ -13,17 +13,33 @@ function renderSeedDashboard() {
 }
 
 describe("Dashboard", () => {
-  it("renders the regional topology lanes from the seed manifest", () => {
+  it("renders the regional topology as ordered flow stages from the seed manifest", () => {
     renderSeedDashboard();
 
     expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Architecture Topology Explorer");
-    expect(screen.getByRole("heading", { name: "pre aggregate" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "aggregate" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "hot" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "cold" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "partner" })).toBeInTheDocument();
+    expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data processing applications" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aggregate Kinesis stream" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cold-tier router" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hot-tier router" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Partner streams" })).toBeInTheDocument();
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the core sequential path and slow-lane replay edges visible in the regional diagram details", () => {
+    renderSeedDashboard();
+
+    expect(screen.getByText("edge.use1.sources.to.ingestion")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.ingestion.to.processing")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.processing.to.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.aggregate.to.cold.router")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.partner.stream")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.slow")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.processor.to.products.stream")).toBeInTheDocument();
   });
 
   it("switches to destination-region grouped cross-region detail", async () => {
@@ -45,6 +61,7 @@ describe("Dashboard", () => {
 
     await user.selectOptions(screen.getByLabelText("View"), "representative_partner_path");
 
+    expect(screen.getByTestId("flow-stage-focus_partner_clusters")).toBeInTheDocument();
     expect(screen.getAllByText("USW2 Partner Cluster A").length).toBeGreaterThan(0);
     expect(screen.getAllByText("USW2 Partner Cluster B").length).toBeGreaterThan(0);
     expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
