@@ -35,7 +35,7 @@ interface DashboardProps {
 const STAGE_WIDTH = 166;
 const STAGE_GAP = 54;
 const LANE_HEIGHT = 190;
-const CANVAS_MARGIN_X = 36;
+const CANVAS_MARGIN_X = 172;
 const CANVAS_MARGIN_Y = 28;
 const STAGE_HEADER_HEIGHT = 34;
 const NODE_HEIGHT = 76;
