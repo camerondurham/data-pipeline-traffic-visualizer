@@ -184,6 +184,93 @@ button {
   background-size: 28px 28px;
 }
 
+.cross-region-panel {
+  overflow: hidden;
+}
+
+.cross-region-canvas {
+  position: relative;
+  min-height: 500px;
+  background:
+    linear-gradient(rgba(143, 170, 190, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(143, 170, 190, 0.04) 1px, transparent 1px),
+    rgba(7, 16, 23, 0.46);
+  background-size: 28px 28px;
+}
+
+.cross-region-canvas .react-flow {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.cross-region-canvas .react-flow__renderer {
+  overflow: visible;
+}
+
+.region-column-label {
+  position: absolute;
+  top: 24px;
+  z-index: 3;
+  width: 166px;
+  padding: 6px 8px;
+  border: 1px solid rgba(143, 170, 190, 0.22);
+  border-radius: 999px;
+  background: rgba(14, 27, 37, 0.86);
+  color: #d9e7f2;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.destination-region-label {
+  color: #b8e6ff;
+}
+
+.route-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7, 16, 23, 0.34);
+}
+
+.route-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.legend-line {
+  width: 34px;
+  border-top: 3px solid var(--blue);
+}
+
+.legend-line.primary {
+  border-color: var(--green);
+}
+
+.legend-line.secondary {
+  border-color: var(--amber);
+  border-top-style: dashed;
+}
+
+.cross-region-inventory {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.cross-region-inventory .edge-panel {
+  box-shadow: none;
+}
+
 .lane-labels {
   position: absolute;
   inset: 0;

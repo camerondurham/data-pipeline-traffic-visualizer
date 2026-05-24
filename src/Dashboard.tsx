@@ -45,6 +45,7 @@ const NODE_TYPES = { topology: TopologyNode };
 const EDGE_TYPES = { topology: TopologyEdge };
 
 interface EdgeOverlayData {
+  tone?: "default" | "primary" | "secondary" | "cross";
   thickness?: number;
   badges?: string[];
   warning?: boolean;
@@ -64,12 +65,28 @@ interface TopologyEdgeData extends Record<string, unknown> {
 
 type TopologyFlowNode = Node<TopologyNodeData, "topology">;
 type TopologyFlowEdge = Edge<TopologyEdgeData, "topology">;
+type CrossRegionGroupModel = ReturnType<typeof getCrossRegionGroups>[number];
+
+const NOOP_TOGGLE = () => undefined;
+const CROSS_REGION_SOURCE_IDS = ["use1.processing.apps", "use1.hot.router", "use1.partner.slow_processor"];
+const CROSS_REGION_SOURCE_Y = new Map([
+  ["use1.processing.apps", 96],
+  ["use1.hot.router", 226],
+  ["use1.partner.slow_processor", 356]
+]);
+const CROSS_REGION_TARGET_Y = {
+  aggregate: 96,
+  partner: 226
+};
 
 function nodeLabel(model: GraphModel, id: string): string {
   return model.nodeById.get(id)?.label ?? id;
 }
 
-function edgeTone(edge: VisualEdge): string {
+function edgeTone(edge: VisualEdge, overlay?: EdgeOverlayData): string {
+  if (overlay?.tone) {
+    return overlay.tone;
+  }
   if (edge.emphasis === "primary") {
     return "primary";
   }
@@ -184,6 +201,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
 
   const label = overlay?.metricLabel ?? edge.label ?? edge.type;
   const badges = overlay?.badges ?? [];
+  const tone = edgeTone(edge, overlay);
 
   return (
     <>
@@ -192,13 +210,13 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
         path={path}
         markerEnd={props.markerEnd}
         interactionWidth={28}
-        className={`topology-edge tone-${edgeTone(edge)} ${props.selected ? "is-selected" : ""} ${overlay?.warning ? "is-warning" : ""}`}
+        className={`topology-edge tone-${tone} ${props.selected ? "is-selected" : ""} ${overlay?.warning ? "is-warning" : ""}`}
         style={{ ...props.style, strokeWidth: overlay?.thickness }}
         data-testid={`flow-edge-${props.id}`}
       />
       <EdgeLabelRenderer>
         <div
-          className={`edge-label tone-${edgeTone(edge)} ${props.selected ? "is-selected" : ""}`}
+          className={`edge-label tone-${tone} ${props.selected ? "is-selected" : ""}`}
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
         >
@@ -287,28 +305,7 @@ function buildFlowElements(
   const nodes = layout.stages.flatMap<TopologyFlowNode>((stage) =>
     stage.nodes.flatMap((node) => {
       const position = nodePositions.get(node.id);
-      return position
-        ? [{
-            id: node.id,
-            type: "topology",
-            position: { x: position.left, y: position.top },
-            data: { node, onToggle },
-            width: STAGE_WIDTH,
-            height: NODE_HEIGHT,
-            initialWidth: STAGE_WIDTH,
-            initialHeight: NODE_HEIGHT,
-            measured: { width: STAGE_WIDTH, height: NODE_HEIGHT },
-            sourcePosition: Position.Right,
-            targetPosition: Position.Left,
-            handles: [
-              { id: null, type: "target", position: Position.Left, x: 0, y: NODE_HEIGHT / 2, width: 1, height: 1 },
-              { id: null, type: "source", position: Position.Right, x: STAGE_WIDTH, y: NODE_HEIGHT / 2, width: 1, height: 1 }
-            ],
-            style: { width: STAGE_WIDTH, height: NODE_HEIGHT },
-            draggable: false,
-            selectable: false
-          }]
-        : [];
+      return position ? [makeFlowNode(node, position, onToggle)] : [];
     })
   );
 
@@ -332,6 +329,104 @@ function buildFlowElements(
     });
 
   return { nodes, edges };
+}
+
+function makeFlowNode(
+  node: GraphNode,
+  position: FlowPoint,
+  onToggle: (nodeId: string, collapsed: boolean) => void
+): TopologyFlowNode {
+  return {
+    id: node.id,
+    type: "topology",
+    position: { x: position.left, y: position.top },
+    data: { node, onToggle },
+    width: STAGE_WIDTH,
+    height: NODE_HEIGHT,
+    initialWidth: STAGE_WIDTH,
+    initialHeight: NODE_HEIGHT,
+    measured: { width: STAGE_WIDTH, height: NODE_HEIGHT },
+    sourcePosition: Position.Right,
+    targetPosition: Position.Left,
+    handles: [
+      { id: null, type: "target", position: Position.Left, x: 0, y: NODE_HEIGHT / 2, width: 1, height: 1 },
+      { id: null, type: "source", position: Position.Right, x: STAGE_WIDTH, y: NODE_HEIGHT / 2, width: 1, height: 1 }
+    ],
+    style: { width: STAGE_WIDTH, height: NODE_HEIGHT },
+    draggable: false,
+    selectable: false
+  };
+}
+
+function crossRegionOverlay(edge: VisualEdge): EdgeOverlayData {
+  if (edge.type === "replay") {
+    return { tone: "secondary", metricLabel: "remote replay", badges: ["recovery"], thickness: 3 };
+  }
+  if (edge.label === "partner route") {
+    return { tone: "primary", metricLabel: "steady partner publish", badges: ["steady state"], thickness: 3.6 };
+  }
+  return { tone: "cross", metricLabel: "remote aggregate publish", badges: ["steady state"], thickness: 3 };
+}
+
+function targetYFor(node: GraphNode): number {
+  return node.zone === "aggregate" ? CROSS_REGION_TARGET_Y.aggregate : CROSS_REGION_TARGET_Y.partner;
+}
+
+function buildCrossRegionRouteMap(
+  model: GraphModel,
+  groups: CrossRegionGroupModel[],
+  selectedEdgeId?: string
+): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number }[]; width: number; height: number } {
+  const sourceX = 40;
+  const destinationStartX = 380;
+  const destinationGap = 320;
+  const regions = groups.map((group, index) => ({ id: group.destinationRegion, left: destinationStartX + index * destinationGap }));
+  const nodeById = new Map<string, TopologyFlowNode>();
+
+  for (const nodeId of CROSS_REGION_SOURCE_IDS) {
+    const node = model.nodeById.get(nodeId);
+    const top = CROSS_REGION_SOURCE_Y.get(nodeId);
+    if (node && top !== undefined) {
+      nodeById.set(node.id, makeFlowNode(node, { left: sourceX, top }, NOOP_TOGGLE));
+    }
+  }
+
+  groups.forEach((group, groupIndex) => {
+    const left = destinationStartX + groupIndex * destinationGap;
+    for (const edge of group.edges) {
+      const target = model.nodeById.get(edge.visibleTo);
+      if (target) {
+        nodeById.set(target.id, makeFlowNode(target, { left, top: targetYFor(target) }, NOOP_TOGGLE));
+      }
+    }
+  });
+
+  const edges = groups.flatMap((group) =>
+    group.edges.map<TopologyFlowEdge>((edge) => {
+      const id = flowEdgeId(edge);
+      return {
+        id,
+        type: "topology",
+        source: edge.visibleFrom,
+        target: edge.visibleTo,
+        markerEnd: { type: MarkerType.ArrowClosed },
+        data: { edge, overlay: crossRegionOverlay(edge) },
+        selected: id === selectedEdgeId,
+        focusable: true,
+        selectable: true,
+        reconnectable: false,
+        ariaRole: "button"
+      };
+    })
+  );
+
+  return {
+    nodes: [...nodeById.values()],
+    edges,
+    regions,
+    width: destinationStartX + Math.max(groups.length, 1) * destinationGap,
+    height: 500
+  };
 }
 
 function EdgeDetailPanel({ edge, model, onClose }: { edge: VisualEdge; model: GraphModel; onClose: () => void }) {
@@ -490,25 +585,62 @@ function RegionalView({
 function CrossRegionView({ model }: { model: GraphModel }) {
   const view = requireView(model, "cross_region_detail", "cross_region");
   const groups = getCrossRegionGroups(model, view);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
+  const routeMap = useMemo(() => buildCrossRegionRouteMap(model, groups, selectedEdgeId), [model, groups, selectedEdgeId]);
+  const selectedEdge = routeMap.edges.find((edge) => edge.id === selectedEdgeId)?.data?.edge;
 
   return (
     <section className="cross-region-layout" aria-label="Cross-region edge detail">
-      {groups.map((group) => (
-        <section key={group.destinationRegion} className="destination-region">
-          <div className="region-title">
-            <GitBranch size={20} aria-hidden="true" />
-            <div>
-              <h2>Destination {group.destinationRegion}</h2>
-              <p>Derived cross-region edges grouped by destination region</p>
-            </div>
+      <section className="flow-panel cross-region-panel" aria-label="Cross-region route map">
+        <div className="region-title">
+          <GitBranch size={20} aria-hidden="true" />
+          <div>
+            <h2>Cross-region route map</h2>
+            <p>USE1 source applications publishing to remote aggregate and partner streams</p>
           </div>
-          <div className="edge-list">
-            {group.edges.map((edge) => (
-              <EdgeRow key={edgeKey(edge)} edge={edge} model={model} />
+        </div>
+        <div className="route-legend" aria-label="Cross-region route legend">
+          <span><i className="legend-line primary" />Steady partner publish</span>
+          <span><i className="legend-line cross" />Remote aggregate publish</span>
+          <span><i className="legend-line secondary" />Remote replay</span>
+        </div>
+        <div className="flow-scroll">
+          <div className="cross-region-canvas" style={{ width: routeMap.width, height: routeMap.height }} data-testid="cross-region-map">
+            <div className="region-column-label source-region" style={{ left: 40 }}>Source use1</div>
+            {routeMap.regions.map((region) => (
+              <div key={region.id} className="region-column-label destination-region-label" style={{ left: region.left }}>
+                Destination {region.id}
+              </div>
+            ))}
+            <ReactFlow<TopologyFlowNode, TopologyFlowEdge>
+              nodes={routeMap.nodes}
+              edges={routeMap.edges}
+              nodeTypes={NODE_TYPES}
+              edgeTypes={EDGE_TYPES}
+              nodesDraggable={false}
+              nodesConnectable={false}
+              edgesReconnectable={false}
+              panOnDrag={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              preventScrolling={false}
+              proOptions={{ hideAttribution: true }}
+              onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+              onPaneClick={() => setSelectedEdgeId(undefined)}
+            />
+          </div>
+        </div>
+        {selectedEdge ? <EdgeDetailPanel edge={selectedEdge} model={model} onClose={() => setSelectedEdgeId(undefined)} /> : null}
+        <details className="flow-details">
+          <summary>Destination-region edge inventory</summary>
+          <div className="cross-region-inventory">
+            {groups.map((group) => (
+              <EdgePanel key={group.destinationRegion} title={`Destination ${group.destinationRegion}`} edges={group.edges} model={model} />
             ))}
           </div>
-        </section>
-      ))}
+        </details>
+      </section>
     </section>
   );
 }

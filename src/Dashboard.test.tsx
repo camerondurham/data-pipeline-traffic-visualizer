@@ -63,15 +63,47 @@ describe("Dashboard", () => {
 
   it("switches to destination-region grouped cross-region detail", async () => {
     const user = userEvent.setup();
-    renderSeedDashboard();
+    const { container } = renderSeedDashboard();
 
     await user.selectOptions(screen.getByLabelText("View"), "cross_region_detail");
 
-    expect(screen.getByRole("heading", { name: "Destination usw2" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Destination euw1" })).toBeInTheDocument();
+    expect(screen.getByTestId("cross-region-map")).toBeInTheDocument();
+    expect(screen.getByText("Source use1")).toBeInTheDocument();
+    expect(screen.getAllByText("Destination usw2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Destination euw1").length).toBeGreaterThan(0);
+    expect(screen.getByText("Steady partner publish")).toBeInTheDocument();
+    expect(screen.getByText("Remote aggregate publish")).toBeInTheDocument();
+    expect(screen.getByText("Remote replay")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.processing.to.usw2.aggregate")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.partner.slow_processor.to.usw2.partner.stream")).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.usw2.partner.stream"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.euw1.partner.stream"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.processing.to.usw2.aggregate"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.partner.slow_processor.to.usw2.partner.stream"] .tone-secondary')).toBeInTheDocument();
+  });
+
+  it("selects a cross-region route and preserves derived edge metadata", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+
+    await user.selectOptions(screen.getByLabelText("View"), "cross_region_detail");
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[data-id="edge.use1.hot.router.to.usw2.partner.stream"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    await user.click(edge as Element);
+
+    const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
+    expect(within(detailPanel).getByText("originalFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getAllByText("use1.hot.router").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getByText("destinationRegion")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("usw2")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("cross_region")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("true")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
   });
 
   it("renders branching primary focus edges and secondary fallback edges", async () => {
