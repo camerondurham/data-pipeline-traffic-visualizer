@@ -1,11 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   BaseEdge,
+  Background,
+  Controls,
   EdgeLabelRenderer,
   Handle,
   MarkerType,
+  MiniMap,
   Position,
   ReactFlow,
+  ViewportPortal,
   getBezierPath,
   type Edge,
   type EdgeProps,
@@ -46,11 +50,15 @@ const STAGE_HEADER_HEIGHT = 34;
 const NODE_HEIGHT = 76;
 const NODE_GAP = 10;
 const SLOW_EDGE_TYPES = new Set(["sideline", "drain", "replay"]);
+const READ_EDGE_TYPES = new Set(["serve"]);
 const NODE_TYPES = { topology: TopologyNode };
 const EDGE_TYPES = { topology: TopologyEdge };
+const FLOW_MIN_ZOOM = 0.35;
+const FLOW_MAX_ZOOM = 2.25;
+const FLOW_FIT_VIEW_OPTIONS = { padding: 0.16 };
 
 interface EdgeOverlayData {
-  tone?: "default" | "primary" | "secondary" | "cross";
+  tone?: "default" | "primary" | "secondary" | "cross" | "read";
   thickness?: number;
   badges?: string[];
   warning?: boolean;
@@ -61,11 +69,14 @@ interface EdgeOverlayData {
 interface TopologyNodeData extends Record<string, unknown> {
   node: GraphNode;
   onToggle: (nodeId: string, collapsed: boolean) => void;
+  focusState?: "source" | "target" | "dimmed";
 }
 
 interface TopologyEdgeData extends Record<string, unknown> {
   edge: VisualEdge;
   overlay?: EdgeOverlayData;
+  focusState?: "selected" | "dimmed";
+  routeOffset?: number;
 }
 
 type TopologyFlowNode = Node<TopologyNodeData, "topology">;
@@ -92,6 +103,9 @@ function edgeTone(edge: VisualEdge, overlay?: EdgeOverlayData): string {
   }
   if (edge.emphasis === "secondary" || SLOW_EDGE_TYPES.has(edge.type)) {
     return "secondary";
+  }
+  if (READ_EDGE_TYPES.has(edge.type)) {
+    return "read";
   }
   if (edge.crossRegion) {
     return "cross";
@@ -146,13 +160,15 @@ function CollapseButton({
 
 function NodeCard({
   node,
-  onToggle
+  onToggle,
+  focusState
 }: {
   node: GraphNode;
   onToggle: (nodeId: string, collapsed: boolean) => void;
+  focusState?: TopologyNodeData["focusState"];
 }) {
   return (
-    <article className={`node-card type-${node.type}`}>
+    <article className={`node-card type-${node.type} ${focusState ? `is-${focusState}` : ""}`}>
       <div>
         <strong>{node.label}</strong>
         <span>{node.id}</span>
@@ -167,7 +183,7 @@ function TopologyNode({ data }: NodeProps<TopologyFlowNode>) {
   return (
     <>
       <Handle className="flow-handle" type="target" position={Position.Left} />
-      <NodeCard node={data.node} onToggle={data.onToggle} />
+      <NodeCard node={data.node} onToggle={data.onToggle} focusState={data.focusState} />
       <Handle className="flow-handle" type="source" position={Position.Right} />
     </>
   );
@@ -185,18 +201,20 @@ function edgeTooltip(edge: VisualEdge): string {
 function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
-  const [path, labelX, labelY] = getBezierPath({
+  const focusState = props.data?.focusState;
+  const route = getEdgeRoute({
+    edge,
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     sourcePosition: props.sourcePosition,
     targetX: props.targetX,
     targetY: props.targetY,
     targetPosition: props.targetPosition,
-    curvature: edge && SLOW_EDGE_TYPES.has(edge.type) ? 0.3 : 0.5
+    routeOffset: props.data?.routeOffset ?? 0
   });
 
   if (!edge) {
-    return <BaseEdge id={props.id} path={path} markerEnd={props.markerEnd} interactionWidth={24} />;
+    return <BaseEdge id={props.id} path={route.path} markerEnd={props.markerEnd} interactionWidth={24} />;
   }
 
   const label = overlay?.metricLabel ?? edge.label ?? edge.type;
@@ -207,17 +225,17 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
     <>
       <BaseEdge
         id={props.id}
-        path={path}
+        path={route.path}
         markerEnd={props.markerEnd}
         interactionWidth={28}
-        className={`topology-edge tone-${tone} ${props.selected ? "is-selected" : ""} ${overlay?.warning ? "is-warning" : ""}`}
+        className={`topology-edge tone-${tone} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""} ${overlay?.warning ? "is-warning" : ""}`}
         style={{ ...props.style, strokeWidth: overlay?.thickness }}
         data-testid={`flow-edge-${props.id}`}
       />
       <EdgeLabelRenderer>
         <div
-          className={`edge-label tone-${tone} ${props.selected ? "is-selected" : ""}`}
-          style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          className={`edge-label tone-${tone} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
+          style={{ transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
         >
           <span>{label}</span>
@@ -286,6 +304,9 @@ function buildNodePositions(stages: FlowStageModel[], lanes: { id: string }[]): 
   stages.forEach((stage, stageIndex) => {
     const { left, top } = getStagePosition(stageIndex, stage.lane, lanes);
     stage.nodes.forEach((node, nodeIndex) => {
+      if (positions.has(node.id)) {
+        return;
+      }
       positions.set(node.id, {
         left,
         top: top + STAGE_HEADER_HEIGHT + nodeIndex * (NODE_HEIGHT + NODE_GAP)
@@ -302,10 +323,17 @@ function buildFlowElements(
   selectedEdgeId?: string
 ): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[] } {
   const nodePositions = buildNodePositions(layout.stages, layout.lanes);
+  const selectedEdge = layout.edges.find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(layout.edges);
+  const seenNodeIds = new Set<string>();
   const nodes = layout.stages.flatMap<TopologyFlowNode>((stage) =>
     stage.nodes.flatMap((node) => {
       const position = nodePositions.get(node.id);
-      return position ? [makeFlowNode(node, position, onToggle)] : [];
+      if (!position || seenNodeIds.has(node.id)) {
+        return [];
+      }
+      seenNodeIds.add(node.id);
+      return [makeFlowNode(node, position, onToggle, nodeFocusState(node.id, selectedEdge))];
     })
   );
 
@@ -319,8 +347,9 @@ function buildFlowElements(
         source: edge.visibleFrom,
         target: edge.visibleTo,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge },
+        data: { edge, focusState: edgeFocusState(id, selectedEdgeId, selectedEdge), routeOffset: routeOffsets.get(id) ?? 0 },
         selected: id === selectedEdgeId,
+        zIndex: id === selectedEdgeId ? 20 : 0,
         focusable: true,
         selectable: true,
         reconnectable: false,
@@ -331,16 +360,42 @@ function buildFlowElements(
   return { nodes, edges };
 }
 
+function buildRouteOffsets(edges: VisualEdge[]): Map<string, number> {
+  const groups = new Map<string, VisualEdge[]>();
+
+  for (const edge of edges) {
+    if (!SLOW_EDGE_TYPES.has(edge.type)) {
+      continue;
+    }
+    const endpoint = edge.type === "replay" ? edge.visibleFrom : edge.visibleTo;
+    const key = `${edge.type}:${endpoint}`;
+    groups.set(key, [...(groups.get(key) ?? []), edge]);
+  }
+
+  const offsets = new Map<string, number>();
+  for (const groupedEdges of groups.values()) {
+    if (groupedEdges.length < 2) {
+      continue;
+    }
+    const sortedEdges = [...groupedEdges].sort((left, right) => flowEdgeId(left).localeCompare(flowEdgeId(right)));
+    sortedEdges.forEach((edge, index) => {
+      offsets.set(flowEdgeId(edge), (index - (sortedEdges.length - 1) / 2) * 38);
+    });
+  }
+  return offsets;
+}
+
 function makeFlowNode(
   node: GraphNode,
   position: FlowPoint,
-  onToggle: (nodeId: string, collapsed: boolean) => void
+  onToggle: (nodeId: string, collapsed: boolean) => void,
+  focusState?: TopologyNodeData["focusState"]
 ): TopologyFlowNode {
   return {
     id: node.id,
     type: "topology",
     position: { x: position.left, y: position.top },
-    data: { node, onToggle },
+    data: { node, onToggle, focusState },
     width: STAGE_WIDTH,
     height: NODE_HEIGHT,
     initialWidth: STAGE_WIDTH,
@@ -353,8 +408,165 @@ function makeFlowNode(
       { id: null, type: "source", position: Position.Right, x: STAGE_WIDTH, y: NODE_HEIGHT / 2, width: 1, height: 1 }
     ],
     style: { width: STAGE_WIDTH, height: NODE_HEIGHT },
+    className: focusState ? `is-${focusState}` : undefined,
+    zIndex: focusState === "source" || focusState === "target" ? 20 : 0,
     draggable: false,
     selectable: false
+  };
+}
+
+function nodeFocusState(nodeId: string, selectedEdge?: VisualEdge): TopologyNodeData["focusState"] {
+  if (!selectedEdge) {
+    return undefined;
+  }
+  if (nodeId === selectedEdge.visibleFrom) {
+    return "source";
+  }
+  if (nodeId === selectedEdge.visibleTo) {
+    return "target";
+  }
+  return "dimmed";
+}
+
+function edgeFocusState(
+  edgeId: string,
+  selectedEdgeId?: string,
+  selectedEdge?: VisualEdge
+): TopologyEdgeData["focusState"] {
+  if (!selectedEdgeId || !selectedEdge) {
+    return undefined;
+  }
+  return edgeId === selectedEdgeId ? "selected" : "dimmed";
+}
+
+function miniMapNodeColor(node: TopologyFlowNode): string {
+  switch (node.data.node.type) {
+    case "group":
+      return "#2e2350";
+    case "stream":
+      return "#123f5a";
+    case "router":
+    case "indexer":
+    case "processor":
+      return "#123926";
+    case "queue":
+      return "#4a3610";
+    case "cluster":
+      return "#102c38";
+    case "api":
+      return "#34345d";
+    default:
+      return "#132636";
+  }
+}
+
+function InteractiveFlowCanvas({
+  className,
+  testId,
+  nodes,
+  edges,
+  children,
+  onEdgeClick,
+  onPaneClick
+}: {
+  className: string;
+  testId: string;
+  nodes: TopologyFlowNode[];
+  edges: TopologyFlowEdge[];
+  children?: ReactNode;
+  onEdgeClick: (edgeId: string) => void;
+  onPaneClick: () => void;
+}) {
+  return (
+    <div className={`interactive-flow-canvas ${className}`} data-testid={testId}>
+      <ReactFlow<TopologyFlowNode, TopologyFlowEdge>
+        nodes={nodes}
+        edges={edges}
+        nodeTypes={NODE_TYPES}
+        edgeTypes={EDGE_TYPES}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        edgesReconnectable={false}
+        panOnDrag
+        zoomOnScroll={false}
+        zoomOnPinch
+        zoomOnDoubleClick
+        preventScrolling={false}
+        minZoom={FLOW_MIN_ZOOM}
+        maxZoom={FLOW_MAX_ZOOM}
+        fitView
+        fitViewOptions={FLOW_FIT_VIEW_OPTIONS}
+        proOptions={{ hideAttribution: true }}
+        onEdgeClick={(_, edge) => onEdgeClick(edge.id)}
+        onPaneClick={onPaneClick}
+      >
+        <Background gap={28} color="rgba(143, 170, 190, 0.14)" />
+        <ViewportPortal>{children}</ViewportPortal>
+        <MiniMap
+          aria-label="Graph overview"
+          nodeColor={miniMapNodeColor}
+          nodeStrokeColor="rgba(232, 241, 247, 0.7)"
+          maskColor="rgba(7, 16, 23, 0.68)"
+          pannable
+          zoomable
+        />
+        <Controls
+          aria-label="Graph zoom controls"
+          position="bottom-left"
+          showInteractive={false}
+          fitViewOptions={FLOW_FIT_VIEW_OPTIONS}
+        />
+      </ReactFlow>
+    </div>
+  );
+}
+
+function getEdgeRoute({
+  edge,
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  routeOffset
+}: {
+  edge?: VisualEdge;
+  sourceX: number;
+  sourceY: number;
+  sourcePosition: Position;
+  targetX: number;
+  targetY: number;
+  targetPosition: Position;
+  routeOffset: number;
+}): { path: string; labelX: number; labelY: number } {
+  if (!edge || !SLOW_EDGE_TYPES.has(edge.type) || routeOffset === 0) {
+    const [path, labelX, labelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: edge && SLOW_EDGE_TYPES.has(edge.type) ? 0.3 : 0.5
+    });
+    return { path, labelX, labelY };
+  }
+
+  const direction = targetX >= sourceX ? 1 : -1;
+  const handleDistance = Math.max(Math.abs(targetX - sourceX) * 0.45, 96);
+  const sourceControlY = sourceY + routeOffset;
+  const targetControlY = targetY + routeOffset;
+
+  return {
+    path: [
+      `M ${sourceX},${sourceY}`,
+      `C ${sourceX + direction * handleDistance},${sourceControlY}`,
+      `${targetX - direction * handleDistance},${targetControlY}`,
+      `${targetX},${targetY}`
+    ].join(" "),
+    labelX: (sourceX + targetX) / 2,
+    labelY: (sourceY + targetY) / 2 + routeOffset
   };
 }
 
@@ -398,10 +610,12 @@ function buildCrossRegionRouteMap(
   model: GraphModel,
   groups: CrossRegionGroupModel[],
   selectedEdgeId?: string
-): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number; top: number }[]; width: number; height: number } {
+): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number; top: number }[] } {
   const sourceX = 40;
   const destinationStartX = 380;
   const destinationGap = 320;
+  const selectedEdge = groups.flatMap((group) => group.edges).find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(groups.flatMap((group) => group.edges));
   const regions = groups.map((group, index) => ({
     id: group.destinationRegion,
     left: destinationStartX + index * destinationGap,
@@ -411,7 +625,10 @@ function buildCrossRegionRouteMap(
   const sourceNodes = crossRegionSourceNodes(model, groups);
 
   sourceNodes.forEach((node, index) => {
-    nodeById.set(node.id, makeFlowNode(node, { left: sourceX, top: 96 + index * 130 }, NOOP_TOGGLE));
+    nodeById.set(
+      node.id,
+      makeFlowNode(node, { left: sourceX, top: 96 + index * 130 }, NOOP_TOGGLE, nodeFocusState(node.id, selectedEdge))
+    );
   });
 
   groups.forEach((group, groupIndex) => {
@@ -419,7 +636,10 @@ function buildCrossRegionRouteMap(
     for (const edge of group.edges) {
       const target = model.nodeById.get(edge.visibleTo);
       if (target) {
-        nodeById.set(target.id, makeFlowNode(target, { left, top: targetYFor(target, groupIndex) }, NOOP_TOGGLE));
+        nodeById.set(
+          target.id,
+          makeFlowNode(target, { left, top: targetYFor(target, groupIndex) }, NOOP_TOGGLE, nodeFocusState(target.id, selectedEdge))
+        );
       }
     }
   });
@@ -433,8 +653,14 @@ function buildCrossRegionRouteMap(
         source: edge.visibleFrom,
         target: edge.visibleTo,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge, overlay: crossRegionOverlay(edge, model) },
+        data: {
+          edge,
+          overlay: crossRegionOverlay(edge, model),
+          focusState: edgeFocusState(id, selectedEdgeId, selectedEdge),
+          routeOffset: routeOffsets.get(id) ?? 0
+        },
         selected: id === selectedEdgeId,
+        zIndex: id === selectedEdgeId ? 20 : 0,
         focusable: true,
         selectable: true,
         reconnectable: false,
@@ -446,9 +672,7 @@ function buildCrossRegionRouteMap(
   return {
     nodes: [...nodeById.values()],
     edges,
-    regions,
-    width: destinationStartX + Math.max(groups.length, 1) * destinationGap,
-    height: 260 + Math.max(groups.length - 1, 0) * CROSS_REGION_TARGET_Y.regionGap
+    regions
   };
 }
 
@@ -507,8 +731,6 @@ function FlowDiagram({
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
-  const width = CANVAS_MARGIN_X * 2 + layout.stages.length * STAGE_WIDTH + Math.max(layout.stages.length - 1, 0) * STAGE_GAP;
-  const height = CANVAS_MARGIN_Y * 2 + layout.lanes.length * LANE_HEIGHT;
   const { nodes, edges } = useMemo(
     () => buildFlowElements(layout, onToggle, selectedEdgeId),
     [layout, onToggle, selectedEdgeId]
@@ -531,8 +753,15 @@ function FlowDiagram({
           ))}
         </div>
       ) : null}
-      <div className="flow-scroll">
-        <div className="flow-canvas" style={{ width, height }} data-testid="flow-diagram">
+      <div className="flow-viewport">
+        <InteractiveFlowCanvas
+          className="flow-canvas"
+          testId="flow-diagram"
+          nodes={nodes}
+          edges={edges}
+          onEdgeClick={setSelectedEdgeId}
+          onPaneClick={() => setSelectedEdgeId(undefined)}
+        >
           <div className="lane-labels" aria-hidden="true">
             {layout.lanes.map((lane) => (
               <span
@@ -557,24 +786,7 @@ function FlowDiagram({
               </section>
             );
           })}
-          <ReactFlow<TopologyFlowNode, TopologyFlowEdge>
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={NODE_TYPES}
-            edgeTypes={EDGE_TYPES}
-            nodesDraggable={false}
-            nodesConnectable={false}
-            edgesReconnectable={false}
-            panOnDrag={false}
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-            preventScrolling={false}
-            proOptions={{ hideAttribution: true }}
-            onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
-            onPaneClick={() => setSelectedEdgeId(undefined)}
-          />
-        </div>
+        </InteractiveFlowCanvas>
       </div>
       {selectedEdge ? <EdgeDetailPanel edge={selectedEdge} model={model} onClose={() => setSelectedEdgeId(undefined)} /> : null}
       <details className="flow-details">
@@ -631,32 +843,22 @@ function CrossRegionView({ view, model }: { view: CrossRegionViewManifest; model
           <span><i className="legend-line cross" />Remote aggregate publish</span>
           <span><i className="legend-line secondary" />Remote replay</span>
         </div>
-        <div className="flow-scroll">
-          <div className="cross-region-canvas" style={{ width: routeMap.width, height: routeMap.height }} data-testid="cross-region-map">
+        <div className="flow-viewport">
+          <InteractiveFlowCanvas
+            className="cross-region-canvas"
+            testId="cross-region-map"
+            nodes={routeMap.nodes}
+            edges={routeMap.edges}
+            onEdgeClick={setSelectedEdgeId}
+            onPaneClick={() => setSelectedEdgeId(undefined)}
+          >
             <div className="region-column-label source-region" style={{ left: 40 }}>Source use1</div>
             {routeMap.regions.map((region) => (
               <div key={region.id} className="region-column-label destination-region-label" style={{ left: region.left, top: region.top }}>
                 Destination {region.id}
               </div>
             ))}
-            <ReactFlow<TopologyFlowNode, TopologyFlowEdge>
-              nodes={routeMap.nodes}
-              edges={routeMap.edges}
-              nodeTypes={NODE_TYPES}
-              edgeTypes={EDGE_TYPES}
-              nodesDraggable={false}
-              nodesConnectable={false}
-              edgesReconnectable={false}
-              panOnDrag={false}
-              zoomOnScroll={false}
-              zoomOnPinch={false}
-              zoomOnDoubleClick={false}
-              preventScrolling={false}
-              proOptions={{ hideAttribution: true }}
-              onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
-              onPaneClick={() => setSelectedEdgeId(undefined)}
-            />
-          </div>
+          </InteractiveFlowCanvas>
         </div>
         {selectedEdge ? <EdgeDetailPanel edge={selectedEdge} model={model} onClose={() => setSelectedEdgeId(undefined)} /> : null}
         <details className="flow-details">

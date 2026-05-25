@@ -7,22 +7,91 @@ nodes:
     collapsed: false
   - id: use1.sources.apps
     label: Sourcing Apps
-    type: app
+    type: group
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
+    collapsed: false
+  - id: use1.sources.web_storefront
+    label: Web Storefront
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.sources.apps
+  - id: use1.sources.mobile_app
+    label: Mobile App
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.sources.apps
+  - id: use1.sources.partner_webhook
+    label: Partner Webhook
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.sources.apps
+  - id: use1.sources.retail_pos
+    label: Retail POS
+    type: app
+    region: use1
+    zone: pre_aggregate
+    parent: use1.sources.apps
   - id: use1.ingestion.streams
     label: Ingestion Streams
+    type: group
+    region: use1
+    zone: pre_aggregate
+    parent: use1.pre_aggregate
+    collapsed: false
+  - id: use1.ingestion.orders_stream
+    label: Orders Ingestion Stream
     type: stream
     region: use1
     zone: pre_aggregate
-    parent: use1.pre_aggregate
+    parent: use1.ingestion.streams
+  - id: use1.ingestion.mobile_events_stream
+    label: Mobile Events Stream
+    type: stream
+    region: use1
+    zone: pre_aggregate
+    parent: use1.ingestion.streams
+  - id: use1.ingestion.partner_events_stream
+    label: Partner Events Stream
+    type: stream
+    region: use1
+    zone: pre_aggregate
+    parent: use1.ingestion.streams
+  - id: use1.ingestion.inventory_updates_stream
+    label: Inventory Updates Stream
+    type: stream
+    region: use1
+    zone: pre_aggregate
+    parent: use1.ingestion.streams
   - id: use1.processing.apps
     label: Processing Apps
-    type: app
+    type: group
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
+    collapsed: false
+  - id: use1.processing.orders_app
+    label: Orders Processing App
+    type: processor
+    region: use1
+    zone: pre_aggregate
+    parent: use1.processing.apps
+  - id: use1.processing.partner_app
+    label: Partner Processing App
+    type: processor
+    region: use1
+    zone: pre_aggregate
+    parent: use1.processing.apps
+  - id: use1.processing.inventory_app
+    label: Inventory Processing App
+    type: processor
+    region: use1
+    zone: pre_aggregate
+    parent: use1.processing.apps
   - id: use1.pre_agg.slow_queues
     label: Pre-Aggregate SQS Slow Queues
     type: queue
@@ -306,8 +375,33 @@ edges:
     to: use1.ingestion.streams
     type: publish
     label: publish
+  - id: edge.use1.sources.web.to.orders.ingestion
+    from: use1.sources.web_storefront
+    to: use1.ingestion.orders_stream
+    type: publish
+    label: web orders
+  - id: edge.use1.sources.mobile.to.mobile.ingestion
+    from: use1.sources.mobile_app
+    to: use1.ingestion.mobile_events_stream
+    type: publish
+    label: mobile events
+  - id: edge.use1.sources.partner.to.partner.ingestion
+    from: use1.sources.partner_webhook
+    to: use1.ingestion.partner_events_stream
+    type: publish
+    label: partner feed
+  - id: edge.use1.sources.pos.to.inventory.ingestion
+    from: use1.sources.retail_pos
+    to: use1.ingestion.inventory_updates_stream
+    type: publish
+    label: inventory updates
   - id: edge.use1.sources.to.preagg.slow
     from: use1.sources.apps
+    to: use1.pre_agg.slow_queues
+    type: sideline
+    label: sideline
+  - id: edge.use1.sources.mobile.to.preagg.slow
+    from: use1.sources.mobile_app
     to: use1.pre_agg.slow_queues
     type: sideline
     label: sideline
@@ -316,11 +410,51 @@ edges:
     to: use1.processing.apps
     type: consume
     label: consume
+  - id: edge.use1.orders.ingestion.to.orders.processor
+    from: use1.ingestion.orders_stream
+    to: use1.processing.orders_app
+    type: consume
+    label: consume orders
+  - id: edge.use1.mobile.ingestion.to.orders.processor
+    from: use1.ingestion.mobile_events_stream
+    to: use1.processing.orders_app
+    type: consume
+    label: enrich orders
+  - id: edge.use1.partner.ingestion.to.partner.processor
+    from: use1.ingestion.partner_events_stream
+    to: use1.processing.partner_app
+    type: consume
+    label: consume partner
+  - id: edge.use1.inventory.ingestion.to.inventory.processor
+    from: use1.ingestion.inventory_updates_stream
+    to: use1.processing.inventory_app
+    type: consume
+    label: consume inventory
+  - id: edge.use1.mobile.ingestion.to.inventory.processor
+    from: use1.ingestion.mobile_events_stream
+    to: use1.processing.inventory_app
+    type: consume
+    label: enrich inventory
   - id: edge.use1.processing.to.aggregate
     from: use1.processing.apps
     to: use1.aggregate.stream
     type: publish
     label: local aggregate
+  - id: edge.use1.orders.processor.to.aggregate
+    from: use1.processing.orders_app
+    to: use1.aggregate.stream
+    type: publish
+    label: orders aggregate
+  - id: edge.use1.partner.processor.to.aggregate
+    from: use1.processing.partner_app
+    to: use1.aggregate.stream
+    type: publish
+    label: partner aggregate
+  - id: edge.use1.inventory.processor.to.aggregate
+    from: use1.processing.inventory_app
+    to: use1.aggregate.stream
+    type: publish
+    label: inventory aggregate
   - id: edge.use1.processing.to.usw2.aggregate
     from: use1.processing.apps
     to: usw2.aggregate.stream
@@ -597,17 +731,25 @@ views:
         label: Sourcing apps
         lane: normal
         node_ids:
-          - use1.sources.apps
+          - use1.sources.web_storefront
+          - use1.sources.mobile_app
+          - use1.sources.partner_webhook
+          - use1.sources.retail_pos
       - id: ingestion_streams
         label: Ingestion streams
         lane: normal
         node_ids:
-          - use1.ingestion.streams
+          - use1.ingestion.orders_stream
+          - use1.ingestion.mobile_events_stream
+          - use1.ingestion.partner_events_stream
+          - use1.ingestion.inventory_updates_stream
       - id: processing_apps
         label: Data processing applications
         lane: normal
         node_ids:
-          - use1.processing.apps
+          - use1.processing.orders_app
+          - use1.processing.partner_app
+          - use1.processing.inventory_app
       - id: preagg_slow_queues
         label: Pre-aggregate slow queues
         lane: slow_lane
@@ -639,12 +781,16 @@ views:
         lane: cold
         node_ids:
           - use1.cold.indexers
-      - id: cold_clusters_api
-        label: Cold OpenSearch clusters/API
+      - id: cold_clusters
+        label: Cold OpenSearch clusters
         lane: cold
         node_ids:
           - use1.cold.cluster.products
           - use1.cold.cluster.orders
+      - id: cold_api
+        label: Cold API read surface
+        lane: cold
+        node_ids:
           - use1.cold.api
       - id: hot_router
         label: Hot-tier router
@@ -662,12 +808,16 @@ views:
         lane: hot
         node_ids:
           - use1.hot.indexers
-      - id: hot_clusters_api
-        label: Hot OpenSearch clusters/API
+      - id: hot_clusters
+        label: Hot OpenSearch clusters
         lane: hot
         node_ids:
           - use1.hot.cluster.products
           - use1.hot.cluster.orders
+      - id: hot_api
+        label: Hot API read surface
+        lane: hot
+        node_ids:
           - use1.hot.api
       - id: hot_slow_queues
         label: Hot slow queues
