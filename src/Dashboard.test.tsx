@@ -4,12 +4,14 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import { Dashboard } from "./Dashboard";
-import { validateArchitectureManifest } from "./zod";
+import { EMPTY_ARCHITECTURE_OVERLAYS, validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
 
 function renderSeedDashboard() {
   const yaml = readFileSync("public/architecture.yaml", "utf8");
+  const overlaysYaml = readFileSync("public/architecture-overlays.yaml", "utf8");
   const manifest = validateArchitectureManifest(parse(yaml));
-  return render(<Dashboard manifest={manifest} />);
+  const overlays = validateArchitectureOverlays(parse(overlaysYaml));
+  return render(<Dashboard manifest={manifest} overlays={overlays} />);
 }
 
 function expectInteractiveChrome(testId: string) {
@@ -45,6 +47,26 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
+  });
+
+  it("renders node metric chips from architecture overlays", () => {
+    renderSeedDashboard();
+
+    expect(screen.getAllByText("12 shards").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("24h retention").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("6 nodes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("r7g.large.search").length).toBeGreaterThan(0);
+  });
+
+  it("renders with an explicitly empty overlay file", () => {
+    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const manifest = validateArchitectureManifest(parse(yaml));
+
+    render(<Dashboard manifest={manifest} overlays={EMPTY_ARCHITECTURE_OVERLAYS} />);
+
+    expect(screen.getByTestId("dashboard-title")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
+    expect(screen.queryByText("12 shards")).not.toBeInTheDocument();
   });
 
   it("renders selected views from manifest IDs instead of fixed canonical IDs", async () => {
@@ -97,6 +119,28 @@ describe("Dashboard", () => {
     expect(within(detailPanel).getByText("visibleFrom")).toBeInTheDocument();
     expect(within(detailPanel).getByText("cross_region")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
+  });
+
+  it("renders edge and route decorators as badges and selected-edge details", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    expect(screen.getAllByText("throttle 500/s").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("schema partner-v3").length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"] .topology-edge.is-warning')).toBeInTheDocument();
+
+    await user.click(edge as Element);
+
+    const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
+    expect(within(detailPanel).getByText("overlayDecorators")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("partner-feed-throttle")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("routeDecorators")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("partner-source-downstream-throttle")).toBeInTheDocument();
   });
 
   it("collapses expanded source, ingestion, and processing groups into readable rollups", async () => {

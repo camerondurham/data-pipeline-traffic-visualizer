@@ -484,6 +484,16 @@ button {
   font-size: 11px;
 }
 
+.react-flow__node-topology .node-overlay-chips {
+  gap: 4px;
+}
+
+.react-flow__node-topology .node-overlay-chips b {
+  min-height: 16px;
+  padding: 1px 5px;
+  font-size: 9px;
+}
+
 .react-flow__node-topology:has(.type-router) .node-card,
 .react-flow__node-topology:has(.type-indexer) .node-card,
 .react-flow__node-topology:has(.type-processor) .node-card {
@@ -593,6 +603,27 @@ button {
 
 .node-card strong {
   line-height: 1.18;
+}
+
+.node-overlay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.node-overlay-chips b {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 18px;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid rgba(67, 186, 244, 0.34);
+  border-radius: 999px;
+  background: rgba(67, 186, 244, 0.12);
+  color: #b8e6ff;
+  font-size: 10px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .type-group {

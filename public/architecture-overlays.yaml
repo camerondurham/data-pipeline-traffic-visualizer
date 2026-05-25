@@ -1,0 +1,75 @@
+node_decorators:
+  - id: orders-stream-capacity
+    node_id: use1.ingestion.orders_stream
+    title: Orders ingestion stream
+    metrics:
+      - label: shards
+        value: 12
+      - label: retention
+        value: 24h
+
+  - id: mobile-events-stream-capacity
+    node_id: use1.ingestion.mobile_events_stream
+    title: Mobile events stream
+    metrics:
+      - label: shards
+        value: 8
+      - label: retention
+        value: 24h
+
+  - id: hot-products-cluster
+    node_id: use1.hot.cluster.products
+    title: Products hot OpenSearch
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: hot-orders-cluster
+    node_id: use1.hot.cluster.orders
+    title: Orders hot OpenSearch
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: usw2-partner-cluster-a
+    node_id: usw2.partner.cluster.a
+    title: USW2 partner cluster A
+    metrics:
+      - label: nodes
+        value: 3
+      - label: instance
+        value: r7g.large.search
+
+edge_decorators:
+  - id: partner-feed-throttle
+    edge_id: edge.use1.sources.partner.to.partner.ingestion
+    title: Partner feed throttle
+    badges:
+      - throttle 500/s
+      - schema partner-v3
+    warning: true
+
+  - id: hot-products-index-throughput
+    edge_id: edge.use1.hot.indexers.to.products.cluster
+    title: Products indexing throughput
+    metric_label: 2k msg/s
+    badges:
+      - bulk index
+
+route_decorators:
+  - id: partner-source-downstream-throttle
+    source_node_id: use1.sources.partner_webhook
+    title: Partner webhook throttle path
+    badges:
+      - throttle 500/s
+      - schema partner-v3
+    edge_ids:
+      - edge.use1.sources.partner.to.partner.ingestion
+      - edge.use1.partner.ingestion.to.partner.processor
+      - edge.use1.partner.processor.to.aggregate
+      - edge.use1.aggregate.to.hot.router
+      - edge.use1.hot.router.to.partner.stream

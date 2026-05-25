@@ -1,6 +1,8 @@
 import { z, ZodError } from "zod";
 
 const RequiredString = z.string().min(1);
+const OverlayToneSchema = z.enum(["default", "primary", "secondary", "cross", "read"]);
+const OverlayMetricValueSchema = z.union([z.string().min(1), z.number()]);
 export const ArchitectureZoneSchema = z.enum(["pre_aggregate", "aggregate", "hot", "cold", "partner"]);
 
 export const ArchitectureNodeSchema = z
@@ -86,6 +88,61 @@ export const ArchitectureManifestSchema = z
   })
   .strict();
 
+export const OverlayMetricSchema = z
+  .object({
+    label: RequiredString,
+    value: OverlayMetricValueSchema
+  })
+  .strict();
+
+export const NodeDecoratorSchema = z
+  .object({
+    id: RequiredString,
+    node_id: RequiredString,
+    title: RequiredString.optional(),
+    metrics: z.array(OverlayMetricSchema).default([]),
+    badges: z.array(RequiredString).default([]),
+    notes: z.array(RequiredString).default([])
+  })
+  .strict();
+
+export const EdgeDecoratorSchema = z
+  .object({
+    id: RequiredString,
+    edge_id: RequiredString,
+    title: RequiredString.optional(),
+    metric_label: RequiredString.optional(),
+    badges: z.array(RequiredString).default([]),
+    metrics: z.array(OverlayMetricSchema).default([]),
+    warning: z.boolean().optional(),
+    tone: OverlayToneSchema.optional(),
+    thickness: z.number().positive().optional()
+  })
+  .strict();
+
+export const RouteDecoratorSchema = z
+  .object({
+    id: RequiredString,
+    source_node_id: RequiredString,
+    title: RequiredString.optional(),
+    edge_ids: z.array(RequiredString).min(1),
+    metric_label: RequiredString.optional(),
+    badges: z.array(RequiredString).default([]),
+    metrics: z.array(OverlayMetricSchema).default([]),
+    warning: z.boolean().optional(),
+    tone: OverlayToneSchema.optional(),
+    thickness: z.number().positive().optional()
+  })
+  .strict();
+
+export const ArchitectureOverlaysSchema = z
+  .object({
+    node_decorators: z.array(NodeDecoratorSchema).default([]),
+    edge_decorators: z.array(EdgeDecoratorSchema).default([]),
+    route_decorators: z.array(RouteDecoratorSchema).default([])
+  })
+  .strict();
+
 export type ArchitectureNode = z.infer<typeof ArchitectureNodeSchema>;
 export type ArchitectureEdge = z.infer<typeof ArchitectureEdgeSchema>;
 export type FlowLane = z.infer<typeof FlowLaneSchema>;
@@ -95,6 +152,17 @@ export type CrossRegionView = z.infer<typeof CrossRegionViewSchema>;
 export type FocusView = z.infer<typeof FocusViewSchema>;
 export type ArchitectureView = z.infer<typeof ArchitectureViewSchema>;
 export type ArchitectureManifest = z.infer<typeof ArchitectureManifestSchema>;
+export type OverlayMetric = z.infer<typeof OverlayMetricSchema>;
+export type NodeDecorator = z.infer<typeof NodeDecoratorSchema>;
+export type EdgeDecorator = z.infer<typeof EdgeDecoratorSchema>;
+export type RouteDecorator = z.infer<typeof RouteDecoratorSchema>;
+export type ArchitectureOverlays = z.infer<typeof ArchitectureOverlaysSchema>;
+
+export const EMPTY_ARCHITECTURE_OVERLAYS: ArchitectureOverlays = {
+  node_decorators: [],
+  edge_decorators: [],
+  route_decorators: []
+};
 
 export function formatValidationError(error: unknown): string {
   if (error instanceof ZodError) {
@@ -111,4 +179,8 @@ export function formatValidationError(error: unknown): string {
 
 export function validateArchitectureManifest(input: unknown): ArchitectureManifest {
   return ArchitectureManifestSchema.parse(input);
+}
+
+export function validateArchitectureOverlays(input: unknown): ArchitectureOverlays {
+  return ArchitectureOverlaysSchema.parse(input ?? {});
 }
