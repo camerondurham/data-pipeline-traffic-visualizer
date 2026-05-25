@@ -34,7 +34,7 @@ Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml
 
 ## Sample Workflow
 
-The screenshot below is generated from `public/architecture.yaml` by `npm run screenshot:architecture`.
+The screenshot below is generated from `public/architecture.yaml` and `public/architecture-overlays.yaml` by `npm run screenshot:architecture`.
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
 
@@ -69,10 +69,56 @@ Region views can also define presentation metadata:
 
 Stage `node_ids` must reference existing nodes. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
 
+## Overlay Contract
+
+Decorators live in `public/architecture-overlays.yaml`. They add real-world metrics and config to the rendered diagram without changing topology.
+
+Overlay files can define:
+
+- `node_decorators`: reference `node_id` and render compact node chips such as shard count, retention, OpenSearch node count, and instance type.
+- `edge_decorators`: reference `edge_id` and render edge badges, warning state, metric labels, tone, or thickness.
+- `route_decorators`: reference a `source_node_id` plus an ordered `edge_ids` path. Route decorators apply only to those explicit edges, which is the intended way to show source-app throttle/schema config downstream.
+
+Example:
+
+```yaml
+node_decorators:
+  - id: orders-stream-capacity
+    node_id: use1.ingestion.orders_stream
+    title: Orders stream
+    metrics:
+      - label: shards
+        value: 12
+      - label: retention
+        value: 24h
+
+edge_decorators:
+  - id: partner-feed-throttle
+    edge_id: edge.use1.sources.partner.to.partner.ingestion
+    title: Partner feed throttle
+    badges:
+      - throttle 500/s
+      - schema partner-v3
+    warning: true
+
+route_decorators:
+  - id: partner-source-downstream-throttle
+    source_node_id: use1.sources.partner_webhook
+    title: Partner webhook throttle path
+    badges:
+      - throttle 500/s
+      - schema partner-v3
+    edge_ids:
+      - edge.use1.sources.partner.to.partner.ingestion
+      - edge.use1.partner.ingestion.to.partner.processor
+      - edge.use1.partner.processor.to.aggregate
+```
+
 ## Topology Invariants
 
 - `architecture.yaml` must not contain metrics, overlay values, AWS discovery output, CDK data, shard counts, replica counts, capacity settings, route keys, fanout semantics, or message metadata.
-- Future overlays must live in separate files and reference stable node IDs, edge IDs, or focus-view edge groups.
+- Overlays must live in separate files and reference stable node IDs or edge IDs.
+- Route overlays are explicit ordered paths; downstream throttle/schema decoration is not inferred by graph traversal.
 - `crossRegion` is derived by comparing the original source and target node regions.
 - Collapsed groups roll descendant edges up to the nearest visible ancestor. Rolled-up visual edges preserve `originalFrom`, `originalTo`, `visibleFrom`, `visibleTo`, and `sourceEdgeIds`.
 - Rolled-up visual edges are deduplicated and self-loops caused by collapsing parent groups are suppressed.
