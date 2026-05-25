@@ -639,12 +639,16 @@ views:
         lane: cold
         node_ids:
           - use1.cold.indexers
-      - id: cold_clusters_api
-        label: Cold OpenSearch clusters/API
+      - id: cold_clusters
+        label: Cold OpenSearch clusters
         lane: cold
         node_ids:
           - use1.cold.cluster.products
           - use1.cold.cluster.orders
+      - id: cold_api
+        label: Cold API read surface
+        lane: cold
+        node_ids:
           - use1.cold.api
       - id: hot_router
         label: Hot-tier router
@@ -662,12 +666,16 @@ views:
         lane: hot
         node_ids:
           - use1.hot.indexers
-      - id: hot_clusters_api
-        label: Hot OpenSearch clusters/API
+      - id: hot_clusters
+        label: Hot OpenSearch clusters
         lane: hot
         node_ids:
           - use1.hot.cluster.products
           - use1.hot.cluster.orders
+      - id: hot_api
+        label: Hot API read surface
+        lane: hot
+        node_ids:
           - use1.hot.api
       - id: hot_slow_queues
         label: Hot slow queues

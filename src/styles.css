@@ -160,11 +160,6 @@ button {
   overflow: hidden;
 }
 
-.flow-scroll {
-  overflow: auto;
-  padding: 0;
-}
-
 .flow-group-controls {
   display: flex;
   flex-wrap: wrap;
@@ -174,14 +169,21 @@ button {
   background: rgba(7, 16, 23, 0.34);
 }
 
+.flow-viewport {
+  padding: 0;
+}
+
+.interactive-flow-canvas {
+  position: relative;
+  width: 100%;
+  height: min(72vh, 820px);
+  min-height: 520px;
+  overflow: hidden;
+  background: rgba(7, 16, 23, 0.46);
+}
+
 .flow-canvas {
   position: relative;
-  min-height: 960px;
-  background:
-    linear-gradient(rgba(143, 170, 190, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(143, 170, 190, 0.04) 1px, transparent 1px),
-    rgba(7, 16, 23, 0.46);
-  background-size: 28px 28px;
 }
 
 .cross-region-panel {
@@ -190,22 +192,6 @@ button {
 
 .cross-region-canvas {
   position: relative;
-  min-height: 500px;
-  background:
-    linear-gradient(rgba(143, 170, 190, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(143, 170, 190, 0.04) 1px, transparent 1px),
-    rgba(7, 16, 23, 0.46);
-  background-size: 28px 28px;
-}
-
-.cross-region-canvas .react-flow {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-}
-
-.cross-region-canvas .react-flow__renderer {
-  overflow: visible;
 }
 
 .region-column-label {
@@ -308,14 +294,45 @@ button {
   color: #bfc6ff;
 }
 
-.flow-canvas .react-flow {
+.interactive-flow-canvas .react-flow {
   position: absolute;
   inset: 0;
   z-index: 2;
 }
 
-.flow-canvas .react-flow__renderer {
+.interactive-flow-canvas .react-flow__renderer {
   overflow: visible;
+}
+
+.interactive-flow-canvas .react-flow__background {
+  background: rgba(7, 16, 23, 0.46);
+}
+
+.interactive-flow-canvas .react-flow__minimap {
+  border: 1px solid rgba(143, 170, 190, 0.3);
+  border-radius: 8px;
+  background: rgba(14, 27, 37, 0.92);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.interactive-flow-canvas .react-flow__controls {
+  overflow: hidden;
+  border: 1px solid rgba(143, 170, 190, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+.interactive-flow-canvas .react-flow__controls-button {
+  width: 32px;
+  height: 32px;
+  border-bottom-color: rgba(143, 170, 190, 0.24);
+  background: rgba(14, 27, 37, 0.95);
+  color: var(--text);
+  fill: var(--text);
+}
+
+.interactive-flow-canvas .react-flow__controls-button:hover {
+  background: rgba(19, 38, 54, 0.98);
 }
 
 .react-flow__node-topology {
@@ -334,6 +351,7 @@ button {
   stroke: rgba(182, 203, 218, 0.74);
   stroke-width: 2.2;
   stroke-linecap: round;
+  transition: opacity 140ms ease, stroke-width 140ms ease, filter 140ms ease;
 }
 
 .topology-edge.tone-primary {
@@ -351,10 +369,24 @@ button {
   stroke-width: 2.8;
 }
 
+.topology-edge.tone-read {
+  stroke: #c7d2fe;
+  stroke-width: 2.7;
+  stroke-dasharray: 2 7;
+}
+
 .topology-edge.is-selected,
 .topology-edge.is-warning {
   stroke: var(--red);
   stroke-width: 4;
+}
+
+.topology-edge.is-selected {
+  filter: drop-shadow(0 0 7px rgba(255, 107, 107, 0.62));
+}
+
+.topology-edge.is-dimmed {
+  opacity: 0.16;
 }
 
 .edge-label {
@@ -373,6 +405,7 @@ button {
   line-height: 1.1;
   pointer-events: all;
   white-space: nowrap;
+  transition: opacity 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
 .edge-label span {
@@ -397,9 +430,20 @@ button {
   color: #b8e6ff;
 }
 
+.edge-label.tone-read {
+  border-color: rgba(199, 210, 254, 0.44);
+  color: #dbe4ff;
+}
+
 .edge-label.is-selected {
   border-color: rgba(255, 107, 107, 0.72);
+  background: rgba(52, 16, 20, 0.96);
   color: #ffd2d2;
+  opacity: 1;
+}
+
+.edge-label.is-dimmed {
+  opacity: 0.12;
 }
 
 .flow-stage-heading {
@@ -425,6 +469,7 @@ button {
   padding: 10px;
   background: rgba(19, 38, 54, 0.96);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  transition: opacity 140ms ease, border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .react-flow__node-topology .node-card strong {
@@ -449,9 +494,40 @@ button {
   background: rgba(54, 39, 12, 0.96);
 }
 
-.react-flow__node-topology:has(.type-cluster) .node-card,
-.react-flow__node-topology:has(.type-api) .node-card {
+.react-flow__node-topology:has(.type-cluster) .node-card {
   background: rgba(16, 31, 48, 0.96);
+}
+
+.react-flow__node-topology:has(.type-api) .node-card {
+  border-color: rgba(199, 210, 254, 0.66);
+  background: rgba(32, 32, 64, 0.96);
+}
+
+.react-flow__node-topology:has(.node-card.is-dimmed) {
+  pointer-events: none;
+}
+
+.react-flow__node-topology .node-card.is-dimmed {
+  opacity: 0.24;
+  filter: saturate(0.72);
+}
+
+.react-flow__node-topology .node-card.is-source,
+.react-flow__node-topology .node-card.is-target {
+  opacity: 1;
+  transform: translateY(-1px);
+  border-width: 2px;
+  box-shadow:
+    0 0 0 3px rgba(255, 107, 107, 0.16),
+    0 16px 34px rgba(0, 0, 0, 0.34);
+}
+
+.react-flow__node-topology .node-card.is-source {
+  border-color: rgba(67, 186, 244, 0.9);
+}
+
+.react-flow__node-topology .node-card.is-target {
+  border-color: rgba(255, 107, 107, 0.9);
 }
 
 .flow-details {
@@ -546,6 +622,11 @@ button {
 
 .type-cluster {
   border-radius: 18px 18px 8px 8px;
+}
+
+.type-api {
+  border-color: rgba(199, 210, 254, 0.66);
+  border-left-width: 5px;
 }
 
 .collapse-button {
@@ -692,5 +773,15 @@ button {
   .view-picker {
     width: 100%;
     min-width: 0;
+  }
+
+  .interactive-flow-canvas {
+    height: 62vh;
+    min-height: 420px;
+  }
+
+  .interactive-flow-canvas .react-flow__minimap {
+    width: 130px;
+    height: 96px;
   }
 }

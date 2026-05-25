@@ -12,18 +12,29 @@ function renderSeedDashboard() {
   return render(<Dashboard manifest={manifest} />);
 }
 
+function expectInteractiveChrome(testId: string) {
+  const graph = screen.getByTestId(testId);
+  expect(within(graph).getByTestId("rf__controls")).toBeInTheDocument();
+  expect(within(graph).getByTestId("rf__minimap")).toBeInTheDocument();
+}
+
 describe("Dashboard", () => {
   it("renders the regional topology as ordered flow stages from the seed manifest", () => {
     renderSeedDashboard();
 
     expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Architecture Topology Explorer");
     expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
+    expectInteractiveChrome("flow-diagram");
     expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data processing applications" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Aggregate Kinesis stream" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold-tier router" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cold OpenSearch clusters" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Cold API read surface" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot-tier router" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hot OpenSearch clusters" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hot API read surface" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Partner streams" })).toBeInTheDocument();
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
@@ -41,9 +52,11 @@ describe("Dashboard", () => {
 
     await user.selectOptions(screen.getByLabelText("View"), "custom_cross_region_detail");
     expect(screen.getByTestId("cross-region-map")).toBeInTheDocument();
+    expectInteractiveChrome("cross-region-map");
 
     await user.selectOptions(screen.getByLabelText("View"), "custom_representative_partner_path");
     expect(screen.getByTestId("flow-stage-focus_partner_clusters")).toBeInTheDocument();
+    expectInteractiveChrome("flow-diagram");
   });
 
   it("keeps the core sequential path and slow-lane replay edges visible in the regional diagram details", () => {
@@ -78,6 +91,38 @@ describe("Dashboard", () => {
     expect(within(detailPanel).getByText("edge.use1.sources.to.ingestion")).toBeInTheDocument();
   });
 
+  it("emphasizes the selected route through busy graph sections", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[data-id="edge.use1.hot.processor.to.products.stream"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    await user.click(edge as Element);
+
+    expect(container.querySelector('[data-id="edge.use1.hot.processor.to.products.stream"] .topology-edge.is-selected')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="use1.hot.slow_processor"] .node-card.is-source')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-target')).toBeInTheDocument();
+    expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
+    expect(container.querySelector(".node-card.is-dimmed")).toBeInTheDocument();
+  });
+
+  it("separates API read surfaces from OpenSearch cluster write stages", async () => {
+    const { container } = renderSeedDashboard();
+
+    expect(screen.getByTestId("flow-stage-cold_clusters")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-cold_api")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-hot_clusters")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-hot_api")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-id="edge.use1.cold.products.cluster.to.api"] .topology-edge.tone-read')).toBeInTheDocument();
+    });
+    expect(container.querySelector('[data-id="use1.cold.api"] .node-card.type-api')).toBeInTheDocument();
+  });
+
   it("switches to destination-region grouped cross-region detail", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
@@ -85,6 +130,7 @@ describe("Dashboard", () => {
     await user.selectOptions(screen.getByLabelText("View"), "cross_region_detail");
 
     expect(screen.getByTestId("cross-region-map")).toBeInTheDocument();
+    expectInteractiveChrome("cross-region-map");
     expect(screen.getByText("Source use1")).toBeInTheDocument();
     expect(screen.getAllByText("Destination usw2").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Destination euw1").length).toBeGreaterThan(0);
@@ -135,6 +181,29 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
     expect(screen.getByText("edge.use1.partner.slow_processor.to.usw2.partner.stream")).toBeInTheDocument();
+  });
+
+  it("keeps graph controls available after switching views and selecting an edge", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+
+    expectInteractiveChrome("flow-diagram");
+
+    await user.selectOptions(screen.getByLabelText("View"), "representative_partner_path");
+    expectInteractiveChrome("flow-diagram");
+
+    await user.selectOptions(screen.getByLabelText("View"), "cross_region_detail");
+    expectInteractiveChrome("cross-region-map");
+
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[data-id="edge.use1.hot.router.to.usw2.partner.stream"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+    await user.click(edge as Element);
+
+    expect(screen.getByRole("complementary", { name: "Selected edge details" })).toBeInTheDocument();
+    expectInteractiveChrome("cross-region-map");
   });
 
   it("collapses groups without losing rolled-up visible edge context", async () => {
