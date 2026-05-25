@@ -76,6 +76,7 @@ interface TopologyEdgeData extends Record<string, unknown> {
   edge: VisualEdge;
   overlay?: EdgeOverlayData;
   focusState?: "selected" | "dimmed";
+  routeOffset?: number;
 }
 
 type TopologyFlowNode = Node<TopologyNodeData, "topology">;
@@ -201,18 +202,19 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
   const focusState = props.data?.focusState;
-  const [path, labelX, labelY] = getBezierPath({
+  const route = getEdgeRoute({
+    edge,
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     sourcePosition: props.sourcePosition,
     targetX: props.targetX,
     targetY: props.targetY,
     targetPosition: props.targetPosition,
-    curvature: edge && SLOW_EDGE_TYPES.has(edge.type) ? 0.3 : 0.5
+    routeOffset: props.data?.routeOffset ?? 0
   });
 
   if (!edge) {
-    return <BaseEdge id={props.id} path={path} markerEnd={props.markerEnd} interactionWidth={24} />;
+    return <BaseEdge id={props.id} path={route.path} markerEnd={props.markerEnd} interactionWidth={24} />;
   }
 
   const label = overlay?.metricLabel ?? edge.label ?? edge.type;
@@ -223,7 +225,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
     <>
       <BaseEdge
         id={props.id}
-        path={path}
+        path={route.path}
         markerEnd={props.markerEnd}
         interactionWidth={28}
         className={`topology-edge tone-${tone} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""} ${overlay?.warning ? "is-warning" : ""}`}
@@ -233,7 +235,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
       <EdgeLabelRenderer>
         <div
           className={`edge-label tone-${tone} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
-          style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
+          style={{ transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
         >
           <span>{label}</span>
@@ -322,6 +324,7 @@ function buildFlowElements(
 ): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[] } {
   const nodePositions = buildNodePositions(layout.stages, layout.lanes);
   const selectedEdge = layout.edges.find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(layout.edges);
   const seenNodeIds = new Set<string>();
   const nodes = layout.stages.flatMap<TopologyFlowNode>((stage) =>
     stage.nodes.flatMap((node) => {
@@ -344,7 +347,7 @@ function buildFlowElements(
         source: edge.visibleFrom,
         target: edge.visibleTo,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge, focusState: edgeFocusState(id, selectedEdgeId, selectedEdge) },
+        data: { edge, focusState: edgeFocusState(id, selectedEdgeId, selectedEdge), routeOffset: routeOffsets.get(id) ?? 0 },
         selected: id === selectedEdgeId,
         zIndex: id === selectedEdgeId ? 20 : 0,
         focusable: true,
@@ -355,6 +358,31 @@ function buildFlowElements(
     });
 
   return { nodes, edges };
+}
+
+function buildRouteOffsets(edges: VisualEdge[]): Map<string, number> {
+  const groups = new Map<string, VisualEdge[]>();
+
+  for (const edge of edges) {
+    if (!SLOW_EDGE_TYPES.has(edge.type)) {
+      continue;
+    }
+    const endpoint = edge.type === "replay" ? edge.visibleFrom : edge.visibleTo;
+    const key = `${edge.type}:${endpoint}`;
+    groups.set(key, [...(groups.get(key) ?? []), edge]);
+  }
+
+  const offsets = new Map<string, number>();
+  for (const groupedEdges of groups.values()) {
+    if (groupedEdges.length < 2) {
+      continue;
+    }
+    const sortedEdges = [...groupedEdges].sort((left, right) => flowEdgeId(left).localeCompare(flowEdgeId(right)));
+    sortedEdges.forEach((edge, index) => {
+      offsets.set(flowEdgeId(edge), (index - (sortedEdges.length - 1) / 2) * 38);
+    });
+  }
+  return offsets;
 }
 
 function makeFlowNode(
@@ -493,6 +521,55 @@ function InteractiveFlowCanvas({
   );
 }
 
+function getEdgeRoute({
+  edge,
+  sourceX,
+  sourceY,
+  sourcePosition,
+  targetX,
+  targetY,
+  targetPosition,
+  routeOffset
+}: {
+  edge?: VisualEdge;
+  sourceX: number;
+  sourceY: number;
+  sourcePosition: Position;
+  targetX: number;
+  targetY: number;
+  targetPosition: Position;
+  routeOffset: number;
+}): { path: string; labelX: number; labelY: number } {
+  if (!edge || !SLOW_EDGE_TYPES.has(edge.type) || routeOffset === 0) {
+    const [path, labelX, labelY] = getBezierPath({
+      sourceX,
+      sourceY,
+      sourcePosition,
+      targetX,
+      targetY,
+      targetPosition,
+      curvature: edge && SLOW_EDGE_TYPES.has(edge.type) ? 0.3 : 0.5
+    });
+    return { path, labelX, labelY };
+  }
+
+  const direction = targetX >= sourceX ? 1 : -1;
+  const handleDistance = Math.max(Math.abs(targetX - sourceX) * 0.45, 96);
+  const sourceControlY = sourceY + routeOffset;
+  const targetControlY = targetY + routeOffset;
+
+  return {
+    path: [
+      `M ${sourceX},${sourceY}`,
+      `C ${sourceX + direction * handleDistance},${sourceControlY}`,
+      `${targetX - direction * handleDistance},${targetControlY}`,
+      `${targetX},${targetY}`
+    ].join(" "),
+    labelX: (sourceX + targetX) / 2,
+    labelY: (sourceY + targetY) / 2 + routeOffset
+  };
+}
+
 function crossRegionOverlay(edge: VisualEdge, model: GraphModel): EdgeOverlayData {
   const source = model.nodeById.get(edge.originalFrom);
   const target = model.nodeById.get(edge.originalTo);
@@ -538,6 +615,7 @@ function buildCrossRegionRouteMap(
   const destinationStartX = 380;
   const destinationGap = 320;
   const selectedEdge = groups.flatMap((group) => group.edges).find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(groups.flatMap((group) => group.edges));
   const regions = groups.map((group, index) => ({
     id: group.destinationRegion,
     left: destinationStartX + index * destinationGap,
@@ -575,7 +653,12 @@ function buildCrossRegionRouteMap(
         source: edge.visibleFrom,
         target: edge.visibleTo,
         markerEnd: { type: MarkerType.ArrowClosed },
-        data: { edge, overlay: crossRegionOverlay(edge, model), focusState: edgeFocusState(id, selectedEdgeId, selectedEdge) },
+        data: {
+          edge,
+          overlay: crossRegionOverlay(edge, model),
+          focusState: edgeFocusState(id, selectedEdgeId, selectedEdge),
+          routeOffset: routeOffsets.get(id) ?? 0
+        },
         selected: id === selectedEdgeId,
         zIndex: id === selectedEdgeId ? 20 : 0,
         focusable: true,

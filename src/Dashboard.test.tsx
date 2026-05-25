@@ -36,6 +36,13 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { name: "Hot OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot API read surface" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Partner streams" })).toBeInTheDocument();
+    expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mobile App").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Partner Webhook").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Retail POS").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mobile Events Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
   });
@@ -62,9 +69,10 @@ describe("Dashboard", () => {
   it("keeps the core sequential path and slow-lane replay edges visible in the regional diagram details", () => {
     renderSeedDashboard();
 
-    expect(screen.getByText("edge.use1.sources.to.ingestion")).toBeInTheDocument();
-    expect(screen.getByText("edge.use1.ingestion.to.processing")).toBeInTheDocument();
-    expect(screen.getByText("edge.use1.processing.to.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.sources.mobile.to.mobile.ingestion")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.mobile.ingestion.to.orders.processor")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.orders.processor.to.aggregate")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.cold.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.partner.stream")).toBeInTheDocument();
@@ -76,7 +84,7 @@ describe("Dashboard", () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
     const edge = await waitFor(() => {
-      const element = container.querySelector('[data-id="edge.use1.sources.to.ingestion"]');
+      const element = container.querySelector('[data-id="edge.use1.sources.web.to.orders.ingestion"]');
       expect(element).toBeInTheDocument();
       return element;
     });
@@ -85,10 +93,27 @@ describe("Dashboard", () => {
 
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
     expect(within(detailPanel).getByText("originalFrom")).toBeInTheDocument();
-    expect(within(detailPanel).getAllByText("use1.sources.apps").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("use1.sources.web_storefront").length).toBeGreaterThan(0);
     expect(within(detailPanel).getByText("visibleFrom")).toBeInTheDocument();
     expect(within(detailPanel).getByText("cross_region")).toBeInTheDocument();
-    expect(within(detailPanel).getByText("edge.use1.sources.to.ingestion")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
+  });
+
+  it("collapses expanded source, ingestion, and processing groups into readable rollups", async () => {
+    const user = userEvent.setup();
+    renderSeedDashboard();
+
+    await user.click(screen.getByRole("button", { name: "Collapse Sourcing Apps" }));
+    await user.click(screen.getByRole("button", { name: "Collapse Ingestion Streams" }));
+    await user.click(screen.getByRole("button", { name: "Collapse Processing Apps" }));
+
+    expect(screen.queryByText("Web Storefront")).not.toBeInTheDocument();
+    expect(screen.queryByText("Orders Ingestion Stream")).not.toBeInTheDocument();
+    expect(screen.queryByText("Orders Processing App")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Sourcing Apps").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Ingestion Streams").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Processing Apps").length).toBeGreaterThan(0);
+    expect(screen.getByText(/edge\.use1\.sources\.web\.to\.orders\.ingestion/)).toBeInTheDocument();
   });
 
   it("emphasizes the selected route through busy graph sections", async () => {
@@ -107,6 +132,26 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-target')).toBeInTheDocument();
     expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
     expect(container.querySelector(".node-card.is-dimmed")).toBeInTheDocument();
+  });
+
+  it("routes stacked slow-lane edges through separate visual lanes", async () => {
+    const { container } = renderSeedDashboard();
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-id="edge.use1.hot.router.to.slow"] .topology-edge')).toBeInTheDocument();
+      expect(container.querySelector('[data-id="edge.use1.hot.indexers.to.slow"] .topology-edge')).toBeInTheDocument();
+    });
+
+    const routerPath = container
+      .querySelector('[data-id="edge.use1.hot.router.to.slow"] .topology-edge')
+      ?.getAttribute("d");
+    const indexerPath = container
+      .querySelector('[data-id="edge.use1.hot.indexers.to.slow"] .topology-edge')
+      ?.getAttribute("d");
+
+    expect(routerPath).toBeTruthy();
+    expect(indexerPath).toBeTruthy();
+    expect(routerPath).not.toEqual(indexerPath);
   });
 
   it("separates API read surfaces from OpenSearch cluster write stages", async () => {

@@ -138,7 +138,8 @@ describe("graphBuilder", () => {
     ]);
     expect(layout.edges.flatMap((edge) => edge.sourceEdgeIds)).toEqual(
       expect.arrayContaining([
-        "edge.use1.sources.to.ingestion",
+        "edge.use1.sources.web.to.orders.ingestion",
+        "edge.use1.mobile.ingestion.to.orders.processor",
         "edge.use1.aggregate.to.hot.router",
         "edge.use1.aggregate.to.cold.router",
         "edge.use1.hot.router.to.partner.stream"
