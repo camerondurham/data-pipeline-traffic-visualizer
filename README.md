@@ -1,24 +1,24 @@
 # data-pipeline-traffic-visualizer
 
-Proof-of-concept architecture dashboard for large service areas with many interacting systems.
+Proof-of-concept topology dashboard for operating broad, multi-account service areas.
 
 ## What
 
-This project explores a dashboard model where a team can define its own architecture graph and overlay live or near-live operational facts on top of each service, route, queue, stream, cluster, or dependency.
+This project explores a dashboard model where a team can define its own architecture graph and overlay live or near-live operational context on top of each service, route, queue, stream, cluster, or dependency.
 
 The core idea is deliberately simple:
 
 - `architecture.yaml` defines the relatively stable system map.
-- `architecture-overlays.yaml` defines the operational values that change more often.
+- `architecture-overlays.yaml` defines current scaling, traffic rates between systems, throttle configuration, deployment state, queue or stream health, shard counts, and other runtime context.
 - The runtime dashboard renders both as a single view so teams can see each moving part in relation to the rest of the service.
 
 ## Why
 
+Large service areas create operator cognitive overhead. This project reduces that overhead by mapping topology and relevant configuration into a visual model: account boundaries, services, streams, processors, routes, throttles, deployment state, recent changes, and where each fact sits in the broader service.
+
 CloudWatch and Grafana already solve broad observability problems. CloudWatch supports cross-account observability for AWS telemetry, dashboards can span accounts and Regions, Grafana can visualize metrics, logs, traces, and other data from many backends, and CloudWatch investigations can scan telemetry to surface related metrics, logs, deployment events, and root-cause hypotheses.
 
-This project is aimed at a different gap: team-specific architecture topology and dependency knowledge. In large service areas, the hard part is often remembering what depends on what across accounts, repositories, deployment systems, queues, streams, services, and operational conventions. That map usually lives in senior engineers' heads.
-
-This proof of concept makes the map explicit, then attaches the facts that drift over time: scaling shape, deployment state, shard counts, queue health, route throttles, replay paths, and other operational details.
+This project is complementary: it focuses on team-specific architecture topology and dependency knowledge across accounts, repositories, deployment systems, queues, streams, services, and operational conventions. The goal is to move that map out of senior engineers' heads, keep it explicit, and make the system easier to inspect, update, and reason about during operations.
 
 ## Philosophy
 
@@ -45,36 +45,6 @@ flowchart LR
   scripts["scripts/capture-architecture-screenshot.mjs"] --> docs["docs/architecture-workflow*.png"]
   ci[".github/workflows/*.yml"] --> tests["npm test + npm run build"]
 ```
-
-## Run
-
-```sh
-npm install
-npm run dev
-```
-
-Preview the production build:
-
-```sh
-npm run build
-npm run start
-```
-
-Verify:
-
-```sh
-npm test
-npm run build
-```
-
-Update the README diagram screenshots:
-
-```sh
-npx playwright install chromium # first time only
-npm run screenshot:architecture
-```
-
-Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml`, which runs `npm ci`, `npm test`, and `npm run build`.
 
 ## GitHub Pages Demo
 
