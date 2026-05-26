@@ -28,22 +28,31 @@ This project is complementary: it focuses on team-specific architecture topology
 - Make the dashboard easy to update from jobs, scripts, or account-specific collectors.
 - Preserve enough context that an engineer can understand what changed and where it sits in the larger service area.
 
-## Repository Architecture
+## Runtime Architecture
 
-At a high level, the repo is a YAML-backed runtime API plus a React dashboard that renders, edits, and validates the current architecture model.
+At a high level, this is a YAML-backed dashboard with a light runtime API. The architecture and overlays start from disk, the browser reads a validated runtime payload, the editor can lint and apply a draft, and update jobs can push fresh overlay snapshots without changing the topology.
 
 ```mermaid
-flowchart LR
-  data["data/sample/*.yaml or ARCHITECTURE_DATA_DIR"] --> store["src/server/architectureStore.ts"]
-  validation["src/zod.ts + src/server/runtimeValidation.ts"] --> store
-  store --> api["src/server/apiMiddleware.ts"]
-  api --> app["src/App.tsx"]
-  app --> dashboard["src/Dashboard.tsx"]
-  app --> editor["src/ArchitectureEditor.tsx"]
-  dashboard --> graphing["src/graphBuilder.ts + src/overlays.ts"]
-  editor --> validation
-  scripts["scripts/capture-architecture-screenshot.mjs"] --> docs["docs/architecture-workflow*.png"]
-  ci[".github/workflows/*.yml"] --> tests["npm test + npm run build"]
+sequenceDiagram
+  participant Files as architecture.yaml and architecture-overlays.yaml
+  participant Store as ArchitectureStore
+  participant API as Runtime API
+  participant Browser as Dashboard and Runtime YAML editor
+  participant Updater as Overlay updater job
+
+  Files->>Store: load on startup and optional file watch
+  Store->>Store: validate topology, overlays, and references
+  Browser->>API: GET /api/architecture
+  API->>Store: read current payload
+  Store-->>Browser: manifest, overlays, revisions, status
+  Browser->>API: GET /api/architecture/events
+  Store-->>Browser: revision event after accepted changes
+  Browser->>API: GET /api/architecture/source
+  Browser->>API: POST /api/architecture/lint
+  Browser->>API: POST /api/architecture/draft
+  API->>Store: apply validated architecture and overlays draft
+  Updater->>API: POST /api/overlays/snapshot
+  API->>Store: replace overlays only after validation
 ```
 
 ## GitHub Pages Demo

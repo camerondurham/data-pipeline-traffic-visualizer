@@ -17,3 +17,4 @@
 - Run `npm run screenshot:architecture` after changing the workflow diagram, runtime editor, overlay rendering, or screenshot script.
 - The command rebuilds the app and updates both `docs/architecture-workflow.png` and `docs/architecture-workflow-editor.png`.
 - The editor screenshot must show the `Runtime YAML` panel with both `architecture.yaml` and `architecture-overlays.yaml` loaded from the currently rendered model.
+- Update the README runtime architecture diagram when changing API endpoints, architecture store behavior, editor apply/lint/source flows, overlay snapshot updates, SSE revision events, or the way architecture/overlay data moves through the app.
