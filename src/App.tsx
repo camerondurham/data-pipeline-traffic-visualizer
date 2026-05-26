@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { parse } from "yaml";
 import { Dashboard, ErrorPanel } from "./Dashboard";
+import { ArchitectureEditor } from "./ArchitectureEditor";
 import { validateOverlayReferences } from "./overlays";
 import {
   formatValidationError,
@@ -9,85 +9,76 @@ import {
   type ArchitectureManifest,
   type ArchitectureOverlays
 } from "./zod";
+import type { RuntimeArchitecturePayload } from "./runtime/types";
 
-async function loadArchitectureManifest(): Promise<ArchitectureManifest> {
-  const response = await fetch(`/architecture.yaml?refresh=${Date.now()}`, {
-    headers: { Accept: "application/yaml,text/yaml,text/plain" }
+async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
+  const response = await fetch(`/api/architecture?refresh=${Date.now()}`, {
+    headers: { Accept: "application/json" }
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to load public/architecture.yaml: ${response.status}`);
+    throw new Error(`Failed to load runtime architecture: ${response.status}`);
   }
 
-  const text = await response.text();
-  const yaml = parse(text);
-  return validateArchitectureManifest(yaml);
-}
+  const payload = (await response.json()) as RuntimeArchitecturePayload;
+  const manifest = validateArchitectureManifest(payload.manifest);
+  const overlays = validateArchitectureOverlays(payload.overlays);
+  validateOverlayReferences(manifest, overlays);
 
-async function loadArchitectureOverlays(): Promise<ArchitectureOverlays> {
-  const response = await fetch(`/architecture-overlays.yaml?refresh=${Date.now()}`, {
-    headers: { Accept: "application/yaml,text/yaml,text/plain" }
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to load public/architecture-overlays.yaml: ${response.status}`);
-  }
-
-  const text = await response.text();
-  try {
-    const yaml = parse(text);
-    return validateArchitectureOverlays(yaml);
-  } catch (error) {
-    throw new Error(`public/architecture-overlays.yaml: ${formatValidationError(error)}`);
-  }
+  return {
+    ...payload,
+    manifest,
+    overlays
+  };
 }
 
 export default function App() {
-  const [manifest, setManifest] = useState<ArchitectureManifest>();
-  const [overlays, setOverlays] = useState<ArchitectureOverlays>();
+  const [runtimePayload, setRuntimePayload] = useState<RuntimeArchitecturePayload>();
+  const [preview, setPreview] = useState<{ manifest: ArchitectureManifest; overlays: ArchitectureOverlays }>();
   const [error, setError] = useState<string>();
 
   useEffect(() => {
     let cancelled = false;
 
-    loadArchitectureManifest()
-      .then(async (loadedManifest) => {
-        const loadedOverlays = await loadArchitectureOverlays();
-        try {
-          validateOverlayReferences(loadedManifest, loadedOverlays);
-        } catch (error) {
-          throw new Error(`public/architecture-overlays.yaml: ${formatValidationError(error)}`);
-        }
-        return { loadedManifest, loadedOverlays };
-      })
-      .then(({ loadedManifest, loadedOverlays }) => {
+    const refresh = () =>
+      loadRuntimeArchitecture()
+        .then((payload) => {
+          if (!cancelled) {
+            setRuntimePayload(payload);
+            setError(undefined);
+          }
+        })
+        .catch((loadError: unknown) => {
+          if (!cancelled) {
+            setError(formatValidationError(loadError));
+            setRuntimePayload(undefined);
+            setPreview(undefined);
+          }
+        });
+
+    void refresh();
+
+    let events: EventSource | undefined;
+    if (typeof EventSource !== "undefined") {
+      events = new EventSource("/api/architecture/events");
+      events.addEventListener("revision", () => {
         if (!cancelled) {
-          setManifest(loadedManifest);
-          setOverlays(loadedOverlays);
-          setError(undefined);
-        }
-      })
-      .catch((loadError: unknown) => {
-        if (!cancelled) {
-          setError(formatValidationError(loadError));
-          setManifest(undefined);
-          setOverlays(undefined);
+          void refresh();
         }
       });
+    }
 
     return () => {
       cancelled = true;
+      events?.close();
     };
   }, []);
 
   if (error) {
-    const title = error.includes("architecture-overlays")
-      ? "Unable to load architecture-overlays.yaml"
-      : "Unable to load architecture.yaml";
-    return <ErrorPanel title={title} message={error} />;
+    return <ErrorPanel title="Unable to load runtime architecture" message={error} />;
   }
 
-  if (!manifest || !overlays) {
+  if (!runtimePayload) {
     return (
       <main className="load-state">
         <h1>Loading architecture topology</h1>
@@ -95,5 +86,28 @@ export default function App() {
     );
   }
 
-  return <Dashboard manifest={manifest} overlays={overlays} />;
+  const manifest = preview?.manifest ?? runtimePayload.manifest;
+  const overlays = preview?.overlays ?? runtimePayload.overlays;
+
+  return (
+    <Dashboard
+      manifest={manifest}
+      overlays={overlays}
+      runtimeInfo={{ ...runtimePayload, previewActive: Boolean(preview) }}
+      toolbarSlot={
+        <ArchitectureEditor
+          enabled={runtimePayload.editorEnabled}
+          manifest={manifest}
+          overlays={overlays}
+          onPreview={setPreview}
+          onApplied={() => {
+            setPreview(undefined);
+            void loadRuntimeArchitecture()
+              .then(setRuntimePayload)
+              .catch((loadError: unknown) => setError(formatValidationError(loadError)));
+          }}
+        />
+      }
+    />
+  );
 }

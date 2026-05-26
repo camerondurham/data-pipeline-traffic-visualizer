@@ -16,11 +16,11 @@ import {
 } from "./zod";
 
 function loadSeedManifest(): ArchitectureManifest {
-  return validateArchitectureManifest(parse(readFileSync("public/architecture.yaml", "utf8")));
+  return validateArchitectureManifest(parse(readFileSync("data/sample/architecture.yaml", "utf8")));
 }
 
 function loadSeedOverlays(): ArchitectureOverlays {
-  return validateArchitectureOverlays(parse(readFileSync("public/architecture-overlays.yaml", "utf8")));
+  return validateArchitectureOverlays(parse(readFileSync("data/sample/architecture-overlays.yaml", "utf8")));
 }
 
 function overlayFixture(): ArchitectureOverlays {

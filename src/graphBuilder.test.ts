@@ -11,7 +11,7 @@ import {
 import { validateArchitectureManifest, type ArchitectureManifest } from "./zod";
 
 function loadSeedManifest(): ArchitectureManifest {
-  const yaml = readFileSync("public/architecture.yaml", "utf8");
+  const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
   return validateArchitectureManifest(parse(yaml));
 }
 

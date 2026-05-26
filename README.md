@@ -13,7 +13,7 @@ Preview the production build:
 
 ```sh
 npm run build
-npm run preview
+npm run start
 ```
 
 Verify:
@@ -23,7 +23,7 @@ npm test
 npm run build
 ```
 
-Update the README diagram screenshot:
+Update the README diagram screenshots:
 
 ```sh
 npx playwright install chromium # first time only
@@ -34,13 +34,17 @@ Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml
 
 ## Sample Workflow
 
-The screenshot below is generated from `public/architecture.yaml` and `public/architecture-overlays.yaml` by `npm run screenshot:architecture`.
+The screenshots below are generated from the committed sample files in `data/sample/` by `npm run screenshot:architecture`.
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
 
+The runtime editor opens the same architecture and overlay model that is currently rendered, so local edits can be linted and applied against the live dashboard.
+
+![Runtime architecture and overlay editor](docs/architecture-workflow-editor.png)
+
 ## Manifest Contract
 
-The topology source of truth is `public/architecture.yaml`.
+The topology source of truth is `architecture.yaml`. The default representative sample lives at `data/sample/architecture.yaml`; deployments can point `ARCHITECTURE_DATA_DIR` at another non-public directory containing `architecture.yaml` and `architecture-overlays.yaml`.
 
 Every node requires:
 
@@ -71,7 +75,7 @@ Stage `node_ids` must reference existing nodes. Layout metadata does not create 
 
 ## Overlay Contract
 
-Decorators live in `public/architecture-overlays.yaml`. They add real-world metrics and config to the rendered diagram without changing topology.
+Decorators live in `architecture-overlays.yaml`. The default representative sample lives at `data/sample/architecture-overlays.yaml`. Overlays add real-world metrics and config to the rendered diagram without changing topology.
 
 Overlay files can define:
 
@@ -130,3 +134,13 @@ route_decorators:
 3. Add edge IDs to focus views when a route should be highlighted.
 4. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
 5. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
+
+## Runtime API
+
+The browser loads parsed architecture data from `GET /api/architecture`; raw YAML files are not exposed from `public/`.
+
+- `GET /api/architecture`: returns `manifest`, current `overlays`, revisions, source, generated time, and status.
+- `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
+- `POST /api/overlays/snapshot`: full overlay replacement for runtime update jobs.
+
+Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes. Invalid snapshots are rejected and the previous active overlay remains visible.

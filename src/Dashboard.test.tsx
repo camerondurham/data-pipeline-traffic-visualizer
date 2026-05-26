@@ -7,8 +7,8 @@ import { Dashboard } from "./Dashboard";
 import { EMPTY_ARCHITECTURE_OVERLAYS, validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
 
 function renderSeedDashboard() {
-  const yaml = readFileSync("public/architecture.yaml", "utf8");
-  const overlaysYaml = readFileSync("public/architecture-overlays.yaml", "utf8");
+  const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
+  const overlaysYaml = readFileSync("data/sample/architecture-overlays.yaml", "utf8");
   const manifest = validateArchitectureManifest(parse(yaml));
   const overlays = validateArchitectureOverlays(parse(overlaysYaml));
   return render(<Dashboard manifest={manifest} overlays={overlays} />);
@@ -59,7 +59,7 @@ describe("Dashboard", () => {
   });
 
   it("renders with an explicitly empty overlay file", () => {
-    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
     const manifest = validateArchitectureManifest(parse(yaml));
 
     render(<Dashboard manifest={manifest} overlays={EMPTY_ARCHITECTURE_OVERLAYS} />);
@@ -71,7 +71,7 @@ describe("Dashboard", () => {
 
   it("renders selected views from manifest IDs instead of fixed canonical IDs", async () => {
     const user = userEvent.setup();
-    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
     const manifest = validateArchitectureManifest(parse(yaml));
     manifest.views = manifest.views.map((view) => ({ ...view, id: `custom_${view.id}` }));
 

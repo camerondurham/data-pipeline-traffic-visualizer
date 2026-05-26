@@ -1,53 +1,147 @@
 import "./test/setup";
 import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { parse } from "yaml";
 import App from "./App";
+import { validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
+import type { RuntimeArchitecturePayload } from "./runtime/types";
 
-function installFetchMock(body: string, status = 200) {
+class FakeEventSource {
+  static instance?: FakeEventSource;
+  readonly listeners = new Map<string, Array<() => void>>();
+
+  constructor(_url: string) {
+    FakeEventSource.instance = this;
+  }
+
+  addEventListener(type: string, listener: () => void) {
+    this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
+  }
+
+  emit(type: string) {
+    for (const listener of this.listeners.get(type) ?? []) {
+      listener();
+    }
+  }
+
+  close() {
+    this.listeners.clear();
+  }
+}
+
+function installFetchMock(body: unknown, status = 200) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(body, { status, headers: { "Content-Type": "text/yaml" } }))
+    vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }))
   );
 }
 
-function installFetchMockByPath(responses: Record<string, string>) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (input: RequestInfo | URL) => {
-      const url = String(input);
-      const path = url.split("?")[0].replace(/^\//, "");
-      const body = responses[path];
-      if (body === undefined) {
-        return new Response("not found", { status: 404 });
-      }
-      return new Response(body, { status: 200, headers: { "Content-Type": "text/yaml" } });
-    })
-  );
+function loadSeedPayload(): RuntimeArchitecturePayload {
+  return {
+    manifest: validateArchitectureManifest(parse(readFileSync("data/sample/architecture.yaml", "utf8"))),
+    overlays: validateArchitectureOverlays(parse(readFileSync("data/sample/architecture-overlays.yaml", "utf8"))),
+    architectureRevision: 1,
+    overlayRevision: 1,
+    overlayGeneratedAt: "2026-05-25T12:00:00.000Z",
+    overlaySource: "sample",
+    overlayStatus: { state: "sample" },
+    editorEnabled: false
+  };
 }
 
 describe("App", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    FakeEventSource.instance = undefined;
   });
 
-  it("renders a clear validation panel when YAML validation fails", async () => {
-    installFetchMock("nodes:\n  - id: only-id\nedges: []\nviews: []\n");
-
-    render(<App />);
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load architecture.yaml");
-    expect(screen.getByRole("alert")).toHaveTextContent("label");
-  });
-
-  it("renders a clear validation panel when overlay YAML validation fails", async () => {
-    installFetchMockByPath({
-      "architecture.yaml": readFileSync("public/architecture.yaml", "utf8"),
-      "architecture-overlays.yaml": "node_decorators:\n  - id: missing-node\n    node_id: missing\n"
+  it("renders a clear validation panel when runtime architecture validation fails", async () => {
+    installFetchMock({
+      manifest: { nodes: [{ id: "only-id" }], edges: [], views: [] },
+      overlays: {},
+      architectureRevision: 1,
+      overlayRevision: 1,
+      overlayGeneratedAt: new Date().toISOString(),
+      overlaySource: "test",
+      overlayStatus: { state: "file" },
+      editorEnabled: false
     });
 
     render(<App />);
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load architecture-overlays.yaml");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load runtime architecture");
+    expect(screen.getByRole("alert")).toHaveTextContent("label");
+  });
+
+  it("renders a clear validation panel when runtime overlay validation fails", async () => {
+    const manifest = loadSeedPayload().manifest;
+    installFetchMock({
+      manifest,
+      overlays: { node_decorators: [{ id: "missing-node", node_id: "missing" }] },
+      architectureRevision: 1,
+      overlayRevision: 1,
+      overlayGeneratedAt: new Date().toISOString(),
+      overlaySource: "test",
+      overlayStatus: { state: "file" },
+      editorEnabled: false
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load runtime architecture");
     expect(screen.getByRole("alert")).toHaveTextContent("missing node");
+  });
+
+  it("refetches and rerenders overlay updates after a runtime revision event", async () => {
+    let payload = loadSeedPayload();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(payload), { status: 200, headers: { "Content-Type": "application/json" } }))
+    );
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    render(<App />);
+
+    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
+
+    payload = {
+      ...payload,
+      overlayRevision: 2,
+      overlaySource: "test-updater",
+      overlayStatus: { state: "dynamic" },
+      overlays: {
+        node_decorators: [
+          {
+            id: "runtime-products-lag",
+            node_id: "use1.hot.cluster.products",
+            title: "Products lag",
+            metrics: [{ label: "lag", value: "13s" }],
+            badges: [],
+            notes: []
+          }
+        ],
+        edge_decorators: [],
+        route_decorators: []
+      }
+    };
+
+    FakeEventSource.instance?.emit("revision");
+
+    expect(await screen.findAllByText("13s lag")).not.toHaveLength(0);
+  });
+
+  it("seeds the runtime YAML editor from the currently rendered model", async () => {
+    const user = userEvent.setup();
+    const payload = { ...loadSeedPayload(), editorEnabled: true };
+    installFetchMock(payload);
+
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: /Runtime YAML/i }));
+
+    expect((screen.getByLabelText("architecture.yaml") as HTMLTextAreaElement).value).toContain("nodes:");
+    expect((screen.getByLabelText("architecture-overlays.yaml") as HTMLTextAreaElement).value).toContain("node_decorators:");
+    expect(screen.getByText("Loaded currently rendered model")).toBeInTheDocument();
   });
 });
