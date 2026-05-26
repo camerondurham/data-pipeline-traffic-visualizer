@@ -11,7 +11,7 @@ import {
   ReactFlow,
   ViewportPortal,
   getBezierPath,
-  useViewport,
+  useStore,
   type Edge,
   type EdgeProps,
   type Node,
@@ -203,10 +203,11 @@ function annotationDirection(routeOffset: number): number {
 
 function edgeAnnotationPosition(route: { labelX: number; labelY: number }, routeOffset: number, index: number, zoom: number) {
   const direction = annotationDirection(routeOffset);
-  const zoomSafeOffset = (EDGE_ANNOTATION_OFFSET + index * EDGE_ANNOTATION_STACK_GAP) / zoom;
+  const leaderHeight = EDGE_ANNOTATION_OFFSET + index * EDGE_ANNOTATION_STACK_GAP;
   return {
     x: route.labelX,
-    y: route.labelY + direction * zoomSafeOffset
+    y: route.labelY + direction * (leaderHeight / zoom),
+    leaderHeight
   };
 }
 
@@ -320,8 +321,57 @@ function edgeTooltip(edge: VisualEdge): string {
   ].join("\n");
 }
 
+function EdgeAnnotations({
+  annotations,
+  route,
+  routeOffset,
+  tone,
+  focusState,
+  tooltip
+}: {
+  annotations: EdgeAnnotation[];
+  route: { labelX: number; labelY: number };
+  routeOffset: number;
+  tone: string;
+  focusState?: TopologyEdgeData["focusState"];
+  tooltip: string;
+}) {
+  const zoom = useStore((state) => state.transform[2]);
+
+  return (
+    <>
+      {annotations.map((annotation, index) => {
+        const position = edgeAnnotationPosition(route, routeOffset, index, zoom);
+        return (
+          <div
+            key={annotation.id}
+            className={`edge-annotation edge-annotation-${annotation.kind} tone-${tone} ${annotation.warning ? "is-warning" : ""} is-selected ${focusState ? `is-${focusState}` : ""}`}
+            style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${1 / zoom})` }}
+            title={tooltip}
+            data-testid={`edge-annotation-${annotation.id}`}
+          >
+            <span className="edge-annotation-kind">{annotation.kind}</span>
+            <strong>{annotation.title}</strong>
+            {annotation.chips.length ? (
+              <span className="edge-annotation-chips">
+                {annotation.chips.map((chip) => (
+                  <b key={chip}>{chip}</b>
+                ))}
+              </span>
+            ) : null}
+            <span
+              className={`edge-annotation-leader ${position.y < route.labelY ? "is-above-edge" : "is-below-edge"}`}
+              style={{ "--leader-height": `${position.leaderHeight}px` } as CSSProperties}
+              aria-hidden="true"
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
-  const { zoom } = useViewport();
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
   const resolvedOverlay = props.data?.resolvedOverlay;
@@ -343,7 +393,6 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   }
 
   const label = edge.label ?? edge.type;
-  const annotations = props.selected ? buildEdgeAnnotations(resolvedOverlay) : [];
   const tone = edgeTone(edge, overlay);
 
   return (
@@ -365,33 +414,16 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
         >
           <span>{label}</span>
         </div>
-        {annotations.map((annotation, index) => {
-          const position = edgeAnnotationPosition(route, routeOffset, index, zoom);
-          return (
-            <div
-              key={annotation.id}
-              className={`edge-annotation edge-annotation-${annotation.kind} tone-${tone} ${annotation.warning ? "is-warning" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
-              style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${1 / zoom})` }}
-              title={resolvedOverlay?.tooltip ?? edgeTooltip(edge)}
-              data-testid={`edge-annotation-${annotation.id}`}
-            >
-              <span className="edge-annotation-kind">{annotation.kind}</span>
-              <strong>{annotation.title}</strong>
-              {annotation.chips.length ? (
-                <span className="edge-annotation-chips">
-                  {annotation.chips.map((chip) => (
-                    <b key={chip}>{chip}</b>
-                  ))}
-                </span>
-              ) : null}
-              <span
-                className={`edge-annotation-leader ${position.y < route.labelY ? "is-above-edge" : "is-below-edge"}`}
-                style={{ "--leader-height": `${Math.abs(route.labelY - position.y)}px` } as CSSProperties}
-                aria-hidden="true"
-              />
-            </div>
-          );
-        })}
+        {props.selected ? (
+          <EdgeAnnotations
+            annotations={buildEdgeAnnotations(resolvedOverlay)}
+            route={route}
+            routeOffset={routeOffset}
+            tone={tone}
+            focusState={focusState}
+            tooltip={resolvedOverlay?.tooltip ?? edgeTooltip(edge)}
+          />
+        ) : null}
       </EdgeLabelRenderer>
     </>
   );
