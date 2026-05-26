@@ -6,13 +6,15 @@ import { chromium } from "playwright";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const screenshotPath = resolve(repoRoot, "docs", "architecture-workflow.png");
+const editorScreenshotPath = resolve(repoRoot, "docs", "architecture-workflow-editor.png");
 const port = process.env.SCREENSHOT_PORT ?? "4174";
 const url = `http://127.0.0.1:${port}/`;
-const viteBin = resolve(repoRoot, "node_modules", "vite", "bin", "vite.js");
+const serverBin = resolve(repoRoot, "dist-server", "startServer.js");
 
 function startPreview() {
-  const child = spawn(process.execPath, [viteBin, "preview", "--host", "127.0.0.1", "--port", port, "--strictPort"], {
+  const child = spawn(process.execPath, [serverBin], {
     cwd: repoRoot,
+    env: { ...process.env, HOST: "127.0.0.1", PORT: port },
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -48,12 +50,20 @@ async function main() {
     browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: 4600, height: 1300 }, deviceScaleFactor: 1 });
 
-    await page.goto(url, { waitUntil: "networkidle" });
+    await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.getByTestId("flow-diagram").waitFor();
     await page.locator('[data-id="edge.use1.aggregate.to.hot.router"]').waitFor();
     await page.locator(".flow-panel").first().screenshot({ path: screenshotPath });
+    await page.getByRole("button", { name: /Runtime YAML/i }).click();
+    await page.getByLabel("architecture.yaml").waitFor();
+    await page.waitForFunction(() => {
+      const editor = document.querySelector('textarea[aria-label="architecture.yaml"]');
+      return editor instanceof HTMLTextAreaElement && editor.value.includes("nodes:");
+    });
+    await page.locator(".app-shell").screenshot({ path: editorScreenshotPath });
 
     console.log(`Captured ${screenshotPath}`);
+    console.log(`Captured ${editorScreenshotPath}`);
   } finally {
     await browser?.close();
     preview.kill();
