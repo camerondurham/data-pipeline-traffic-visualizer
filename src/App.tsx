@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
+import { parse } from "yaml";
 import { Dashboard, ErrorPanel } from "./Dashboard";
 import { ArchitectureEditor } from "./ArchitectureEditor";
+import architectureYaml from "../data/sample/architecture.yaml?raw";
+import overlaysYaml from "../data/sample/architecture-overlays.yaml?raw";
 import { validateOverlayReferences } from "./overlays";
 import {
   formatValidationError,
@@ -11,7 +14,32 @@ import {
 } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
 
+function isStaticDemo(): boolean {
+  return import.meta.env.VITE_STATIC_DEMO === "1";
+}
+
+async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
+  const manifest = validateArchitectureManifest(parse(architectureYaml));
+  const overlays = validateArchitectureOverlays(parse(overlaysYaml));
+  validateOverlayReferences(manifest, overlays);
+
+  return {
+    manifest,
+    overlays,
+    architectureRevision: 1,
+    overlayRevision: 1,
+    overlayGeneratedAt: new Date(0).toISOString(),
+    overlaySource: "sample static demo",
+    overlayStatus: { state: "sample" },
+    editorEnabled: false
+  };
+}
+
 async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
+  if (isStaticDemo()) {
+    return loadStaticArchitecture();
+  }
+
   const response = await fetch(`/api/architecture?refresh=${Date.now()}`, {
     headers: { Accept: "application/json" }
   });
@@ -59,7 +87,7 @@ export default function App() {
     void refresh();
 
     let events: EventSource | undefined;
-    if (typeof EventSource !== "undefined") {
+    if (!isStaticDemo() && typeof EventSource !== "undefined") {
       events = new EventSource("/api/architecture/events");
       events.addEventListener("revision", () => {
         if (!cancelled) {
@@ -95,18 +123,20 @@ export default function App() {
       overlays={overlays}
       runtimeInfo={{ ...runtimePayload, previewActive: Boolean(preview) }}
       toolbarSlot={
-        <ArchitectureEditor
-          enabled={runtimePayload.editorEnabled}
-          manifest={manifest}
-          overlays={overlays}
-          onPreview={setPreview}
-          onApplied={() => {
-            setPreview(undefined);
-            void loadRuntimeArchitecture()
-              .then(setRuntimePayload)
-              .catch((loadError: unknown) => setError(formatValidationError(loadError)));
-          }}
-        />
+        isStaticDemo() ? null : (
+          <ArchitectureEditor
+            enabled={runtimePayload.editorEnabled}
+            manifest={manifest}
+            overlays={overlays}
+            onPreview={setPreview}
+            onApplied={() => {
+              setPreview(undefined);
+              void loadRuntimeArchitecture()
+                .then(setRuntimePayload)
+                .catch((loadError: unknown) => setError(formatValidationError(loadError)));
+            }}
+          />
+        )
       }
     />
   );

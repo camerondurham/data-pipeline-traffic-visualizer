@@ -3,6 +3,7 @@ import { createArchitectureStore } from "./src/server/architectureStore";
 import { createArchitectureApiMiddleware } from "./src/server/apiMiddleware";
 
 export default defineConfig({
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [
     {
       name: "architecture-runtime-api",
