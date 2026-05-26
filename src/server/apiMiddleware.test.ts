@@ -131,6 +131,41 @@ function requestJson(
   });
 }
 
+function requestRawJson(baseUrl: string, path: string, body: string): Promise<{ status: number; text: string; json: unknown }> {
+  return new Promise((resolveRequest, rejectRequest) => {
+    const request = httpRequest(
+      new URL(path, baseUrl),
+      {
+        method: "POST",
+        agent: false,
+        headers: {
+          Connection: "close",
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(body).toString()
+        }
+      },
+      (response) => {
+        response.setEncoding("utf8");
+        let text = "";
+        response.on("data", (chunk: string) => {
+          text += chunk;
+        });
+        response.on("end", () => {
+          resolveRequest({
+            status: response.statusCode ?? 0,
+            text,
+            json: text ? JSON.parse(text) : undefined
+          });
+        });
+      }
+    );
+    request.on("socket", (socket) => socket.unref());
+    request.on("error", rejectRequest);
+    request.write(body);
+    request.end();
+  });
+}
+
 function waitForSsePattern(url: string, pattern: string): Promise<string> {
   return new Promise((resolve, reject) => {
     let text = "";
@@ -193,6 +228,18 @@ describe("architecture runtime API", () => {
       const response = await requestJson(api.baseUrl, "/api/architecture/source");
       expect(response.status).toBe(200);
       expect((response.json as { architectureYaml: string }).architectureYaml).toContain("nodes:");
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("returns 400 for malformed JSON request bodies", async () => {
+    const api = await startApi();
+    try {
+      const response = await requestRawJson(api.baseUrl, "/api/architecture/lint", "{not-json");
+
+      expect(response.status).toBe(400);
+      expect(response.json).toEqual({ error: "Malformed JSON request body" });
     } finally {
       await api.close();
     }

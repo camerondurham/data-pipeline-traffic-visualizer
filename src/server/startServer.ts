@@ -17,6 +17,18 @@ const contentTypes: Record<string, string> = {
   ".txt": "text/plain; charset=utf-8"
 };
 
+function sendText(response: ServerResponse, status: number, message: string): void {
+  if (response.headersSent) {
+    response.destroy();
+    return;
+  }
+  response.writeHead(status, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Cache-Control": "no-store"
+  });
+  response.end(message);
+}
+
 function safeStaticPath(pathname: string): string {
   const decoded = decodeURIComponent(pathname.split("?")[0] ?? "/");
   const normalizedPath = normalize(decoded).replace(/^(\.\.[/\\])+/, "");
@@ -55,7 +67,13 @@ const apiMiddleware = createArchitectureApiMiddleware(store);
 
 const server = createServer((request, response) => {
   void apiMiddleware(request, response, () => {
-    void serveStatic(request.url ?? "/", response);
+    void serveStatic(request.url ?? "/", response).catch((error: unknown) => {
+      sendText(
+        response,
+        error instanceof URIError ? 400 : 500,
+        error instanceof URIError ? "Malformed request path" : "Unable to serve request"
+      );
+    });
   });
 });
 

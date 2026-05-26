@@ -5,6 +5,13 @@ type NextFunction = () => void;
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
+class BadRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BadRequestError";
+  }
+}
+
 function sendJson(response: ServerResponse, status: number, body: unknown): void {
   response.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
@@ -39,7 +46,11 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   if (!body.trim()) {
     return {};
   }
-  return JSON.parse(body);
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new BadRequestError("Malformed JSON request body");
+  }
 }
 
 function sendSseEvent(response: ServerResponse, eventName: string, data: unknown): void {
@@ -137,6 +148,10 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
 
       next?.();
     } catch (error) {
+      if (error instanceof BadRequestError) {
+        sendJson(response, 400, { error: error.message });
+        return;
+      }
       sendJson(response, 500, { error: error instanceof Error ? error.message : "Unknown architecture runtime error" });
     }
   };
