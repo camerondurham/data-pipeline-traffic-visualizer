@@ -36,9 +36,9 @@ Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml
 
 The GitHub Pages demo is a view-only static build from the sample YAML in `data/sample/`. It does not expose the runtime API or Runtime YAML editor.
 
-To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions**, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/data-pipeline-traffic-visualizer/`, then deploys `dist/`.
+To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
-Use the Pages deployment URL from the workflow summary as the team demo link. If the site moves to a custom domain, change `VITE_BASE_PATH` in `.github/workflows/deploy-pages.yml` to `/`.
+Use the Pages deployment URL from the workflow summary as the team demo link.
 
 ## Sample Workflow
 
