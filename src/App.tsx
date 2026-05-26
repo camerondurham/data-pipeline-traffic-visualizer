@@ -14,24 +14,55 @@ import {
 } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
 
+const STATIC_ARCHITECTURE_STORAGE_KEY = "architecture-demo:architectureYaml";
+const STATIC_OVERLAYS_STORAGE_KEY = "architecture-demo:overlaysYaml";
+
 function isStaticDemo(): boolean {
   return import.meta.env.VITE_STATIC_DEMO === "1";
 }
 
+function readStaticSource() {
+  if (typeof localStorage === "undefined") {
+    return {
+      architectureYaml,
+      overlaysYaml
+    };
+  }
+
+  return {
+    architectureYaml: localStorage.getItem(STATIC_ARCHITECTURE_STORAGE_KEY) ?? architectureYaml,
+    overlaysYaml: localStorage.getItem(STATIC_OVERLAYS_STORAGE_KEY) ?? overlaysYaml
+  };
+}
+
+function writeStaticSource(source: { architectureYaml: string; overlaysYaml: string }): void {
+  localStorage.setItem(STATIC_ARCHITECTURE_STORAGE_KEY, source.architectureYaml);
+  localStorage.setItem(STATIC_OVERLAYS_STORAGE_KEY, source.overlaysYaml);
+}
+
+function resetStaticSource(): void {
+  localStorage.removeItem(STATIC_ARCHITECTURE_STORAGE_KEY);
+  localStorage.removeItem(STATIC_OVERLAYS_STORAGE_KEY);
+}
+
 async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
-  const manifest = validateArchitectureManifest(parse(architectureYaml));
-  const overlays = validateArchitectureOverlays(parse(overlaysYaml));
+  const source = readStaticSource();
+  const manifest = validateArchitectureManifest(parse(source.architectureYaml));
+  const overlays = validateArchitectureOverlays(parse(source.overlaysYaml));
   validateOverlayReferences(manifest, overlays);
+  const usingDraft =
+    source.architectureYaml !== architectureYaml ||
+    source.overlaysYaml !== overlaysYaml;
 
   return {
     manifest,
     overlays,
     architectureRevision: 1,
-    overlayRevision: 1,
+    overlayRevision: usingDraft ? 2 : 1,
     overlayGeneratedAt: new Date(0).toISOString(),
-    overlaySource: "sample static demo",
-    overlayStatus: { state: "sample" },
-    editorEnabled: false
+    overlaySource: usingDraft ? "browser draft" : "sample static demo",
+    overlayStatus: { state: usingDraft ? "dynamic" : "sample" },
+    editorEnabled: true
   };
 }
 
@@ -123,20 +154,22 @@ export default function App() {
       overlays={overlays}
       runtimeInfo={{ ...runtimePayload, previewActive: Boolean(preview) }}
       toolbarSlot={
-        isStaticDemo() ? null : (
-          <ArchitectureEditor
-            enabled={runtimePayload.editorEnabled}
-            manifest={manifest}
-            overlays={overlays}
-            onPreview={setPreview}
-            onApplied={() => {
-              setPreview(undefined);
-              void loadRuntimeArchitecture()
-                .then(setRuntimePayload)
-                .catch((loadError: unknown) => setError(formatValidationError(loadError)));
-            }}
-          />
-        )
+        <ArchitectureEditor
+          enabled={runtimePayload.editorEnabled}
+          backend={isStaticDemo() ? "browser" : "server"}
+          manifest={manifest}
+          overlays={overlays}
+          source={isStaticDemo() ? readStaticSource() : undefined}
+          onPreview={setPreview}
+          onBrowserApply={(source) => writeStaticSource(source)}
+          onBrowserReset={resetStaticSource}
+          onApplied={() => {
+            setPreview(undefined);
+            void loadRuntimeArchitecture()
+              .then(setRuntimePayload)
+              .catch((loadError: unknown) => setError(formatValidationError(loadError)));
+          }}
+        />
       }
     />
   );

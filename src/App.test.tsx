@@ -1,6 +1,6 @@
 import "./test/setup";
 import { readFileSync } from "node:fs";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import App from "./App";
@@ -52,6 +52,7 @@ function loadSeedPayload(): RuntimeArchitecturePayload {
 
 describe("App", () => {
   afterEach(() => {
+    localStorage.clear();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     FakeEventSource.instance = undefined;
@@ -132,7 +133,8 @@ describe("App", () => {
     expect(await screen.findAllByText("13s lag")).not.toHaveLength(0);
   });
 
-  it("renders the bundled sample without runtime API calls in static demo mode", async () => {
+  it("lets static demo users edit and reset the bundled sample without runtime API calls", async () => {
+    const user = userEvent.setup();
     const fetchMock = vi.fn();
     vi.stubEnv("VITE_STATIC_DEMO", "1");
     vi.stubGlobal("fetch", fetchMock);
@@ -143,7 +145,25 @@ describe("App", () => {
     expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(FakeEventSource.instance).toBeUndefined();
-    expect(screen.queryByRole("button", { name: /Runtime YAML/i })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Runtime YAML/i }));
+    const overlaysEditor = screen.getByLabelText("architecture-overlays.yaml") as HTMLTextAreaElement;
+    fireEvent.change(overlaysEditor, {
+      target: { value: overlaysEditor.value.replace("value: 12", "value: 99") }
+    });
+
+    await user.click(screen.getByRole("button", { name: /^Lint$/i }));
+    expect(await screen.findByText("99 shards")).toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^Apply$/i })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: /^Apply$/i }));
+
+    expect(localStorage.getItem("architecture-demo:overlaysYaml")).toContain("value: 99");
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: /^Reset$/i }));
+    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
+    expect(localStorage.getItem("architecture-demo:overlaysYaml")).toBeNull();
   });
 
   it("seeds the runtime YAML editor from the currently rendered model", async () => {

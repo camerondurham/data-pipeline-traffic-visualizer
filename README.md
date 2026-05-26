@@ -34,7 +34,7 @@ Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml
 
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a view-only static build from the sample YAML in `data/sample/`. It does not expose the runtime API or Runtime YAML editor.
+The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
