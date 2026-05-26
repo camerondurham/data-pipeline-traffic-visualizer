@@ -241,12 +241,16 @@ describe("Dashboard", () => {
 
     await user.selectOptions(screen.getByLabelText("View"), "regional_usw2");
     expect(screen.getByRole("heading", { name: "usw2 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-usw2_aggregate_stream")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-usw2_partner_clusters")).toBeInTheDocument();
     expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
 
     await user.selectOptions(screen.getByLabelText("View"), "regional_euw1");
     expect(screen.getByRole("heading", { name: "euw1 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-euw1_aggregate_stream")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-euw1_partner_clusters")).toBeInTheDocument();
     expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("EUW1 Partner Cluster A").length).toBeGreaterThan(0);
