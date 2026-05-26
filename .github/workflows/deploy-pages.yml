@@ -41,7 +41,7 @@ jobs:
         run: npm run build
         env:
           VITE_STATIC_DEMO: "1"
-          VITE_BASE_PATH: /data-pipeline-traffic-visualizer/
+          VITE_BASE_PATH: /
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
