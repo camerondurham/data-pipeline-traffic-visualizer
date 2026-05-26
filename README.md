@@ -1,46 +1,81 @@
 # data-pipeline-traffic-visualizer
 
-V0 Architecture Topology Explorer for an explicit YAML graph manifest.
+Proof-of-concept topology dashboard for operating broad, multi-account service areas.
 
-## Run
+## What
 
-```sh
-npm install
-npm run dev
+This project explores a dashboard model where a team can define its own architecture graph and overlay live or near-live operational context on top of each service, route, queue, stream, cluster, or dependency.
+
+The core idea is deliberately simple:
+
+- `architecture.yaml` defines the relatively stable system map.
+- `architecture-overlays.yaml` defines current scaling, traffic rates between systems, throttle configuration, deployment state, queue or stream health, shard counts, and other runtime context.
+- The runtime dashboard renders both as a single view so teams can see each moving part in relation to the rest of the service.
+
+## Why
+
+Large service areas create operator cognitive overhead. This project reduces that overhead by mapping topology and relevant configuration into a visual model: account boundaries, services, streams, processors, routes, throttles, deployment state, recent changes, and where each fact sits in the broader service.
+
+CloudWatch and Grafana already solve broad observability problems. CloudWatch supports cross-account observability for AWS telemetry, dashboards can span accounts and Regions, Grafana can visualize metrics, logs, traces, and other data from many backends, and CloudWatch investigations can scan telemetry to surface related metrics, logs, deployment events, and root-cause hypotheses.
+
+This project is complementary: it focuses on team-specific architecture topology and dependency knowledge across accounts, repositories, deployment systems, queues, streams, services, and operational conventions. The goal is to move that map out of senior engineers' heads, keep it explicit, and make the system easier to inspect, update, and reason about during operations.
+
+## Philosophy
+
+- Model the architecture first; telemetry should decorate the map, not define it.
+- Keep topology and volatile metrics separate so slow-moving structure stays reviewable.
+- Prefer an accurate cross-system view over a perfect integration with any single vendor.
+- Make the dashboard easy to update from jobs, scripts, or account-specific collectors.
+- Preserve enough context that an engineer can understand what changed and where it sits in the larger service area.
+
+## Runtime Architecture
+
+At a high level, this is a YAML-backed dashboard with a light runtime API. The architecture and overlays start from disk, the browser reads a validated runtime payload, the editor can lint and apply a draft, and update jobs can push fresh overlay snapshots without changing the topology.
+
+```mermaid
+sequenceDiagram
+  participant Files as architecture.yaml and architecture-overlays.yaml
+  participant Store as ArchitectureStore
+  participant API as Runtime API
+  participant Browser as Dashboard and Runtime YAML editor
+  participant Updater as Overlay updater job
+
+  Files->>Store: load on startup and optional file watch
+  Store->>Store: validate topology, overlays, and references
+  Browser->>API: GET /api/architecture
+  API->>Store: read current payload
+  Store-->>Browser: manifest, overlays, revisions, status
+  Browser->>API: GET /api/architecture/events
+  Store-->>Browser: revision event after accepted changes
+  Browser->>API: GET /api/architecture/source
+  Browser->>API: POST /api/architecture/lint
+  Browser->>API: POST /api/architecture/draft
+  API->>Store: apply validated architecture and overlays draft
+  Updater->>API: POST /api/overlays/snapshot
+  API->>Store: replace overlays only after validation
 ```
 
-Preview the production build:
+## GitHub Pages Demo
 
-```sh
-npm run build
-npm run preview
-```
+The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
 
-Verify:
+To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
-```sh
-npm test
-npm run build
-```
-
-Update the README diagram screenshot:
-
-```sh
-npx playwright install chromium # first time only
-npm run screenshot:architecture
-```
-
-Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml`, which runs `npm ci`, `npm test`, and `npm run build`.
+Use the Pages deployment URL from the workflow summary as the team demo link.
 
 ## Sample Workflow
 
-The screenshot below is generated from `public/architecture.yaml` and `public/architecture-overlays.yaml` by `npm run screenshot:architecture`.
+The screenshots below are generated from the committed sample files in `data/sample/` by `npm run screenshot:architecture`.
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
 
+The runtime editor opens the same architecture and overlay model that is currently rendered, so local edits can be linted and applied against the live dashboard.
+
+![Runtime architecture and overlay editor](docs/architecture-workflow-editor.png)
+
 ## Manifest Contract
 
-The topology source of truth is `public/architecture.yaml`.
+The topology source of truth is `architecture.yaml`. The default representative sample lives at `data/sample/architecture.yaml`; deployments can point `ARCHITECTURE_DATA_DIR` at another non-public directory containing `architecture.yaml` and `architecture-overlays.yaml`.
 
 Every node requires:
 
@@ -71,7 +106,7 @@ Stage `node_ids` must reference existing nodes. Layout metadata does not create 
 
 ## Overlay Contract
 
-Decorators live in `public/architecture-overlays.yaml`. They add real-world metrics and config to the rendered diagram without changing topology.
+Decorators live in `architecture-overlays.yaml`. The default representative sample lives at `data/sample/architecture-overlays.yaml`. Overlays add real-world metrics and config to the rendered diagram without changing topology.
 
 Overlay files can define:
 
@@ -130,3 +165,13 @@ route_decorators:
 3. Add edge IDs to focus views when a route should be highlighted.
 4. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
 5. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
+
+## Runtime API
+
+The browser loads parsed architecture data from `GET /api/architecture`; raw YAML files are not exposed from `public/`.
+
+- `GET /api/architecture`: returns `manifest`, current `overlays`, revisions, source, generated time, and status.
+- `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
+- `POST /api/overlays/snapshot`: full overlay replacement for runtime update jobs.
+
+Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes. Invalid snapshots are rejected and the previous active overlay remains visible.

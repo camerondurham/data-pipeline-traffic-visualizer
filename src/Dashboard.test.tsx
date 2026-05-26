@@ -7,8 +7,8 @@ import { Dashboard } from "./Dashboard";
 import { EMPTY_ARCHITECTURE_OVERLAYS, validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
 
 function renderSeedDashboard() {
-  const yaml = readFileSync("public/architecture.yaml", "utf8");
-  const overlaysYaml = readFileSync("public/architecture-overlays.yaml", "utf8");
+  const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
+  const overlaysYaml = readFileSync("data/sample/architecture-overlays.yaml", "utf8");
   const manifest = validateArchitectureManifest(parse(yaml));
   const overlays = validateArchitectureOverlays(parse(overlaysYaml));
   return render(<Dashboard manifest={manifest} overlays={overlays} />);
@@ -59,7 +59,7 @@ describe("Dashboard", () => {
   });
 
   it("renders with an explicitly empty overlay file", () => {
-    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
     const manifest = validateArchitectureManifest(parse(yaml));
 
     render(<Dashboard manifest={manifest} overlays={EMPTY_ARCHITECTURE_OVERLAYS} />);
@@ -71,7 +71,7 @@ describe("Dashboard", () => {
 
   it("renders selected views from manifest IDs instead of fixed canonical IDs", async () => {
     const user = userEvent.setup();
-    const yaml = readFileSync("public/architecture.yaml", "utf8");
+    const yaml = readFileSync("data/sample/architecture.yaml", "utf8");
     const manifest = validateArchitectureManifest(parse(yaml));
     manifest.views = manifest.views.map((view) => ({ ...view, id: `custom_${view.id}` }));
 
@@ -249,6 +249,27 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-id="edge.use1.hot.router.to.euw1.partner.stream"]')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.processing.to.usw2.aggregate"]')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.partner.slow_processor.to.usw2.partner.stream"] .tone-secondary')).toBeInTheDocument();
+  });
+
+  it("switches to regional topology views for each modeled region", async () => {
+    const user = userEvent.setup();
+    renderSeedDashboard();
+
+    await user.selectOptions(screen.getByLabelText("View"), "regional_usw2");
+    expect(screen.getByRole("heading", { name: "usw2 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-usw2_aggregate_stream")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-usw2_partner_clusters")).toBeInTheDocument();
+    expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
+
+    await user.selectOptions(screen.getByLabelText("View"), "regional_euw1");
+    expect(screen.getByRole("heading", { name: "euw1 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-euw1_aggregate_stream")).toBeInTheDocument();
+    expect(screen.getByTestId("flow-stage-euw1_partner_clusters")).toBeInTheDocument();
+    expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Cluster A").length).toBeGreaterThan(0);
   });
 
   it("selects a cross-region route and preserves derived edge metadata", async () => {

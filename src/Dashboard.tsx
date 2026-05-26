@@ -48,10 +48,19 @@ import type {
   RegionView as RegionViewManifest
 } from "./zod";
 import { EMPTY_ARCHITECTURE_OVERLAYS as EMPTY_OVERLAYS } from "./zod";
+import type { OverlayRuntimeStatus } from "./runtime/types";
 
 interface DashboardProps {
   manifest: ArchitectureManifest;
   overlays?: ArchitectureOverlays;
+  runtimeInfo?: {
+    overlayRevision: number;
+    overlayGeneratedAt: string;
+    overlaySource: string;
+    overlayStatus: OverlayRuntimeStatus;
+    previewActive?: boolean;
+  };
+  toolbarSlot?: ReactNode;
 }
 
 const STAGE_WIDTH = 166;
@@ -1175,7 +1184,15 @@ function ViewBody({
   return <FocusView view={activeView} model={model} overlayModel={overlayModel} onToggle={onToggle} />;
 }
 
-export function Dashboard({ manifest, overlays = EMPTY_OVERLAYS }: DashboardProps) {
+function formatOverlayTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
+}
+
+export function Dashboard({ manifest, overlays = EMPTY_OVERLAYS, runtimeInfo, toolbarSlot }: DashboardProps) {
   const [activeViewId, setActiveViewId] = useState(manifest.views[0]?.id ?? "");
   const [collapsedOverrides, setCollapsedOverrides] = useState<Record<string, boolean>>({});
 
@@ -1209,18 +1226,29 @@ export function Dashboard({ manifest, overlays = EMPTY_OVERLAYS }: DashboardProp
         <div>
           <span className="eyebrow">Topology Manifest</span>
           <h1 data-testid="dashboard-title">Architecture Topology Explorer</h1>
-          <p>Loaded from public/architecture.yaml plus public/architecture-overlays.yaml decorators.</p>
+          <p>Loaded from the runtime architecture API with validated overlay decorators.</p>
         </div>
-        <label className="view-picker">
-          <span>View</span>
-          <select value={activeView.id} onChange={(event) => setActiveViewId(event.target.value)}>
-            {manifest.views.map((view) => (
-              <option key={view.id} value={view.id}>
-                {view.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="topbar-actions">
+          {runtimeInfo ? (
+            <div className={`overlay-status status-${runtimeInfo.overlayStatus.state}`} aria-label="Overlay runtime status">
+              <span>Overlay r{runtimeInfo.overlayRevision}</span>
+              <b>{runtimeInfo.previewActive ? "preview" : runtimeInfo.overlayStatus.state}</b>
+              <small>{runtimeInfo.overlaySource}</small>
+              <small>{formatOverlayTime(runtimeInfo.overlayGeneratedAt)}</small>
+            </div>
+          ) : null}
+          <label className="view-picker">
+            <span>View</span>
+            <select value={activeView.id} onChange={(event) => setActiveViewId(event.target.value)}>
+              {manifest.views.map((view) => (
+                <option key={view.id} value={view.id}>
+                  {view.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {toolbarSlot}
+        </div>
       </header>
 
       <ViewBody
