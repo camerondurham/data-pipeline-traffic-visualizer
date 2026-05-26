@@ -52,6 +52,7 @@ function loadSeedPayload(): RuntimeArchitecturePayload {
 
 describe("App", () => {
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     FakeEventSource.instance = undefined;
   });
@@ -129,6 +130,20 @@ describe("App", () => {
     FakeEventSource.instance?.emit("revision");
 
     expect(await screen.findAllByText("13s lag")).not.toHaveLength(0);
+  });
+
+  it("renders the bundled sample without runtime API calls in static demo mode", async () => {
+    const fetchMock = vi.fn();
+    vi.stubEnv("VITE_STATIC_DEMO", "1");
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    render(<App />);
+
+    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(FakeEventSource.instance).toBeUndefined();
+    expect(screen.queryByRole("button", { name: /Runtime YAML/i })).not.toBeInTheDocument();
   });
 
   it("seeds the runtime YAML editor from the currently rendered model", async () => {
