@@ -121,7 +121,7 @@ describe("Dashboard", () => {
     expect(within(detailPanel).getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
   });
 
-  it("shows separated edge and route decorator annotations only on selected edges", async () => {
+  it("shows edge and route decorator annotations in the selected edge detail panel", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
     const edge = await waitFor(() => {
@@ -135,8 +135,8 @@ describe("Dashboard", () => {
     expect(edgeLabels.some((label) => label.textContent?.includes("throttle 500/s"))).toBe(false);
     expect(edgeLabels.some((label) => label.textContent?.includes("schema partner-v3"))).toBe(false);
 
-    expect(container.querySelector('[data-testid="edge-annotation-partner-feed-throttle"]')).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[data-testid="edge-annotation-partner-source-downstream-throttle"]')).toHaveLength(0);
+    expect(container.querySelector('[data-testid="selected-edge-annotation-partner-feed-throttle"]')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-testid="selected-edge-annotation-partner-source-downstream-throttle"]')).toHaveLength(0);
     expect(screen.queryByText("Partner feed throttle")).not.toBeInTheDocument();
     expect(screen.queryByText("Partner webhook throttle path")).not.toBeInTheDocument();
     expect(screen.queryByText("throttle 500/s")).not.toBeInTheDocument();
@@ -145,18 +145,19 @@ describe("Dashboard", () => {
 
     await user.click(edge as Element);
 
-    expect(container.querySelector('[data-testid="edge-annotation-partner-feed-throttle"]')).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-testid="edge-annotation-partner-source-downstream-throttle"]').length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Partner feed throttle").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Partner webhook throttle path").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("throttle 500/s").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("schema partner-v3").length).toBeGreaterThan(0);
-
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
     expect(within(detailPanel).getByText("overlayDecorators")).toBeInTheDocument();
     expect(within(detailPanel).getByText("partner-feed-throttle")).toBeInTheDocument();
     expect(within(detailPanel).getByText("routeDecorators")).toBeInTheDocument();
     expect(within(detailPanel).getByText("partner-source-downstream-throttle")).toBeInTheDocument();
+
+    expect(within(detailPanel).getByTestId("selected-edge-annotation-partner-feed-throttle")).toBeInTheDocument();
+    expect(within(detailPanel).getAllByTestId("selected-edge-annotation-partner-source-downstream-throttle").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("Partner feed throttle").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("Partner webhook throttle path").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("throttle 500/s").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("schema partner-v3").length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-testid^="edge-annotation-"]')).not.toBeInTheDocument();
   });
 
   it("collapses expanded source, ingestion, and processing groups into readable rollups", async () => {
