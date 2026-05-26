@@ -40,7 +40,7 @@ flowchart LR
   api --> app["src/App.tsx"]
   app --> dashboard["src/Dashboard.tsx"]
   app --> editor["src/ArchitectureEditor.tsx"]
-  dashboard --> graph["src/graphBuilder.ts + src/overlays.ts"]
+  dashboard --> graphing["src/graphBuilder.ts + src/overlays.ts"]
   editor --> validation
   scripts["scripts/capture-architecture-screenshot.mjs"] --> docs["docs/architecture-workflow*.png"]
   ci[".github/workflows/*.yml"] --> tests["npm test + npm run build"]
