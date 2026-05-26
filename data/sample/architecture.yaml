@@ -851,6 +851,68 @@ views:
     label: Cross-Region Detail
     mode: cross_region
     group_by: destination_region
+  - id: regional_usw2
+    label: USW2 Regional Topology
+    mode: region
+    region: usw2
+    lanes:
+      - id: normal
+        label: Aggregate
+      - id: partner
+        label: Partner routes
+    stages:
+      - id: usw2_aggregate_stream
+        label: Aggregate stream
+        lane: normal
+        node_ids:
+          - usw2.aggregate.stream
+      - id: usw2_partner_stream
+        label: Partner stream
+        lane: partner
+        node_ids:
+          - usw2.partner.stream.example
+      - id: usw2_partner_indexer
+        label: Partner indexer/app
+        lane: partner
+        node_ids:
+          - usw2.partner.indexer.example
+      - id: usw2_partner_clusters
+        label: Partner clusters
+        lane: partner
+        node_ids:
+          - usw2.partner.cluster.a
+          - usw2.partner.cluster.b
+          - usw2.partner.cluster.c
+  - id: regional_euw1
+    label: EUW1 Regional Topology
+    mode: region
+    region: euw1
+    lanes:
+      - id: normal
+        label: Aggregate
+      - id: partner
+        label: Partner routes
+    stages:
+      - id: euw1_aggregate_stream
+        label: Aggregate stream
+        lane: normal
+        node_ids:
+          - euw1.aggregate.stream
+      - id: euw1_partner_stream
+        label: Partner stream
+        lane: partner
+        node_ids:
+          - euw1.partner.stream.example
+      - id: euw1_partner_indexer
+        label: Partner indexer/app
+        lane: partner
+        node_ids:
+          - euw1.partner.indexer.example
+      - id: euw1_partner_clusters
+        label: Partner clusters
+        lane: partner
+        node_ids:
+          - euw1.partner.cluster.a
   - id: representative_partner_path
     label: Representative Partner Cross-Region Path
     mode: focus

@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, Code2, RotateCcw, ShieldCheck, Upload, XCircle } from "lucide-react";
 import { stringify } from "yaml";
+import { lintArchitectureDocuments } from "./server/runtimeValidation";
 import type { ArchitectureManifest, ArchitectureOverlays } from "./zod";
 import type { ArchitectureLintResponse, ArchitectureSourcePayload, RuntimeDiagnostic } from "./runtime/types";
 
+type EditorBackend = "server" | "browser";
+
 interface ArchitectureEditorProps {
   enabled: boolean;
+  backend?: EditorBackend;
   manifest: ArchitectureManifest;
   overlays: ArchitectureOverlays;
+  source?: ArchitectureSourcePayload;
   onPreview: (preview: { manifest: ArchitectureManifest; overlays: ArchitectureOverlays } | undefined) => void;
   onApplied: () => void;
+  onBrowserApply?: (source: ArchitectureSourcePayload, result: ArchitectureLintResponse) => void;
+  onBrowserReset?: () => void;
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -26,7 +33,17 @@ function diagnosticLabel(diagnostic: RuntimeDiagnostic): string {
   return `${diagnostic.file}${path}: ${diagnostic.message}`;
 }
 
-export function ArchitectureEditor({ enabled, manifest, overlays, onPreview, onApplied }: ArchitectureEditorProps) {
+export function ArchitectureEditor({
+  enabled,
+  backend = "server",
+  manifest,
+  overlays,
+  source,
+  onPreview,
+  onApplied,
+  onBrowserApply,
+  onBrowserReset
+}: ArchitectureEditorProps) {
   const [open, setOpen] = useState(false);
   const [architectureYaml, setArchitectureYaml] = useState("");
   const [overlaysYaml, setOverlaysYaml] = useState("");
@@ -69,10 +86,17 @@ export function ArchitectureEditor({ enabled, manifest, overlays, onPreview, onA
     setLoading(true);
     setStatus(undefined);
     try {
+      if (backend === "browser") {
+        setArchitectureYaml(source?.architectureYaml ?? stringify(manifest));
+        setOverlaysYaml(source?.overlaysYaml ?? stringify(overlays));
+        setStatus("Loaded browser demo source");
+        return;
+      }
+
       const response = await fetch("/api/architecture/source");
-      const source = await readJson<ArchitectureSourcePayload>(response);
-      setArchitectureYaml(source.architectureYaml);
-      setOverlaysYaml(source.overlaysYaml);
+      const runtimeSource = await readJson<ArchitectureSourcePayload>(response);
+      setArchitectureYaml(runtimeSource.architectureYaml);
+      setOverlaysYaml(runtimeSource.overlaysYaml);
       setStatus("Loaded active runtime source");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to load source");
@@ -87,6 +111,23 @@ export function ArchitectureEditor({ enabled, manifest, overlays, onPreview, onA
     }
 
     try {
+      if (backend === "browser") {
+        const result = lintArchitectureDocuments(architectureYaml, overlaysYaml);
+        setLintResult(result);
+        if (result.ok && result.manifest && result.overlays) {
+          onPreview({ manifest: result.manifest, overlays: result.overlays });
+          if (showStatus) {
+            setStatus("Previewing validated browser draft");
+          }
+        } else {
+          onPreview(undefined);
+          if (showStatus) {
+            setStatus("Draft has validation errors");
+          }
+        }
+        return;
+      }
+
       const response = await fetch("/api/architecture/lint", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -115,6 +156,22 @@ export function ArchitectureEditor({ enabled, manifest, overlays, onPreview, onA
     setLoading(true);
     setStatus(undefined);
     try {
+      if (backend === "browser") {
+        const result = lintArchitectureDocuments(architectureYaml, overlaysYaml);
+        setLintResult(result);
+        if (!result.ok) {
+          onPreview(undefined);
+          setStatus("Draft has validation errors");
+          return;
+        }
+
+        onBrowserApply?.({ architectureYaml, overlaysYaml }, result);
+        onPreview(undefined);
+        setStatus("Browser draft saved");
+        onApplied();
+        return;
+      }
+
       const response = await fetch("/api/architecture/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -141,6 +198,17 @@ export function ArchitectureEditor({ enabled, manifest, overlays, onPreview, onA
     setLoading(true);
     setStatus(undefined);
     try {
+      if (backend === "browser") {
+        onBrowserReset?.();
+        onPreview(undefined);
+        setArchitectureYaml("");
+        setOverlaysYaml("");
+        setLintResult(undefined);
+        setStatus("Browser draft reset");
+        onApplied();
+        return;
+      }
+
       const response = await fetch("/api/architecture/draft", {
         method: "DELETE"
       });
