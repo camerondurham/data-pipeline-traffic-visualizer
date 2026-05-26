@@ -1,36 +1,59 @@
 # data-pipeline-traffic-visualizer
 
-V0 Architecture Topology Explorer for an explicit YAML graph manifest.
+Proof-of-concept topology dashboard for operating broad, multi-account service areas.
 
-## Run
+## What
 
-```sh
-npm install
-npm run dev
+This project explores a dashboard model where a team can define its own architecture graph and overlay live or near-live operational context on top of each service, route, queue, stream, cluster, or dependency.
+
+The core idea is deliberately simple:
+
+- `architecture.yaml` defines the relatively stable system map.
+- `architecture-overlays.yaml` defines current scaling, traffic rates between systems, throttle configuration, deployment state, queue or stream health, shard counts, and other runtime context.
+- The runtime dashboard renders both as a single view so teams can see each moving part in relation to the rest of the service.
+
+## Why
+
+Large service areas create operator cognitive overhead. This project reduces that overhead by mapping topology and relevant configuration into a visual model: account boundaries, services, streams, processors, routes, throttles, deployment state, recent changes, and where each fact sits in the broader service.
+
+CloudWatch and Grafana already solve broad observability problems. CloudWatch supports cross-account observability for AWS telemetry, dashboards can span accounts and Regions, Grafana can visualize metrics, logs, traces, and other data from many backends, and CloudWatch investigations can scan telemetry to surface related metrics, logs, deployment events, and root-cause hypotheses.
+
+This project is complementary: it focuses on team-specific architecture topology and dependency knowledge across accounts, repositories, deployment systems, queues, streams, services, and operational conventions. The goal is to move that map out of senior engineers' heads, keep it explicit, and make the system easier to inspect, update, and reason about during operations.
+
+## Philosophy
+
+- Model the architecture first; telemetry should decorate the map, not define it.
+- Keep topology and volatile metrics separate so slow-moving structure stays reviewable.
+- Prefer an accurate cross-system view over a perfect integration with any single vendor.
+- Make the dashboard easy to update from jobs, scripts, or account-specific collectors.
+- Preserve enough context that an engineer can understand what changed and where it sits in the larger service area.
+
+## Runtime Architecture
+
+At a high level, this is a YAML-backed dashboard with a light runtime API. The architecture and overlays start from disk, the browser reads a validated runtime payload, the editor can lint and apply a draft, and update jobs can push fresh overlay snapshots without changing the topology.
+
+```mermaid
+sequenceDiagram
+  participant Files as architecture.yaml and architecture-overlays.yaml
+  participant Store as ArchitectureStore
+  participant API as Runtime API
+  participant Browser as Dashboard and Runtime YAML editor
+  participant Updater as Overlay updater job
+
+  Files->>Store: load on startup and optional file watch
+  Store->>Store: validate topology, overlays, and references
+  Browser->>API: GET /api/architecture
+  API->>Store: read current payload
+  Store-->>Browser: manifest, overlays, revisions, status
+  Browser->>API: GET /api/architecture/events
+  Store-->>Browser: revision event after accepted changes
+  Browser->>API: GET /api/architecture/source
+  Browser->>API: POST /api/architecture/lint
+  Browser->>API: POST /api/architecture/draft
+  API->>Store: apply validated architecture and overlays draft
+  Updater->>API: POST /api/overlays/snapshot
+  API->>Store: replace overlays only after validation
 ```
-
-Preview the production build:
-
-```sh
-npm run build
-npm run start
-```
-
-Verify:
-
-```sh
-npm test
-npm run build
-```
-
-Update the README diagram screenshots:
-
-```sh
-npx playwright install chromium # first time only
-npm run screenshot:architecture
-```
-
-Pull requests and pushes to `main` are verified by `.github/workflows/verify.yml`, which runs `npm ci`, `npm test`, and `npm run build`.
 
 ## GitHub Pages Demo
 
