@@ -121,7 +121,7 @@ describe("Dashboard", () => {
     expect(within(detailPanel).getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
   });
 
-  it("renders edge and route decorators as badges and selected-edge details", async () => {
+  it("separates edge and route decorator annotations from plain edge labels", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
     const edge = await waitFor(() => {
@@ -130,6 +130,15 @@ describe("Dashboard", () => {
       return element;
     });
 
+    const edgeLabels = Array.from(container.querySelectorAll(".edge-label"));
+    expect(edgeLabels.some((label) => label.textContent === "partner feed")).toBe(true);
+    expect(edgeLabels.some((label) => label.textContent?.includes("throttle 500/s"))).toBe(false);
+    expect(edgeLabels.some((label) => label.textContent?.includes("schema partner-v3"))).toBe(false);
+
+    expect(container.querySelector('[data-testid="edge-annotation-partner-feed-throttle"]')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-testid="edge-annotation-partner-source-downstream-throttle"]').length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Partner feed throttle").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Partner webhook throttle path").length).toBeGreaterThan(0);
     expect(screen.getAllByText("throttle 500/s").length).toBeGreaterThan(0);
     expect(screen.getAllByText("schema partner-v3").length).toBeGreaterThan(0);
     expect(container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"] .topology-edge.is-warning')).toBeInTheDocument();

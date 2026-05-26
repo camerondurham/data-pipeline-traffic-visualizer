@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import {
   BaseEdge,
   Background,
@@ -11,6 +11,7 @@ import {
   ReactFlow,
   ViewportPortal,
   getBezierPath,
+  useViewport,
   type Edge,
   type EdgeProps,
   type Node,
@@ -68,13 +69,13 @@ const EDGE_TYPES = { topology: TopologyEdge };
 const FLOW_MIN_ZOOM = 0.35;
 const FLOW_MAX_ZOOM = 2.25;
 const FLOW_FIT_VIEW_OPTIONS = { padding: 0.16 };
+const EDGE_ANNOTATION_OFFSET = 48;
+const EDGE_ANNOTATION_STACK_GAP = 58;
 
 interface EdgeOverlayData {
   tone?: "default" | "primary" | "secondary" | "cross" | "read";
   thickness?: number;
-  badges?: string[];
   warning?: boolean;
-  metricLabel?: string;
   tooltip?: string;
 }
 
@@ -96,6 +97,15 @@ interface TopologyEdgeData extends Record<string, unknown> {
 type TopologyFlowNode = Node<TopologyNodeData, "topology">;
 type TopologyFlowEdge = Edge<TopologyEdgeData, "topology">;
 type CrossRegionGroupModel = ReturnType<typeof getCrossRegionGroups>[number];
+type EdgeAnnotationKind = "edge" | "route";
+
+interface EdgeAnnotation {
+  id: string;
+  kind: EdgeAnnotationKind;
+  title: string;
+  chips: string[];
+  warning?: boolean;
+}
 
 const NOOP_TOGGLE = () => undefined;
 const CROSS_REGION_TARGET_Y = {
@@ -152,6 +162,54 @@ function formatMetricChip(metric: OverlayMetric): string {
   return `${metric.value} ${metric.label}`;
 }
 
+function decoratorAnnotationChips(decorator: {
+  metric_label?: string;
+  badges: string[];
+  metrics: OverlayMetric[];
+}): string[] {
+  return uniqueStrings([
+    ...(decorator.metric_label ? [decorator.metric_label] : []),
+    ...decorator.badges,
+    ...decorator.metrics.map(formatMetricChip)
+  ]);
+}
+
+function buildEdgeAnnotations(resolved?: ResolvedEdgeOverlay): EdgeAnnotation[] {
+  if (!resolved) {
+    return [];
+  }
+
+  const edgeAnnotations = resolved.edgeDecorators.map((decorator) => ({
+    id: decorator.id,
+    kind: "edge" as const,
+    title: decorator.title ?? decorator.id,
+    chips: decoratorAnnotationChips(decorator),
+    warning: decorator.warning
+  }));
+  const routeAnnotations = resolved.routeDecorators.map((decorator) => ({
+    id: decorator.id,
+    kind: "route" as const,
+    title: decorator.title ?? decorator.id,
+    chips: decoratorAnnotationChips(decorator),
+    warning: decorator.warning
+  }));
+
+  return [...edgeAnnotations, ...routeAnnotations];
+}
+
+function annotationDirection(routeOffset: number): number {
+  return routeOffset === 0 ? -1 : Math.sign(routeOffset);
+}
+
+function edgeAnnotationPosition(route: { labelX: number; labelY: number }, routeOffset: number, index: number, zoom: number) {
+  const direction = annotationDirection(routeOffset);
+  const zoomSafeOffset = (EDGE_ANNOTATION_OFFSET + index * EDGE_ANNOTATION_STACK_GAP) / zoom;
+  return {
+    x: route.labelX,
+    y: route.labelY + direction * zoomSafeOffset
+  };
+}
+
 function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOverlayData | undefined {
   if (!resolved) {
     return undefined;
@@ -160,9 +218,7 @@ function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOv
   return {
     tone: resolved.tone,
     thickness: resolved.thickness,
-    badges: resolved.badges,
     warning: resolved.warning,
-    metricLabel: resolved.metricLabel,
     tooltip: resolved.tooltip
   };
 }
@@ -178,9 +234,7 @@ function mergeEdgeOverlays(fallback?: EdgeOverlayData, resolved?: EdgeOverlayDat
   return {
     tone: resolved.tone ?? fallback.tone,
     thickness: resolved.thickness ?? fallback.thickness,
-    badges: uniqueStrings([...(fallback.badges ?? []), ...(resolved.badges ?? [])]),
     warning: Boolean(fallback.warning || resolved.warning),
-    metricLabel: resolved.metricLabel ?? fallback.metricLabel,
     tooltip: resolved.tooltip ?? fallback.tooltip
   };
 }
@@ -267,9 +321,12 @@ function edgeTooltip(edge: VisualEdge): string {
 }
 
 function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
+  const { zoom } = useViewport();
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
+  const resolvedOverlay = props.data?.resolvedOverlay;
   const focusState = props.data?.focusState;
+  const routeOffset = props.data?.routeOffset ?? 0;
   const route = getEdgeRoute({
     edge,
     sourceX: props.sourceX,
@@ -278,15 +335,15 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
     targetX: props.targetX,
     targetY: props.targetY,
     targetPosition: props.targetPosition,
-    routeOffset: props.data?.routeOffset ?? 0
+    routeOffset
   });
 
   if (!edge) {
     return <BaseEdge id={props.id} path={route.path} markerEnd={props.markerEnd} interactionWidth={24} />;
   }
 
-  const label = overlay?.metricLabel ?? edge.label ?? edge.type;
-  const badges = overlay?.badges ?? [];
+  const label = edge.label ?? edge.type;
+  const annotations = buildEdgeAnnotations(resolvedOverlay);
   const tone = edgeTone(edge, overlay);
 
   return (
@@ -307,10 +364,34 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
           title={overlay?.tooltip ?? edgeTooltip(edge)}
         >
           <span>{label}</span>
-          {badges.map((badge) => (
-            <b key={badge}>{badge}</b>
-          ))}
         </div>
+        {annotations.map((annotation, index) => {
+          const position = edgeAnnotationPosition(route, routeOffset, index, zoom);
+          return (
+            <div
+              key={annotation.id}
+              className={`edge-annotation edge-annotation-${annotation.kind} tone-${tone} ${annotation.warning ? "is-warning" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
+              style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${1 / zoom})` }}
+              title={resolvedOverlay?.tooltip ?? edgeTooltip(edge)}
+              data-testid={`edge-annotation-${annotation.id}`}
+            >
+              <span className="edge-annotation-kind">{annotation.kind}</span>
+              <strong>{annotation.title}</strong>
+              {annotation.chips.length ? (
+                <span className="edge-annotation-chips">
+                  {annotation.chips.map((chip) => (
+                    <b key={chip}>{chip}</b>
+                  ))}
+                </span>
+              ) : null}
+              <span
+                className={`edge-annotation-leader ${position.y < route.labelY ? "is-above-edge" : "is-below-edge"}`}
+                style={{ "--leader-height": `${Math.abs(route.labelY - position.y)}px` } as CSSProperties}
+                aria-hidden="true"
+              />
+            </div>
+          );
+        })}
       </EdgeLabelRenderer>
     </>
   );
@@ -654,15 +735,15 @@ function crossRegionOverlay(edge: VisualEdge, model: GraphModel): EdgeOverlayDat
   const target = model.nodeById.get(edge.originalTo);
 
   if (edge.type === "replay") {
-    return { tone: "secondary", metricLabel: "remote replay", badges: ["recovery"], thickness: 3 };
+    return { tone: "secondary", thickness: 3 };
   }
   if (edge.type === "publish" && source?.zone === "hot" && target?.zone === "partner") {
-    return { tone: "primary", metricLabel: "partner route", badges: ["steady"], thickness: 3.6 };
+    return { tone: "primary", thickness: 3.6 };
   }
   if (edge.type === "publish" && target?.zone === "aggregate") {
-    return { tone: "cross", metricLabel: "remote aggregate", badges: ["steady"], thickness: 3 };
+    return { tone: "cross", thickness: 3 };
   }
-  return { tone: "cross", metricLabel: "remote aggregate", badges: ["steady"], thickness: 3 };
+  return { tone: "cross", thickness: 3 };
 }
 
 function targetYFor(node: GraphNode, regionIndex: number): number {
