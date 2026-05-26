@@ -851,6 +851,14 @@ views:
     label: Cross-Region Detail
     mode: cross_region
     group_by: destination_region
+  - id: regional_usw2
+    label: USW2 Regional Topology
+    mode: region
+    region: usw2
+  - id: regional_euw1
+    label: EUW1 Regional Topology
+    mode: region
+    region: euw1
   - id: representative_partner_path
     label: Representative Partner Cross-Region Path
     mode: focus

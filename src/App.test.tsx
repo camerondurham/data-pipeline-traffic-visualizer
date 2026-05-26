@@ -158,12 +158,12 @@ describe("App", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /^Apply$/i })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: /^Apply$/i }));
 
-    expect(localStorage.getItem("architecture-demo:overlaysYaml")).toContain("value: 99");
+    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toContain("value: 99");
     expect(fetchMock).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: /^Reset$/i }));
     expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
-    expect(localStorage.getItem("architecture-demo:overlaysYaml")).toBeNull();
+    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toBeNull();
   });
 
   it("seeds the runtime YAML editor from the currently rendered model", async () => {

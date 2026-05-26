@@ -235,6 +235,23 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-id="edge.use1.partner.slow_processor.to.usw2.partner.stream"] .tone-secondary')).toBeInTheDocument();
   });
 
+  it("switches to regional topology views for each modeled region", async () => {
+    const user = userEvent.setup();
+    renderSeedDashboard();
+
+    await user.selectOptions(screen.getByLabelText("View"), "regional_usw2");
+    expect(screen.getByRole("heading", { name: "usw2 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
+
+    await user.selectOptions(screen.getByLabelText("View"), "regional_euw1");
+    expect(screen.getByRole("heading", { name: "euw1 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Cluster A").length).toBeGreaterThan(0);
+  });
+
   it("selects a cross-region route and preserves derived edge metadata", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();

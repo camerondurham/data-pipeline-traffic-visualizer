@@ -14,8 +14,8 @@ import {
 } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
 
-const STATIC_ARCHITECTURE_STORAGE_KEY = "architecture-demo:architectureYaml";
-const STATIC_OVERLAYS_STORAGE_KEY = "architecture-demo:overlaysYaml";
+const STATIC_ARCHITECTURE_STORAGE_KEY = "architecture-demo:v2:architectureYaml";
+const STATIC_OVERLAYS_STORAGE_KEY = "architecture-demo:v2:overlaysYaml";
 
 function isStaticDemo(): boolean {
   return import.meta.env.VITE_STATIC_DEMO === "1";
