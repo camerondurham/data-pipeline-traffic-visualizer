@@ -166,6 +166,22 @@ describe("App", () => {
     expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toBeNull();
   });
 
+  it("falls back to bundled static demo data when a stored browser draft is invalid", async () => {
+    const fetchMock = vi.fn();
+    vi.stubEnv("VITE_STATIC_DEMO", "1");
+    vi.stubGlobal("fetch", fetchMock);
+    localStorage.setItem("architecture-demo:v2:architectureYaml", "nodes: [");
+    localStorage.setItem("architecture-demo:v2:overlaysYaml", "node_decorators: []");
+
+    render(<App />);
+
+    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(localStorage.getItem("architecture-demo:v2:architectureYaml")).toBeNull();
+    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("seeds the runtime YAML editor from the currently rendered model", async () => {
     const user = userEvent.setup();
     const payload = { ...loadSeedPayload(), editorEnabled: true };

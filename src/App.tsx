@@ -45,18 +45,35 @@ function resetStaticSource(): void {
   localStorage.removeItem(STATIC_OVERLAYS_STORAGE_KEY);
 }
 
-async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
-  const source = readStaticSource();
+function parseStaticArchitectureSource(source: { architectureYaml: string; overlaysYaml: string }): {
+  manifest: ArchitectureManifest;
+  overlays: ArchitectureOverlays;
+} {
   const manifest = validateArchitectureManifest(parse(source.architectureYaml));
   const overlays = validateArchitectureOverlays(parse(source.overlaysYaml));
   validateOverlayReferences(manifest, overlays);
+  return { manifest, overlays };
+}
+
+async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
+  let source = readStaticSource();
+  let parsed: ReturnType<typeof parseStaticArchitectureSource>;
+
+  try {
+    parsed = parseStaticArchitectureSource(source);
+  } catch {
+    resetStaticSource();
+    source = { architectureYaml, overlaysYaml };
+    parsed = parseStaticArchitectureSource(source);
+  }
+
   const usingDraft =
     source.architectureYaml !== architectureYaml ||
     source.overlaysYaml !== overlaysYaml;
 
   return {
-    manifest,
-    overlays,
+    manifest: parsed.manifest,
+    overlays: parsed.overlays,
     architectureRevision: 1,
     overlayRevision: usingDraft ? 2 : 1,
     overlayGeneratedAt: new Date(0).toISOString(),
