@@ -343,7 +343,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   }
 
   const label = edge.label ?? edge.type;
-  const annotations = buildEdgeAnnotations(resolvedOverlay);
+  const annotations = props.selected ? buildEdgeAnnotations(resolvedOverlay) : [];
   const tone = edgeTone(edge, overlay);
 
   return (
