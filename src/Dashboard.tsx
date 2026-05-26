@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   BaseEdge,
   Background,
@@ -11,7 +11,6 @@ import {
   ReactFlow,
   ViewportPortal,
   getBezierPath,
-  useStore,
   type Edge,
   type EdgeProps,
   type Node,
@@ -78,8 +77,6 @@ const EDGE_TYPES = { topology: TopologyEdge };
 const FLOW_MIN_ZOOM = 0.35;
 const FLOW_MAX_ZOOM = 2.25;
 const FLOW_FIT_VIEW_OPTIONS = { padding: 0.16 };
-const EDGE_ANNOTATION_OFFSET = 48;
-const EDGE_ANNOTATION_STACK_GAP = 58;
 
 interface EdgeOverlayData {
   tone?: "default" | "primary" | "secondary" | "cross" | "read";
@@ -206,20 +203,6 @@ function buildEdgeAnnotations(resolved?: ResolvedEdgeOverlay): EdgeAnnotation[] 
   return [...edgeAnnotations, ...routeAnnotations];
 }
 
-function annotationDirection(routeOffset: number): number {
-  return routeOffset === 0 ? -1 : Math.sign(routeOffset);
-}
-
-function edgeAnnotationPosition(route: { labelX: number; labelY: number }, routeOffset: number, index: number, zoom: number) {
-  const direction = annotationDirection(routeOffset);
-  const leaderHeight = EDGE_ANNOTATION_OFFSET + index * EDGE_ANNOTATION_STACK_GAP;
-  return {
-    x: route.labelX,
-    y: route.labelY + direction * (leaderHeight / zoom),
-    leaderHeight
-  };
-}
-
 function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOverlayData | undefined {
   if (!resolved) {
     return undefined;
@@ -330,60 +313,9 @@ function edgeTooltip(edge: VisualEdge): string {
   ].join("\n");
 }
 
-function EdgeAnnotations({
-  annotations,
-  route,
-  routeOffset,
-  tone,
-  focusState,
-  tooltip
-}: {
-  annotations: EdgeAnnotation[];
-  route: { labelX: number; labelY: number };
-  routeOffset: number;
-  tone: string;
-  focusState?: TopologyEdgeData["focusState"];
-  tooltip: string;
-}) {
-  const zoom = useStore((state) => state.transform[2]);
-
-  return (
-    <>
-      {annotations.map((annotation, index) => {
-        const position = edgeAnnotationPosition(route, routeOffset, index, zoom);
-        return (
-          <div
-            key={annotation.id}
-            className={`edge-annotation edge-annotation-${annotation.kind} tone-${tone} ${annotation.warning ? "is-warning" : ""} is-selected ${focusState ? `is-${focusState}` : ""}`}
-            style={{ transform: `translate(-50%, -50%) translate(${position.x}px, ${position.y}px) scale(${1 / zoom})` }}
-            title={tooltip}
-            data-testid={`edge-annotation-${annotation.id}`}
-          >
-            <span className="edge-annotation-kind">{annotation.kind}</span>
-            <strong>{annotation.title}</strong>
-            {annotation.chips.length ? (
-              <span className="edge-annotation-chips">
-                {annotation.chips.map((chip) => (
-                  <b key={chip}>{chip}</b>
-                ))}
-              </span>
-            ) : null}
-            <span
-              className={`edge-annotation-leader ${position.y < route.labelY ? "is-above-edge" : "is-below-edge"}`}
-              style={{ "--leader-height": `${position.leaderHeight}px` } as CSSProperties}
-              aria-hidden="true"
-            />
-          </div>
-        );
-      })}
-    </>
-  );
-}
-
 function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
-  const resolvedOverlay = props.data?.resolvedOverlay;
   const focusState = props.data?.focusState;
   const routeOffset = props.data?.routeOffset ?? 0;
   const route = getEdgeRoute({
@@ -423,16 +355,6 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
         >
           <span>{label}</span>
         </div>
-        {props.selected ? (
-          <EdgeAnnotations
-            annotations={buildEdgeAnnotations(resolvedOverlay)}
-            route={route}
-            routeOffset={routeOffset}
-            tone={tone}
-            focusState={focusState}
-            tooltip={resolvedOverlay?.tooltip ?? edgeTooltip(edge)}
-          />
-        ) : null}
       </EdgeLabelRenderer>
     </>
   );
@@ -927,6 +849,7 @@ function EdgeDetailPanel({
         ["overlayMetrics", overlay.metrics.map(formatMetricChip).join(", ")]
       ]
     : [];
+  const annotations = buildEdgeAnnotations(overlay);
 
   return (
     <aside className="selected-edge-panel" aria-label="Selected edge details">
@@ -937,6 +860,30 @@ function EdgeDetailPanel({
         </div>
         <button type="button" onClick={onClose}>Close</button>
       </div>
+      {annotations.length ? (
+        <section className="selected-edge-annotations" aria-label="Selected edge annotations">
+          <h3>Annotations</h3>
+          <div className="selected-edge-annotation-list">
+            {annotations.map((annotation) => (
+              <article
+                key={annotation.id}
+                className={`selected-edge-annotation annotation-${annotation.kind} ${annotation.warning ? "is-warning" : ""}`}
+                data-testid={`selected-edge-annotation-${annotation.id}`}
+              >
+                <span>{annotation.kind}</span>
+                <strong>{annotation.title}</strong>
+                {annotation.chips.length ? (
+                  <div>
+                    {annotation.chips.map((chip) => (
+                      <b key={chip}>{chip}</b>
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
       <dl>
         {[...fields, ...overlayFields].map(([label, value]) => (
           <div key={label}>
@@ -991,6 +938,9 @@ function FlowDiagram({
           ))}
         </div>
       ) : null}
+      {selectedEdge ? (
+        <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
+      ) : null}
       <div className="flow-viewport">
         <InteractiveFlowCanvas
           className="flow-canvas"
@@ -1026,9 +976,6 @@ function FlowDiagram({
           })}
         </InteractiveFlowCanvas>
       </div>
-      {selectedEdge ? (
-        <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
-      ) : null}
       <details className="flow-details">
         <summary>Edge inventory for this view</summary>
         <EdgePanel title="Directional edges" edges={layout.edges} model={model} />
@@ -1091,6 +1038,9 @@ function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewM
           <span><i className="legend-line cross" />Remote aggregate publish</span>
           <span><i className="legend-line secondary" />Remote replay</span>
         </div>
+        {selectedEdge ? (
+          <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
+        ) : null}
         <div className="flow-viewport">
           <InteractiveFlowCanvas
             className="cross-region-canvas"
@@ -1108,9 +1058,6 @@ function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewM
             ))}
           </InteractiveFlowCanvas>
         </div>
-        {selectedEdge ? (
-          <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
-        ) : null}
         <details className="flow-details">
           <summary>Destination-region edge inventory</summary>
           <div className="cross-region-inventory">
