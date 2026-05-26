@@ -203,6 +203,10 @@ function buildEdgeAnnotations(resolved?: ResolvedEdgeOverlay): EdgeAnnotation[] 
   return [...edgeAnnotations, ...routeAnnotations];
 }
 
+function edgeOverlayLabelChips(resolved?: ResolvedEdgeOverlay): string[] {
+  return uniqueStrings(buildEdgeAnnotations(resolved).flatMap((annotation) => annotation.chips)).slice(0, 3);
+}
+
 function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOverlayData | undefined {
   if (!resolved) {
     return undefined;
@@ -316,6 +320,7 @@ function edgeTooltip(edge: VisualEdge): string {
 function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   const edge = props.data?.edge;
   const overlay = props.data?.overlay;
+  const resolvedOverlay = props.data?.resolvedOverlay;
   const focusState = props.data?.focusState;
   const routeOffset = props.data?.routeOffset ?? 0;
   const route = getEdgeRoute({
@@ -335,6 +340,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
 
   const label = edge.label ?? edge.type;
   const tone = edgeTone(edge, overlay);
+  const overlayLabelChips = edgeOverlayLabelChips(resolvedOverlay);
 
   return (
     <>
@@ -349,11 +355,18 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
       />
       <EdgeLabelRenderer>
         <div
-          className={`edge-label tone-${tone} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
+          className={`edge-label tone-${tone} ${overlayLabelChips.length ? "has-overlay-chips" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
           style={{ transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
         >
-          <span>{label}</span>
+          <span className="edge-label-text">{label}</span>
+          {overlayLabelChips.length ? (
+            <span className="edge-label-overlay-chips" aria-label={`${label} overlay labels`}>
+              {overlayLabelChips.map((chip) => (
+                <b key={chip}>{chip}</b>
+              ))}
+            </span>
+          ) : null}
         </div>
       </EdgeLabelRenderer>
     </>

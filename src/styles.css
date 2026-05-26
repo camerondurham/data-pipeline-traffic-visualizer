@@ -562,31 +562,51 @@ button {
 .edge-label {
   position: absolute;
   z-index: 8;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 150px;
+  display: grid;
+  gap: 4px;
+  max-width: 190px;
   padding: 3px 7px;
   border: 1px solid rgba(143, 170, 190, 0.24);
-  border-radius: 999px;
+  border-radius: 8px;
   background: rgba(7, 16, 23, 0.9);
   color: var(--muted);
   font-size: 10px;
   font-weight: 750;
   line-height: 1.1;
   pointer-events: all;
-  white-space: nowrap;
   transition: opacity 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 
-.edge-label span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.edge-label:not(.has-overlay-chips) {
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
-.edge-label b {
+.edge-label-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edge-label-overlay-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.edge-label-overlay-chips b {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 15px;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid rgba(247, 201, 72, 0.28);
+  border-radius: 999px;
+  background: rgba(247, 201, 72, 0.12);
   color: var(--amber);
   font-size: 9px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
 }
 
 .edge-label.tone-primary {

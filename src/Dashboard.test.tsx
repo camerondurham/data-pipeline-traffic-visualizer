@@ -131,16 +131,18 @@ describe("Dashboard", () => {
     });
 
     const edgeLabels = Array.from(container.querySelectorAll(".edge-label"));
-    expect(edgeLabels.some((label) => label.textContent === "partner feed")).toBe(true);
-    expect(edgeLabels.some((label) => label.textContent?.includes("throttle 500/s"))).toBe(false);
-    expect(edgeLabels.some((label) => label.textContent?.includes("schema partner-v3"))).toBe(false);
+    const partnerFeedLabel = edgeLabels.find((label) => label.textContent?.includes("partner feed"));
+    expect(partnerFeedLabel).toBeTruthy();
+    expect(partnerFeedLabel).toHaveTextContent("throttle 500/s");
+    expect(partnerFeedLabel).toHaveTextContent("schema partner-v3");
+    expect(within(partnerFeedLabel as HTMLElement).getByLabelText("partner feed overlay labels")).toBeInTheDocument();
+    expect(screen.getAllByText("throttle 500/s").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("schema partner-v3").length).toBeGreaterThan(0);
 
     expect(container.querySelector('[data-testid="selected-edge-annotation-partner-feed-throttle"]')).not.toBeInTheDocument();
     expect(container.querySelectorAll('[data-testid="selected-edge-annotation-partner-source-downstream-throttle"]')).toHaveLength(0);
     expect(screen.queryByText("Partner feed throttle")).not.toBeInTheDocument();
     expect(screen.queryByText("Partner webhook throttle path")).not.toBeInTheDocument();
-    expect(screen.queryByText("throttle 500/s")).not.toBeInTheDocument();
-    expect(screen.queryByText("schema partner-v3")).not.toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"] .topology-edge.is-warning')).toBeInTheDocument();
 
     await user.click(edge as Element);
