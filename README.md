@@ -38,7 +38,7 @@ sequenceDiagram
   participant Store as ArchitectureStore
   participant API as Runtime API
   participant Browser as Dashboard and Runtime YAML editor
-  participant Updater as Overlay updater job
+  participant Updater as Overlay updater job or local live TPS demo
 
   Files->>Store: load on startup and optional file watch
   Store->>Store: validate topology, overlays, and references
@@ -55,9 +55,21 @@ sequenceDiagram
   API->>Store: replace overlays only after validation
 ```
 
+## Local Live TPS Demo
+
+Run the local API-backed demo with:
+
+```bash
+npm run demo:live
+```
+
+The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The dashboard receives the existing SSE revision event, refetches `GET /api/architecture`, and updates stream TPS chips and edge labels without a separate dashboard data channel.
+
+The live values are generated sample telemetry from the committed architecture; they are intended to demonstrate how a real collector would push full overlay snapshots.
+
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
+The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
@@ -174,4 +186,4 @@ The browser loads parsed architecture data from `GET /api/architecture`; raw YAM
 - `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
 - `POST /api/overlays/snapshot`: full overlay replacement for runtime update jobs.
 
-Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes. Invalid snapshots are rejected and the previous active overlay remains visible.
+Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes, or more frequently for local/demo use. Invalid snapshots are rejected and the previous active overlay remains visible. `npm run demo:live` is the sample implementation: it posts generated stream TPS overlays with `source: "sample-live-tps"` every 2 seconds.

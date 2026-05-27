@@ -1,5 +1,6 @@
 import { createServer, get, request as httpRequest, type Server } from "node:http";
 import type { AddressInfo, Socket } from "node:net";
+import { buildSampleLiveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE } from "../sampleLiveTps";
 import { createArchitectureStore, type ArchitectureStore } from "./architectureStore";
 import { createArchitectureApiMiddleware } from "./apiMiddleware";
 import type { RuntimeArchitecturePayload } from "../runtime/types";
@@ -289,6 +290,42 @@ describe("architecture runtime API", () => {
       expect((await postOverlay(api.baseUrl, liveOverlay("13"), "sse-test")).status).toBe(200);
 
       await expect(eventText).resolves.toContain('"overlaySource":"sse-test"');
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("accepts generated sample live TPS snapshots and broadcasts the revision", async () => {
+    const api = await startApi();
+    try {
+      const seedPayload = await readArchitecture(api.baseUrl);
+      const eventText = waitForSsePattern(`${api.baseUrl}/api/architecture/events`, SAMPLE_LIVE_TPS_SOURCE);
+      const liveTpsOverlays = buildSampleLiveTpsOverlays(seedPayload.overlays, { tick: 2 });
+
+      expect((await postOverlay(api.baseUrl, liveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE)).status).toBe(200);
+
+      const payload = await readArchitecture(api.baseUrl);
+      expect(payload.overlaySource).toBe(SAMPLE_LIVE_TPS_SOURCE);
+      expect(payload.overlayStatus.state).toBe("dynamic");
+      expect(payload.overlays.node_decorators).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "live-tps-orders-ingestion-stream",
+            node_id: "use1.ingestion.orders_stream",
+            metrics: [expect.objectContaining({ label: "TPS" })]
+          })
+        ])
+      );
+      expect(payload.overlays.edge_decorators).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            id: "live-tps-edge-web-orders-ingestion",
+            edge_id: "edge.use1.sources.web.to.orders.ingestion",
+            metric_label: expect.stringMatching(/ TPS$/)
+          })
+        ])
+      );
+      await expect(eventText).resolves.toContain(`"overlaySource":"${SAMPLE_LIVE_TPS_SOURCE}"`);
     } finally {
       await api.close();
     }
