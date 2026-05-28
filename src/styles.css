@@ -521,15 +521,6 @@ button { cursor: pointer; }
   text-transform: uppercase;
 }
 
-.flow-group-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 18px;
-  border-bottom: 1px solid var(--rule);
-  background: rgba(7, 9, 12, 0.44);
-}
-
 .flow-viewport {
   position: relative;
   flex: 1 1 auto;
@@ -713,7 +704,7 @@ button { cursor: pointer; }
     color 140ms ease;
 }
 
-/* The tone-color dot is always visible, becomes the entire label when collapsed */
+/* The tone-color dot is always visible and becomes the compact label */
 .edge-label::before {
   content: "";
   flex-shrink: 0;
@@ -739,7 +730,7 @@ button { cursor: pointer; }
   inset: -4px;
 }
 
-/* Text and chips are present in DOM but visually collapsed by default */
+/* Text and chips are present in DOM but visually compact by default */
 .edge-label-text {
   max-width: 0;
   overflow: hidden;
@@ -1022,31 +1013,6 @@ button { cursor: pointer; }
 .react-flow__node-topology .node-card.is-selected { border-left-color: var(--bone); border-color: rgba(235, 231, 216, 0.78); }
 .react-flow__node-topology .node-card.is-incoming { border-left-color: var(--indigo); border-color: rgba(140, 140, 255, 0.72); }
 .react-flow__node-topology .node-card.is-outgoing { border-left-color: var(--signal); border-color: rgba(91, 233, 210, 0.72); }
-
-/* ----- Collapse button */
-.collapse-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: fit-content;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--rule);
-  border-radius: var(--rad);
-  background: rgba(140, 140, 255, 0.08);
-  color: var(--bone-dim);
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.collapse-button:hover {
-  border-color: var(--indigo);
-  color: var(--indigo);
-  background: var(--indigo-soft);
-}
 
 /* ============================================================
    Edge inventory / details

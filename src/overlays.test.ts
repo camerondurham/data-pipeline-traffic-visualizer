@@ -69,10 +69,10 @@ function overlayFixture(): ArchitectureOverlays {
 function smallManifest(): ArchitectureManifest {
   return {
     nodes: [
-      { id: "use1.group", label: "Use1 Group", type: "group", region: "use1", zone: "hot", collapsed: true },
+      { id: "use1.group", label: "Use1 Group", type: "group", region: "use1", zone: "hot" },
       { id: "use1.child.a", label: "Use1 A", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
       { id: "use1.child.b", label: "Use1 B", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
-      { id: "usw2.group", label: "Usw2 Group", type: "group", region: "usw2", zone: "partner", collapsed: true },
+      { id: "usw2.group", label: "Usw2 Group", type: "group", region: "usw2", zone: "partner" },
       { id: "usw2.child.a", label: "Usw2 A", type: "stream", region: "usw2", zone: "partner", parent: "usw2.group" },
       { id: "usw2.child.b", label: "Usw2 B", type: "stream", region: "usw2", zone: "partner", parent: "usw2.group" }
     ],
@@ -131,7 +131,7 @@ describe("overlays", () => {
     ).toThrow(/non-contiguous route/);
   });
 
-  it("resolves node, edge, route, and rolled-up edge decorators", () => {
+  it("resolves node, edge, and route decorators", () => {
     const manifest = smallManifest();
     const graph = buildGraphModel(manifest);
     const overlayModel = buildOverlayModel(manifest, overlayFixture());
@@ -147,12 +147,9 @@ describe("overlays", () => {
     const otherEdge = graph.edges.find((edge) => edge.id === "edge.b.remote") as VisualEdge;
     expect(resolveEdgeOverlay(overlayModel, otherEdge)?.routeDecorators).toEqual([]);
 
-    const rolledUpEdge = graph.visualEdges.find((edge) => edge.visibleFrom === "use1.group" && edge.visibleTo === "usw2.group");
-    const rolledUpOverlay = resolveEdgeOverlay(overlayModel, rolledUpEdge as VisualEdge);
-    expect(rolledUpOverlay?.edgeDecorators.map((decorator) => decorator.id)).toEqual([
-      "edge-a-throughput",
-      "edge-b-capacity"
-    ]);
-    expect(rolledUpOverlay?.badges).toEqual(expect.arrayContaining(["stream", "bulk", "200 batch"]));
+    const directEdge = graph.visualEdges.find((edge) => edge.id === "edge.b.remote");
+    const directOverlay = resolveEdgeOverlay(overlayModel, directEdge as VisualEdge);
+    expect(directOverlay?.edgeDecorators.map((decorator) => decorator.id)).toEqual(["edge-b-capacity"]);
+    expect(directOverlay?.badges).toEqual(expect.arrayContaining(["bulk", "200 batch"]));
   });
 });

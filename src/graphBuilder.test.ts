@@ -18,10 +18,10 @@ function loadSeedManifest(): ArchitectureManifest {
 function smallManifest(): ArchitectureManifest {
   return {
     nodes: [
-      { id: "use1.group", label: "Use1 Group", type: "group", region: "use1", zone: "hot", collapsed: true },
+      { id: "use1.group", label: "Use1 Group", type: "group", region: "use1", zone: "hot" },
       { id: "use1.a", label: "Use1 A", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
       { id: "use1.b", label: "Use1 B", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
-      { id: "usw2.group", label: "Usw2 Group", type: "group", region: "usw2", zone: "partner", collapsed: true },
+      { id: "usw2.group", label: "Usw2 Group", type: "group", region: "usw2", zone: "partner" },
       { id: "usw2.a", label: "Usw2 A", type: "stream", region: "usw2", zone: "partner", parent: "usw2.group" },
       { id: "usw2.b", label: "Usw2 B", type: "stream", region: "usw2", zone: "partner", parent: "usw2.group" }
     ],
@@ -81,31 +81,28 @@ describe("graphBuilder", () => {
     ).toThrow(/Parent cycle detected/);
   });
 
-  it("derives crossRegion from original endpoints and preserves rolled-up sourceEdgeIds", () => {
+  it("derives crossRegion from direct endpoints and keeps all nodes visible", () => {
     const model = buildGraphModel(smallManifest());
-    const edge = model.visualEdges.find((candidate) => candidate.visibleFrom === "use1.group" && candidate.visibleTo === "usw2.group");
+    const edge = model.visualEdges.find((candidate) => candidate.id === "edge.a.to.remote.a");
 
     expect(edge).toMatchObject({
-      originalFrom: "use1.a",
-      originalTo: "usw2.a",
-      visibleFrom: "use1.group",
-      visibleTo: "usw2.group",
+      from: "use1.a",
+      to: "usw2.a",
       sourceRegion: "use1",
       destinationRegion: "usw2",
       crossRegion: true
     });
-    expect(edge?.sourceEdgeIds).toEqual(["edge.a.to.remote.a", "edge.b.to.remote.b"]);
-    expect(edge?.originalEdges.map((original) => `${original.from}->${original.to}`)).toEqual([
-      "use1.a->usw2.a",
-      "use1.b->usw2.b"
-    ]);
+    expect(model.visibleNodes.map((node) => node.id)).toEqual(model.nodes.map((node) => node.id));
   });
 
-  it("deduplicates rolled-up visual edges and suppresses collapse self-loops", () => {
+  it("keeps visual edges one-to-one with manifest edges", () => {
     const model = buildGraphModel(smallManifest());
 
-    expect(model.visualEdges.filter((edge) => edge.visibleFrom === "use1.group" && edge.visibleTo === "usw2.group")).toHaveLength(1);
-    expect(model.visualEdges.some((edge) => edge.sourceEdgeIds.includes("edge.a.to.b"))).toBe(false);
+    expect(model.visualEdges.map((edge) => edge.id)).toEqual([
+      "edge.a.to.remote.a",
+      "edge.b.to.remote.b",
+      "edge.a.to.b"
+    ]);
   });
 
   it("builds the seed destination-region cross-region groups", () => {
@@ -113,7 +110,7 @@ describe("graphBuilder", () => {
     const crossRegionGroups = getCrossRegionGroups(model, requireView(model, "cross_region_detail", "cross_region"));
 
     expect(crossRegionGroups.map((group) => group.destinationRegion)).toEqual(["euw1", "usw2"]);
-    expect(crossRegionGroups.flatMap((group) => group.edges.flatMap((edge) => edge.sourceEdgeIds))).toEqual(
+    expect(crossRegionGroups.flatMap((group) => group.edges.map((edge) => edge.id))).toEqual(
       expect.arrayContaining([
         "edge.use1.processing.to.usw2.aggregate",
         "edge.use1.processing.to.euw1.aggregate",
@@ -136,7 +133,7 @@ describe("graphBuilder", () => {
     expect(layout.stages.find((stage) => stage.id === "aggregate_stream")?.nodes.map((node) => node.id)).toEqual([
       "use1.aggregate.stream"
     ]);
-    expect(layout.edges.flatMap((edge) => edge.sourceEdgeIds)).toEqual(
+    expect(layout.edges.map((edge) => edge.id)).toEqual(
       expect.arrayContaining([
         "edge.use1.sources.web.to.orders.ingestion",
         "edge.use1.mobile.ingestion.to.orders.processor",
@@ -150,9 +147,9 @@ describe("graphBuilder", () => {
   it("models the representative partner path with branching focus edges and source-local fallback", () => {
     const model = buildGraphModel(loadSeedManifest());
     const focus = getFocusView(model, requireView(model, "representative_partner_path", "focus"));
-    const sourceEdgeIds = focus.edges.flatMap((edge) => edge.sourceEdgeIds);
+    const edgeIds = focus.edges.map((edge) => edge.id);
 
-    expect(sourceEdgeIds).toEqual(
+    expect(edgeIds).toEqual(
       expect.arrayContaining([
         "edge.usw2.partner.indexer.to.cluster.a",
         "edge.usw2.partner.indexer.to.cluster.b",

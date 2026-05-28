@@ -97,7 +97,6 @@ Every node requires:
 - `region`: region code such as `use1`.
 - `zone`: topology lane such as `pre_aggregate`, `aggregate`, `hot`, `cold`, or `partner`.
 - `parent`: optional parent group node ID.
-- `collapsed`: optional initial collapse state for group nodes.
 
 Every edge requires:
 
@@ -166,9 +165,8 @@ route_decorators:
 - `architecture.yaml` must not contain metrics, overlay values, AWS discovery output, CDK data, shard counts, replica counts, capacity settings, route keys, fanout semantics, or message metadata.
 - Overlays must live in separate files and reference stable node IDs or edge IDs.
 - Route overlays are explicit ordered paths; downstream throttle/schema decoration is not inferred by graph traversal.
-- `crossRegion` is derived by comparing the original source and target node regions.
-- Collapsed groups roll descendant edges up to the nearest visible ancestor. Rolled-up visual edges preserve `originalFrom`, `originalTo`, `visibleFrom`, `visibleTo`, and `sourceEdgeIds`.
-- Rolled-up visual edges are deduplicated and self-loops caused by collapsing parent groups are suppressed.
+- `crossRegion` is derived by comparing the direct source and target node regions.
+- Rendered visual edges are one-to-one with manifest edges; grouping metadata does not hide nodes or roll up edges.
 
 ## Adding Topology
 

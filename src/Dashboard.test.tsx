@@ -102,7 +102,7 @@ describe("Dashboard", () => {
     expect(screen.getByText("edge.use1.hot.processor.to.products.stream")).toBeInTheDocument();
   });
 
-  it("selects rendered edges and shows original and visible endpoint metadata", async () => {
+  it("selects rendered edges and shows direct endpoint metadata", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
     const edge = await waitFor(() => {
@@ -114,9 +114,9 @@ describe("Dashboard", () => {
     await user.click(edge as Element);
 
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
-    expect(within(detailPanel).getByText("originalFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("from")).toBeInTheDocument();
     expect(within(detailPanel).getAllByText("use1.sources.web_storefront").length).toBeGreaterThan(0);
-    expect(within(detailPanel).getByText("visibleFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("to")).toBeInTheDocument();
     expect(within(detailPanel).getByText("cross_region")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
   });
@@ -162,20 +162,13 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-testid^="edge-annotation-"]')).not.toBeInTheDocument();
   });
 
-  it("collapses expanded source, ingestion, and processing groups into readable rollups", async () => {
-    const user = userEvent.setup();
+  it("keeps group children visible without collapse controls", async () => {
     renderSeedDashboard();
 
-    await user.click(screen.getByRole("button", { name: "Collapse Sourcing Apps" }));
-    await user.click(screen.getByRole("button", { name: "Collapse Ingestion Streams" }));
-    await user.click(screen.getByRole("button", { name: "Collapse Processing Apps" }));
-
-    expect(screen.queryByText("Web Storefront")).not.toBeInTheDocument();
-    expect(screen.queryByText("Orders Ingestion Stream")).not.toBeInTheDocument();
-    expect(screen.queryByText("Orders Processing App")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Sourcing Apps").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Ingestion Streams").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Processing Apps").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Collapse/ })).not.toBeInTheDocument();
+    expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
     expect(screen.getByText(/edge\.use1\.sources\.web\.to\.orders\.ingestion/)).toBeInTheDocument();
   });
 
@@ -303,7 +296,7 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("EUW1 Partner Cluster A").length).toBeGreaterThan(0);
   });
 
-  it("selects a cross-region route and preserves derived edge metadata", async () => {
+  it("selects a cross-region route and preserves edge metadata", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
 
@@ -317,7 +310,7 @@ describe("Dashboard", () => {
     await user.click(edge as Element);
 
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
-    expect(within(detailPanel).getByText("originalFrom")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("from")).toBeInTheDocument();
     expect(within(detailPanel).getAllByText("use1.hot.router").length).toBeGreaterThan(0);
     expect(within(detailPanel).getByText("destinationRegion")).toBeInTheDocument();
     expect(within(detailPanel).getByText("usw2")).toBeInTheDocument();
@@ -363,14 +356,4 @@ describe("Dashboard", () => {
     expectInteractiveChrome("cross-region-map");
   });
 
-  it("collapses groups without losing rolled-up visible edge context", async () => {
-    const user = userEvent.setup();
-    renderSeedDashboard();
-
-    await user.click(screen.getByRole("button", { name: "Collapse USE1 Hot" }));
-
-    expect(screen.queryByText("Hot Router")).not.toBeInTheDocument();
-    expect(screen.getAllByText("USE1 Hot").length).toBeGreaterThan(0);
-    expect(screen.getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
-  });
 });
