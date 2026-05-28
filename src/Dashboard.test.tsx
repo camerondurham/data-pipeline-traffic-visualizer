@@ -1,6 +1,6 @@
 import "./test/setup";
 import { readFileSync } from "node:fs";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import { Dashboard } from "./Dashboard";
@@ -195,6 +195,34 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-target')).toBeInTheDocument();
     expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
     expect(container.querySelector(".node-card.is-dimmed")).toBeInTheDocument();
+  });
+
+  it("highlights incoming and outgoing edges when selecting a node", async () => {
+    const { container } = renderSeedDashboard();
+    const node = await waitFor(() => {
+      const element = container.querySelector('[data-id="use1.hot.router"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    await act(async () => {
+      fireEvent.click(node as Element);
+      await Promise.resolve();
+    });
+
+    const detailPanel = screen.getByRole("complementary", { name: "Selected node details" });
+    expect(within(detailPanel).getByText("use1.hot.router")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("Incoming (1)")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("Outgoing (5)")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.products.stream")).toBeInTheDocument();
+
+    expect(container.querySelector('[data-id="use1.hot.router"] .node-card.is-selected')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.aggregate.to.hot.router"] .topology-edge.is-incoming')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.products.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="use1.aggregate.stream"] .node-card.is-incoming')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
   });
 
   it("routes stacked slow-lane edges through separate visual lanes", async () => {

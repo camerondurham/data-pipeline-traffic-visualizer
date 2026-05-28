@@ -89,14 +89,14 @@ interface TopologyNodeData extends Record<string, unknown> {
   node: GraphNode;
   overlay?: ResolvedNodeOverlay;
   onToggle: (nodeId: string, collapsed: boolean) => void;
-  focusState?: "source" | "target" | "dimmed";
+  focusState?: "source" | "target" | "selected" | "incoming" | "outgoing" | "dimmed";
 }
 
 interface TopologyEdgeData extends Record<string, unknown> {
   edge: VisualEdge;
   overlay?: EdgeOverlayData;
   resolvedOverlay?: ResolvedEdgeOverlay;
-  focusState?: "selected" | "dimmed";
+  focusState?: "selected" | "incoming" | "outgoing" | "dimmed";
   routeOffset?: number;
 }
 
@@ -111,6 +111,12 @@ interface EdgeAnnotation {
   title: string;
   chips: string[];
   warning?: boolean;
+}
+
+interface SelectedNodeDetail {
+  node: GraphNode;
+  incomingEdges: VisualEdge[];
+  outgoingEdges: VisualEdge[];
 }
 
 const NOOP_TOGGLE = () => undefined;
@@ -259,7 +265,10 @@ function CollapseButton({
     <button
       type="button"
       className="collapse-button"
-      onClick={() => onToggle(node.id, !node.isCollapsed)}
+      onClick={(event) => {
+        event.stopPropagation();
+        onToggle(node.id, !node.isCollapsed);
+      }}
       aria-label={`${node.isCollapsed ? "Expand" : "Collapse"} ${node.label}`}
     >
       {node.isCollapsed ? <ChevronRight size={15} /> : <ChevronDown size={15} />}
@@ -446,11 +455,13 @@ function buildFlowElements(
   layout: FlowLayoutModel,
   overlayModel: OverlayModel,
   onToggle: (nodeId: string, collapsed: boolean) => void,
-  selectedEdgeId?: string
+  selectedEdgeId?: string,
+  selectedNodeId?: string
 ): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[] } {
   const nodePositions = buildNodePositions(layout.stages, layout.lanes);
-  const selectedEdge = layout.edges.find((edge) => flowEdgeId(edge) === selectedEdgeId);
-  const routeOffsets = buildRouteOffsets(layout.edges);
+  const visibleEdges = layout.edges.filter((edge) => nodePositions.has(edge.visibleFrom) && nodePositions.has(edge.visibleTo));
+  const selectedEdge = visibleEdges.find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(visibleEdges);
   const seenNodeIds = new Set<string>();
   const nodes = layout.stages.flatMap<TopologyFlowNode>((stage) =>
     stage.nodes.flatMap((node) => {
@@ -460,16 +471,22 @@ function buildFlowElements(
       }
       seenNodeIds.add(node.id);
       return [
-        makeFlowNode(node, position, onToggle, nodeFocusState(node.id, selectedEdge), resolveNodeOverlay(overlayModel, node.id))
+        makeFlowNode(
+          node,
+          position,
+          onToggle,
+          nodeFocusState(node.id, selectedEdge, selectedNodeId, visibleEdges),
+          resolveNodeOverlay(overlayModel, node.id)
+        )
       ];
     })
   );
 
-  const edges = layout.edges
-    .filter((edge) => nodePositions.has(edge.visibleFrom) && nodePositions.has(edge.visibleTo))
+  const edges = visibleEdges
     .map<TopologyFlowEdge>((edge) => {
       const id = flowEdgeId(edge);
       const resolvedOverlay = resolveEdgeOverlay(overlayModel, edge);
+      const focusState = edgeFocusState(id, edge, selectedEdgeId, selectedNodeId);
       return {
         id,
         type: "topology",
@@ -480,11 +497,11 @@ function buildFlowElements(
           edge,
           overlay: presentationOverlayFromResolved(resolvedOverlay),
           resolvedOverlay,
-          focusState: edgeFocusState(id, selectedEdgeId, selectedEdge),
+          focusState,
           routeOffset: routeOffsets.get(id) ?? 0
         },
         selected: id === selectedEdgeId,
-        zIndex: id === selectedEdgeId ? 20 : 0,
+        zIndex: focusZIndex(focusState),
         focusable: true,
         selectable: true,
         reconnectable: false,
@@ -545,34 +562,76 @@ function makeFlowNode(
     ],
     style: { width: STAGE_WIDTH, height: NODE_HEIGHT },
     className: focusState ? `is-${focusState}` : undefined,
-    zIndex: focusState === "source" || focusState === "target" ? 20 : 0,
+    zIndex: focusState && focusState !== "dimmed" ? 20 : 0,
     draggable: false,
-    selectable: false
+    focusable: true,
+    selectable: true,
+    ariaRole: "button"
   };
 }
 
-function nodeFocusState(nodeId: string, selectedEdge?: VisualEdge): TopologyNodeData["focusState"] {
-  if (!selectedEdge) {
+function nodeFocusState(
+  nodeId: string,
+  selectedEdge?: VisualEdge,
+  selectedNodeId?: string,
+  visibleEdges: VisualEdge[] = []
+): TopologyNodeData["focusState"] {
+  if (selectedEdge) {
+    if (nodeId === selectedEdge.visibleFrom) {
+      return "source";
+    }
+    if (nodeId === selectedEdge.visibleTo) {
+      return "target";
+    }
+    return "dimmed";
+  }
+
+  if (!selectedNodeId) {
     return undefined;
   }
-  if (nodeId === selectedEdge.visibleFrom) {
-    return "source";
+  if (nodeId === selectedNodeId) {
+    return "selected";
   }
-  if (nodeId === selectedEdge.visibleTo) {
-    return "target";
+  const hasIncoming = visibleEdges.some((edge) => edge.visibleFrom === nodeId && edge.visibleTo === selectedNodeId);
+  const hasOutgoing = visibleEdges.some((edge) => edge.visibleFrom === selectedNodeId && edge.visibleTo === nodeId);
+  if (hasOutgoing) {
+    return "outgoing";
+  }
+  if (hasIncoming) {
+    return "incoming";
   }
   return "dimmed";
 }
 
 function edgeFocusState(
   edgeId: string,
+  edge: VisualEdge,
   selectedEdgeId?: string,
-  selectedEdge?: VisualEdge
+  selectedNodeId?: string
 ): TopologyEdgeData["focusState"] {
-  if (!selectedEdgeId || !selectedEdge) {
+  if (selectedEdgeId) {
+    return edgeId === selectedEdgeId ? "selected" : "dimmed";
+  }
+  if (!selectedNodeId) {
     return undefined;
   }
-  return edgeId === selectedEdgeId ? "selected" : "dimmed";
+  if (edge.visibleFrom === selectedNodeId) {
+    return "outgoing";
+  }
+  if (edge.visibleTo === selectedNodeId) {
+    return "incoming";
+  }
+  return "dimmed";
+}
+
+function focusZIndex(focusState?: TopologyEdgeData["focusState"]): number {
+  if (focusState === "selected") {
+    return 20;
+  }
+  if (focusState === "incoming" || focusState === "outgoing") {
+    return 18;
+  }
+  return 0;
 }
 
 function miniMapNodeColor(node: TopologyFlowNode): string {
@@ -602,6 +661,7 @@ function InteractiveFlowCanvas({
   nodes,
   edges,
   children,
+  onNodeClick,
   onEdgeClick,
   onPaneClick
 }: {
@@ -610,6 +670,7 @@ function InteractiveFlowCanvas({
   nodes: TopologyFlowNode[];
   edges: TopologyFlowEdge[];
   children?: ReactNode;
+  onNodeClick: (nodeId: string) => void;
   onEdgeClick: (edgeId: string) => void;
   onPaneClick: () => void;
 }) {
@@ -633,6 +694,7 @@ function InteractiveFlowCanvas({
         fitView
         fitViewOptions={FLOW_FIT_VIEW_OPTIONS}
         proOptions={{ hideAttribution: true }}
+        onNodeClick={(_, node) => onNodeClick(node.id)}
         onEdgeClick={(_, edge) => onEdgeClick(edge.id)}
         onPaneClick={onPaneClick}
       >
@@ -746,13 +808,15 @@ function buildCrossRegionRouteMap(
   model: GraphModel,
   overlayModel: OverlayModel,
   groups: CrossRegionGroupModel[],
-  selectedEdgeId?: string
+  selectedEdgeId?: string,
+  selectedNodeId?: string
 ): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[]; regions: { id: string; left: number; top: number }[] } {
   const sourceX = 40;
   const destinationStartX = 380;
   const destinationGap = 320;
-  const selectedEdge = groups.flatMap((group) => group.edges).find((edge) => flowEdgeId(edge) === selectedEdgeId);
-  const routeOffsets = buildRouteOffsets(groups.flatMap((group) => group.edges));
+  const visibleEdges = groups.flatMap((group) => group.edges);
+  const selectedEdge = visibleEdges.find((edge) => flowEdgeId(edge) === selectedEdgeId);
+  const routeOffsets = buildRouteOffsets(visibleEdges);
   const regions = groups.map((group, index) => ({
     id: group.destinationRegion,
     left: destinationStartX + index * destinationGap,
@@ -768,7 +832,7 @@ function buildCrossRegionRouteMap(
         node,
         { left: sourceX, top: 96 + index * 130 },
         NOOP_TOGGLE,
-        nodeFocusState(node.id, selectedEdge),
+        nodeFocusState(node.id, selectedEdge, selectedNodeId, visibleEdges),
         resolveNodeOverlay(overlayModel, node.id)
       )
     );
@@ -785,7 +849,7 @@ function buildCrossRegionRouteMap(
             target,
             { left, top: targetYFor(target, groupIndex) },
             NOOP_TOGGLE,
-            nodeFocusState(target.id, selectedEdge),
+            nodeFocusState(target.id, selectedEdge, selectedNodeId, visibleEdges),
             resolveNodeOverlay(overlayModel, target.id)
           )
         );
@@ -797,6 +861,7 @@ function buildCrossRegionRouteMap(
     group.edges.map<TopologyFlowEdge>((edge) => {
       const id = flowEdgeId(edge);
       const resolvedOverlay = resolveEdgeOverlay(overlayModel, edge);
+      const focusState = edgeFocusState(id, edge, selectedEdgeId, selectedNodeId);
       return {
         id,
         type: "topology",
@@ -807,11 +872,11 @@ function buildCrossRegionRouteMap(
           edge,
           overlay: mergeEdgeOverlays(crossRegionOverlay(edge, model), presentationOverlayFromResolved(resolvedOverlay)),
           resolvedOverlay,
-          focusState: edgeFocusState(id, selectedEdgeId, selectedEdge),
+          focusState,
           routeOffset: routeOffsets.get(id) ?? 0
         },
         selected: id === selectedEdgeId,
-        zIndex: id === selectedEdgeId ? 20 : 0,
+        zIndex: focusZIndex(focusState),
         focusable: true,
         selectable: true,
         reconnectable: false,
@@ -909,6 +974,73 @@ function EdgeDetailPanel({
   );
 }
 
+function NodeDetailPanel({
+  node,
+  incomingEdges,
+  outgoingEdges,
+  model,
+  onClose
+}: {
+  node: GraphNode;
+  incomingEdges: VisualEdge[];
+  outgoingEdges: VisualEdge[];
+  model: GraphModel;
+  onClose: () => void;
+}) {
+  return (
+    <aside className="selected-edge-panel selected-node-panel" aria-label="Selected node details">
+      <div className="panel-heading">
+        <div>
+          <h2>Selected node</h2>
+          <p>{node.label}</p>
+        </div>
+        <button type="button" onClick={onClose}>Close</button>
+      </div>
+      <dl>
+        <div>
+          <dt>nodeId</dt>
+          <dd>{node.id}</dd>
+        </div>
+        <div>
+          <dt>type</dt>
+          <dd>{node.type}</dd>
+        </div>
+        <div>
+          <dt>region</dt>
+          <dd>{node.region}</dd>
+        </div>
+        <div>
+          <dt>zone</dt>
+          <dd>{node.zone}</dd>
+        </div>
+      </dl>
+      <div className="selected-node-connection-grid">
+        <EdgePanel title={`Incoming (${incomingEdges.length})`} edges={incomingEdges} model={model} />
+        <EdgePanel title={`Outgoing (${outgoingEdges.length})`} edges={outgoingEdges} model={model} />
+      </div>
+    </aside>
+  );
+}
+
+function getSelectedNodeDetail(
+  nodes: TopologyFlowNode[],
+  edges: TopologyFlowEdge[],
+  selectedNodeId?: string
+): SelectedNodeDetail | undefined {
+  if (!selectedNodeId) {
+    return undefined;
+  }
+  const node = nodes.find((candidate) => candidate.id === selectedNodeId)?.data.node;
+  if (!node) {
+    return undefined;
+  }
+  return {
+    node,
+    incomingEdges: edges.flatMap((edge) => (edge.data?.edge.visibleTo === selectedNodeId ? [edge.data.edge] : [])),
+    outgoingEdges: edges.flatMap((edge) => (edge.data?.edge.visibleFrom === selectedNodeId ? [edge.data.edge] : []))
+  };
+}
+
 function FlowDiagram({
   title,
   subtitle,
@@ -927,13 +1059,15 @@ function FlowDiagram({
   onToggle: (nodeId: string, collapsed: boolean) => void;
 }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
+  const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const { nodes, edges } = useMemo(
-    () => buildFlowElements(layout, overlayModel, onToggle, selectedEdgeId),
-    [layout, overlayModel, onToggle, selectedEdgeId]
+    () => buildFlowElements(layout, overlayModel, onToggle, selectedEdgeId, selectedNodeId),
+    [layout, overlayModel, onToggle, selectedEdgeId, selectedNodeId]
   );
   const selectedFlowEdge = edges.find((edge) => edge.id === selectedEdgeId);
   const selectedEdge = selectedFlowEdge?.data?.edge;
   const selectedOverlay = selectedFlowEdge?.data?.resolvedOverlay;
+  const selectedNodeDetail = getSelectedNodeDetail(nodes, edges, selectedNodeId);
 
   return (
     <section className="flow-panel" aria-label={title}>
@@ -955,13 +1089,32 @@ function FlowDiagram({
         {selectedEdge ? (
           <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
         ) : null}
+        {selectedNodeDetail ? (
+          <NodeDetailPanel
+            node={selectedNodeDetail.node}
+            incomingEdges={selectedNodeDetail.incomingEdges}
+            outgoingEdges={selectedNodeDetail.outgoingEdges}
+            model={model}
+            onClose={() => setSelectedNodeId(undefined)}
+          />
+        ) : null}
         <InteractiveFlowCanvas
           className="flow-canvas"
           testId="flow-diagram"
           nodes={nodes}
           edges={edges}
-          onEdgeClick={setSelectedEdgeId}
-          onPaneClick={() => setSelectedEdgeId(undefined)}
+          onNodeClick={(nodeId) => {
+            setSelectedEdgeId(undefined);
+            setSelectedNodeId(nodeId);
+          }}
+          onEdgeClick={(edgeId) => {
+            setSelectedNodeId(undefined);
+            setSelectedEdgeId(edgeId);
+          }}
+          onPaneClick={() => {
+            setSelectedEdgeId(undefined);
+            setSelectedNodeId(undefined);
+          }}
         >
           <div className="lane-labels" aria-hidden="true">
             {layout.lanes.map((lane) => (
@@ -1028,13 +1181,15 @@ function RegionalView({
 function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewManifest; model: GraphModel; overlayModel: OverlayModel }) {
   const groups = getCrossRegionGroups(model, view);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
+  const [selectedNodeId, setSelectedNodeId] = useState<string>();
   const routeMap = useMemo(
-    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId),
-    [model, overlayModel, groups, selectedEdgeId]
+    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId, selectedNodeId),
+    [model, overlayModel, groups, selectedEdgeId, selectedNodeId]
   );
   const selectedFlowEdge = routeMap.edges.find((edge) => edge.id === selectedEdgeId);
   const selectedEdge = selectedFlowEdge?.data?.edge;
   const selectedOverlay = selectedFlowEdge?.data?.resolvedOverlay;
+  const selectedNodeDetail = getSelectedNodeDetail(routeMap.nodes, routeMap.edges, selectedNodeId);
 
   return (
     <section className="cross-region-layout" aria-label="Cross-region edge detail">
@@ -1055,13 +1210,32 @@ function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewM
           {selectedEdge ? (
             <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
           ) : null}
+          {selectedNodeDetail ? (
+            <NodeDetailPanel
+              node={selectedNodeDetail.node}
+              incomingEdges={selectedNodeDetail.incomingEdges}
+              outgoingEdges={selectedNodeDetail.outgoingEdges}
+              model={model}
+              onClose={() => setSelectedNodeId(undefined)}
+            />
+          ) : null}
           <InteractiveFlowCanvas
             className="cross-region-canvas"
             testId="cross-region-map"
             nodes={routeMap.nodes}
             edges={routeMap.edges}
-            onEdgeClick={setSelectedEdgeId}
-            onPaneClick={() => setSelectedEdgeId(undefined)}
+            onNodeClick={(nodeId) => {
+              setSelectedEdgeId(undefined);
+              setSelectedNodeId(nodeId);
+            }}
+            onEdgeClick={(edgeId) => {
+              setSelectedNodeId(undefined);
+              setSelectedEdgeId(edgeId);
+            }}
+            onPaneClick={() => {
+              setSelectedEdgeId(undefined);
+              setSelectedNodeId(undefined);
+            }}
           >
             <div className="region-column-label source-region" style={{ left: 40 }}>Source use1</div>
             {routeMap.regions.map((region) => (
