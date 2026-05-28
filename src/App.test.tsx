@@ -4,6 +4,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import App from "./App";
+import { buildSampleLiveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE } from "./sampleLiveTps";
 import { validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
 
@@ -95,7 +96,7 @@ describe("App", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("missing node");
   });
 
-  it("refetches and rerenders overlay updates after a runtime revision event", async () => {
+  it("refetches and rerenders live TPS overlay updates after a runtime revision event", async () => {
     let payload = loadSeedPayload();
     vi.stubGlobal(
       "fetch",
@@ -107,30 +108,22 @@ describe("App", () => {
 
     expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
 
+    const liveTpsOverlays = buildSampleLiveTpsOverlays(payload.overlays, { tick: 1 });
+    const expectedOrdersTps = liveTpsOverlays.node_decorators.find(
+      (decorator) => decorator.id === "live-tps-orders-ingestion-stream"
+    )?.metrics[0]?.value;
     payload = {
       ...payload,
       overlayRevision: 2,
-      overlaySource: "test-updater",
+      overlaySource: SAMPLE_LIVE_TPS_SOURCE,
       overlayStatus: { state: "dynamic" },
-      overlays: {
-        node_decorators: [
-          {
-            id: "runtime-products-lag",
-            node_id: "use1.hot.cluster.products",
-            title: "Products lag",
-            metrics: [{ label: "lag", value: "13s" }],
-            badges: [],
-            notes: []
-          }
-        ],
-        edge_decorators: [],
-        route_decorators: []
-      }
+      overlays: liveTpsOverlays
     };
 
     FakeEventSource.instance?.emit("revision");
 
-    expect(await screen.findAllByText("13s lag")).not.toHaveLength(0);
+    expect(await screen.findAllByText(`${expectedOrdersTps} TPS`)).not.toHaveLength(0);
+    expect(screen.getByText(SAMPLE_LIVE_TPS_SOURCE)).toBeInTheDocument();
   });
 
   it("lets static demo users edit and reset the bundled sample without runtime API calls", async () => {

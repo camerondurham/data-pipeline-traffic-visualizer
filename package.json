@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
+    "demo:live": "node scripts/live-tps-demo.mjs",
     "build": "tsc -b && vite build && vite build --config vite.server.config.ts",
     "preview": "npm run start",
     "start": "node dist-server/startServer.js",
