@@ -1,0 +1,139 @@
+/* ============================================================
+   Editor panel (Runtime YAML)
+   ============================================================ */
+
+.icon-button,
+.editor-actions button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--rad);
+  background: var(--steel);
+  color: var(--bone);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.icon-button:hover,
+.editor-actions button:hover:not(:disabled) {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: rgba(91, 233, 210, 0.06);
+}
+
+.editor-actions button:disabled,
+.icon-button:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.architecture-editor { position: relative; }
+
+.editor-toggle {
+  background: var(--signal-soft);
+  border-color: var(--signal);
+  color: var(--signal);
+}
+
+.editor-toggle:hover { background: rgba(91, 233, 210, 0.22); }
+
+.editor-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  width: min(960px, calc(100vw - 320px));
+  max-height: calc(100vh - 120px);
+  gap: 14px;
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--rad);
+  background: linear-gradient(180deg, rgba(91, 233, 210, 0.04), transparent 80px), var(--char);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+  animation: slideDown 160ms ease;
+}
+
+.editor-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+.editor-header h2 {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--bone);
+}
+
+.editor-state.is-valid   { color: var(--signal); }
+.editor-state.is-invalid { color: var(--vermillion); }
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.editor-grid label {
+  display: grid;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+.editor-grid textarea {
+  width: 100%;
+  height: 360px;
+  min-height: 260px;
+  resize: vertical;
+  border: 1px solid var(--rule);
+  border-radius: var(--rad);
+  background: var(--ink);
+  color: var(--bone);
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+.editor-grid textarea:focus-visible {
+  outline: 1px solid var(--signal);
+  outline-offset: 1px;
+  border-color: var(--signal);
+}
+
+.editor-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.editor-actions button { padding: 0 12px; }
+
+.diagnostics {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 12px 14px 12px 28px;
+  border: 1px solid rgba(255, 90, 78, 0.42);
+  border-radius: var(--rad);
+  background: rgba(48, 14, 14, 0.42);
+  color: #ffd2d2;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.editor-status {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ash);
+}

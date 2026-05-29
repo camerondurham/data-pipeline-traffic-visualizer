@@ -1,0 +1,71 @@
+/* ============================================================
+   Responsive
+   ============================================================ */
+
+@media (max-width: 1100px) {
+  :root { --rail-w: 240px; }
+  .editor-panel { width: min(720px, calc(100vw - 280px)); }
+}
+
+@media (max-width: 860px) {
+  .app-shell { grid-template-columns: 1fr; }
+
+  .command-rail {
+    position: relative;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .brand { padding-bottom: 0; border-bottom: 0; flex: 1 1 220px; }
+  .rail-section { flex: 1 1 240px; }
+  .rail-status .status-readout { padding: 8px; }
+
+  .workspace {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .topology-view,
+  .cross-region-layout,
+  .focus-layout { grid-template-rows: auto; min-height: 0; }
+
+  .flow-panel { overflow: visible; }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .topbar h1 { font-size: 24px; }
+
+  .editor-panel {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-top: 10px;
+  }
+
+  .editor-grid { grid-template-columns: 1fr; }
+
+  .interactive-flow-canvas { height: 62vh; min-height: 420px; }
+
+  .interactive-flow-canvas .react-flow__minimap { width: 130px; height: 96px; }
+
+  .selected-edge-panel {
+    top: auto;
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+    width: auto;
+    max-height: 50%;
+    animation: slideDown 160ms ease;
+  }
+}
