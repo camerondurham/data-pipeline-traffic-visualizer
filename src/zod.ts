@@ -12,8 +12,7 @@ export const ArchitectureNodeSchema = z
     type: RequiredString,
     region: RequiredString,
     zone: ArchitectureZoneSchema,
-    parent: RequiredString.optional(),
-    collapsed: z.boolean().optional()
+    parent: RequiredString.optional()
   })
   .strict();
 

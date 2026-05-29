@@ -23,15 +23,12 @@ export type EdgeEmphasis = "default" | "primary" | "secondary";
 export interface GraphNode extends ArchitectureNode {
   children: string[];
   isGroup: boolean;
-  isCollapsed: boolean;
 }
 
 export interface DerivedEdge {
   id: string;
-  originalFrom: string;
-  originalTo: string;
-  originalEdges: OriginalEdgeEndpoint[];
-  sourceEdgeIds: string[];
+  from: string;
+  to: string;
   sourceRegion: string;
   destinationRegion: string;
   crossRegion: boolean;
@@ -40,17 +37,7 @@ export interface DerivedEdge {
 }
 
 export interface VisualEdge extends DerivedEdge {
-  visibleFrom: string;
-  visibleTo: string;
   emphasis: EdgeEmphasis;
-}
-
-export interface OriginalEdgeEndpoint {
-  id: string;
-  from: string;
-  to: string;
-  sourceRegion: string;
-  destinationRegion: string;
 }
 
 export interface GraphModel {
@@ -181,10 +168,7 @@ export function validateGraphReferences(manifest: ArchitectureManifest): void {
   }
 }
 
-function makeGraphNodes(
-  manifest: ArchitectureManifest,
-  collapsedOverrides: Record<string, boolean>
-): { nodes: GraphNode[]; nodeById: Map<string, GraphNode> } {
+function makeGraphNodes(manifest: ArchitectureManifest): { nodes: GraphNode[]; nodeById: Map<string, GraphNode> } {
   const childrenByParent = new Map<string, string[]>();
   for (const node of manifest.nodes) {
     if (!node.parent) {
@@ -198,65 +182,25 @@ function makeGraphNodes(
   const nodes = manifest.nodes.map<GraphNode>((node) => ({
     ...node,
     children: childrenByParent.get(node.id) ?? [],
-    isGroup: (childrenByParent.get(node.id) ?? []).length > 0,
-    isCollapsed: collapsedOverrides[node.id] ?? node.collapsed ?? false
+    isGroup: (childrenByParent.get(node.id) ?? []).length > 0
   }));
 
   return { nodes, nodeById: new Map(nodes.map((node) => [node.id, node])) };
 }
 
-function isHiddenByCollapsedAncestor(node: GraphNode, nodeById: Map<string, GraphNode>): boolean {
-  const seen = new Set<string>();
-  let parentId = node.parent;
-  while (parentId) {
-    if (seen.has(parentId)) {
-      throw new Error(`Parent cycle detected while checking visibility for node ${node.id}`);
-    }
-    seen.add(parentId);
-
-    const parent = nodeById.get(parentId);
-    if (!parent) {
-      return false;
-    }
-    if (parent.isCollapsed) {
-      return true;
-    }
-    parentId = parent.parent;
-  }
-  return false;
-}
-
-function getVisibleAncestor(nodeId: string, nodeById: Map<string, GraphNode>): string {
-  const seen = new Set<string>();
-  let current = nodeById.get(nodeId);
-  while (current && isHiddenByCollapsedAncestor(current, nodeById)) {
-    if (seen.has(current.id)) {
-      throw new Error(`Parent cycle detected while resolving visible ancestor for node ${nodeId}`);
-    }
-    seen.add(current.id);
-
-    if (!current.parent) {
-      return current.id;
-    }
-    current = nodeById.get(current.parent);
-  }
-  return current?.id ?? nodeId;
-}
-
-function uniqueNodesByVisibleAncestor(nodeIds: string[], nodeById: Map<string, GraphNode>): GraphNode[] {
-  const visibleIds = new Set<string>();
+function uniqueNodesById(nodeIds: string[], nodeById: Map<string, GraphNode>): GraphNode[] {
+  const seenIds = new Set<string>();
   const nodes: GraphNode[] = [];
 
   for (const nodeId of nodeIds) {
-    const visibleId = getVisibleAncestor(nodeId, nodeById);
-    if (visibleIds.has(visibleId)) {
+    if (seenIds.has(nodeId)) {
       continue;
     }
-    const node = nodeById.get(visibleId);
+    const node = nodeById.get(nodeId);
     if (!node) {
       continue;
     }
-    visibleIds.add(visibleId);
+    seenIds.add(nodeId);
     nodes.push(node);
   }
 
@@ -272,18 +216,8 @@ function deriveEdge(edge: ArchitectureEdge, nodeById: Map<string, GraphNode>): D
 
   return {
     id: edge.id,
-    originalFrom: edge.from,
-    originalTo: edge.to,
-    originalEdges: [
-      {
-        id: edge.id,
-        from: edge.from,
-        to: edge.to,
-        sourceRegion: source.region,
-        destinationRegion: target.region
-      }
-    ],
-    sourceEdgeIds: [edge.id],
+    from: edge.from,
+    to: edge.to,
     sourceRegion: source.region,
     destinationRegion: target.region,
     crossRegion: source.region !== target.region,
@@ -297,55 +231,25 @@ function visualEdgesFor(
   nodeById: Map<string, GraphNode>,
   emphasisByEdgeId: Map<string, EdgeEmphasis> = new Map()
 ): VisualEdge[] {
-  const rolledUp = new Map<string, VisualEdge>();
-
-  for (const edge of edges) {
-    const derived = deriveEdge(edge, nodeById);
-    const visibleFrom = getVisibleAncestor(edge.from, nodeById);
-    const visibleTo = getVisibleAncestor(edge.to, nodeById);
-    const emphasis = emphasisByEdgeId.get(edge.id) ?? "default";
-
-    if (visibleFrom === visibleTo) {
-      continue;
-    }
-
-    const key = `${visibleFrom}|${visibleTo}|${edge.type}|${emphasis}|${derived.sourceRegion}|${derived.destinationRegion}`;
-    const existing = rolledUp.get(key);
-    if (existing) {
-      existing.sourceEdgeIds = Array.from(new Set([...existing.sourceEdgeIds, edge.id])).sort();
-      existing.originalEdges = [...existing.originalEdges, ...derived.originalEdges].sort((left, right) => left.id.localeCompare(right.id));
-      existing.crossRegion = existing.crossRegion || derived.crossRegion;
-      continue;
-    }
-
-    rolledUp.set(key, {
-      ...derived,
-      visibleFrom,
-      visibleTo,
-      emphasis
-    });
-  }
-
-  return [...rolledUp.values()];
+  return edges.map((edge) => ({
+    ...deriveEdge(edge, nodeById),
+    emphasis: emphasisByEdgeId.get(edge.id) ?? "default"
+  }));
 }
 
-export function buildGraphModel(
-  manifest: ArchitectureManifest,
-  collapsedOverrides: Record<string, boolean> = {}
-): GraphModel {
+export function buildGraphModel(manifest: ArchitectureManifest): GraphModel {
   validateGraphReferences(manifest);
 
-  const { nodes, nodeById } = makeGraphNodes(manifest, collapsedOverrides);
+  const { nodes, nodeById } = makeGraphNodes(manifest);
   const edgeById = new Map(manifest.edges.map((edge) => [edge.id, edge]));
   const viewById = new Map(manifest.views.map((view) => [view.id, view]));
-  const visibleNodes = nodes.filter((node) => !isHiddenByCollapsedAncestor(node, nodeById));
   const edges = manifest.edges.map((edge) => deriveEdge(edge, nodeById));
   const visualEdges = visualEdgesFor(manifest.edges, nodeById);
 
   return {
     manifest,
     nodes,
-    visibleNodes,
+    visibleNodes: nodes,
     edges,
     visualEdges,
     nodeById,
@@ -369,7 +273,7 @@ export function getFlowLayout(model: GraphModel, view: RegionView): FlowLayoutMo
       view,
       lanes: DEFAULT_FLOW_LANES,
       stages,
-      edges: model.visualEdges.filter((edge) => nodeIds.has(edge.visibleFrom) && nodeIds.has(edge.visibleTo))
+      edges: model.visualEdges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
     };
   }
 
@@ -377,7 +281,7 @@ export function getFlowLayout(model: GraphModel, view: RegionView): FlowLayoutMo
     id: stage.id,
     label: stage.label,
     lane: stage.lane,
-    nodes: uniqueNodesByVisibleAncestor(stage.node_ids, model.nodeById)
+    nodes: uniqueNodesById(stage.node_ids, model.nodeById)
   }));
   const nodeIds = new Set(stages.flatMap((stage) => stage.nodes.map((node) => node.id)));
 
@@ -385,7 +289,7 @@ export function getFlowLayout(model: GraphModel, view: RegionView): FlowLayoutMo
     view,
     lanes: view.lanes ?? DEFAULT_FLOW_LANES,
     stages,
-    edges: model.visualEdges.filter((edge) => nodeIds.has(edge.visibleFrom) && nodeIds.has(edge.visibleTo))
+    edges: model.visualEdges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to))
   };
 }
 
@@ -428,8 +332,8 @@ export function getFocusView(model: GraphModel, view: FocusView): FocusViewModel
   const edges = visualEdgesFor(focusEdges, model.nodeById, emphasisByEdgeId);
   const nodeIds = new Set<string>();
   for (const edge of edges) {
-    nodeIds.add(edge.visibleFrom);
-    nodeIds.add(edge.visibleTo);
+    nodeIds.add(edge.from);
+    nodeIds.add(edge.to);
   }
 
   return {

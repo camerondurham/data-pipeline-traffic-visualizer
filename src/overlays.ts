@@ -175,8 +175,8 @@ export function resolveNodeOverlay(model: OverlayModel, nodeId: string): Resolve
 }
 
 export function resolveEdgeOverlay(model: OverlayModel, edge: VisualEdge): ResolvedEdgeOverlay | undefined {
-  const edgeDecorators = uniqueDecorators(edge.sourceEdgeIds.flatMap((edgeId) => model.edgeDecoratorsByEdgeId.get(edgeId) ?? []));
-  const routeDecorators = uniqueDecorators(edge.sourceEdgeIds.flatMap((edgeId) => model.routeDecoratorsByEdgeId.get(edgeId) ?? []));
+  const edgeDecorators = uniqueDecorators(model.edgeDecoratorsByEdgeId.get(edge.id) ?? []);
+  const routeDecorators = uniqueDecorators(model.routeDecoratorsByEdgeId.get(edge.id) ?? []);
   const decorators = [...edgeDecorators, ...routeDecorators];
 
   if (decorators.length === 0) {

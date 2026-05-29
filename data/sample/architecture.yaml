@@ -4,14 +4,12 @@ nodes:
     type: group
     region: use1
     zone: pre_aggregate
-    collapsed: false
   - id: use1.sources.apps
     label: Sourcing Apps
     type: group
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
-    collapsed: false
   - id: use1.sources.web_storefront
     label: Web Storefront
     type: app
@@ -42,7 +40,6 @@ nodes:
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
-    collapsed: false
   - id: use1.ingestion.orders_stream
     label: Orders Ingestion Stream
     type: stream
@@ -73,7 +70,6 @@ nodes:
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
-    collapsed: false
   - id: use1.processing.orders_app
     label: Orders Processing App
     type: processor
@@ -110,7 +106,6 @@ nodes:
     type: group
     region: use1
     zone: aggregate
-    collapsed: false
   - id: use1.aggregate.stream
     label: Aggregate Stream
     type: stream
@@ -123,7 +118,6 @@ nodes:
     type: group
     region: use1
     zone: hot
-    collapsed: false
   - id: use1.hot.router
     label: Hot Router
     type: router
@@ -184,7 +178,6 @@ nodes:
     type: group
     region: use1
     zone: cold
-    collapsed: false
   - id: use1.cold.router
     label: Cold Router
     type: router
@@ -245,7 +238,6 @@ nodes:
     type: group
     region: use1
     zone: partner
-    collapsed: false
   - id: use1.partner.stream
     label: Partner Stream
     type: stream
@@ -288,7 +280,6 @@ nodes:
     type: group
     region: usw2
     zone: aggregate
-    collapsed: false
   - id: usw2.aggregate.stream
     label: USW2 Aggregate Stream
     type: stream
@@ -300,7 +291,6 @@ nodes:
     type: group
     region: usw2
     zone: partner
-    collapsed: false
   - id: usw2.partner.stream.example
     label: USW2 Partner Stream
     type: stream
@@ -337,7 +327,6 @@ nodes:
     type: group
     region: euw1
     zone: aggregate
-    collapsed: false
   - id: euw1.aggregate.stream
     label: EUW1 Aggregate Stream
     type: stream
@@ -349,7 +338,6 @@ nodes:
     type: group
     region: euw1
     zone: partner
-    collapsed: false
   - id: euw1.partner.stream.example
     label: EUW1 Partner Stream
     type: stream
