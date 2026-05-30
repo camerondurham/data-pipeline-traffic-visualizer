@@ -53,6 +53,21 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   }
 }
 
+async function readArchitectureSourceBody(request: IncomingMessage): Promise<{ architectureYaml: string; overlaysYaml: string }> {
+  const body = await readJson(request);
+  if (!isRecord(body) || typeof body.architectureYaml !== "string" || typeof body.overlaysYaml !== "string") {
+    throw new BadRequestError("architectureYaml and overlaysYaml are required strings");
+  }
+  return {
+    architectureYaml: body.architectureYaml,
+    overlaysYaml: body.overlaysYaml
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function sendSseEvent(response: ServerResponse, eventName: string, data: unknown): void {
   response.write(`event: ${eventName}\n`);
   response.write(`data: ${JSON.stringify(data)}\n\n`);
@@ -104,21 +119,13 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
       }
 
       if (method === "POST" && url.pathname === "/api/architecture/lint") {
-        const body = (await readJson(request)) as { architectureYaml?: unknown; overlaysYaml?: unknown };
-        if (typeof body.architectureYaml !== "string" || typeof body.overlaysYaml !== "string") {
-          sendJson(response, 400, { error: "architectureYaml and overlaysYaml are required strings" });
-          return;
-        }
+        const body = await readArchitectureSourceBody(request);
         sendJson(response, 200, store.lintSource(body.architectureYaml, body.overlaysYaml));
         return;
       }
 
       if (method === "POST" && url.pathname === "/api/architecture/draft") {
-        const body = (await readJson(request)) as { architectureYaml?: unknown; overlaysYaml?: unknown };
-        if (typeof body.architectureYaml !== "string" || typeof body.overlaysYaml !== "string") {
-          sendJson(response, 400, { error: "architectureYaml and overlaysYaml are required strings" });
-          return;
-        }
+        const body = await readArchitectureSourceBody(request);
         const result = store.applyDraft(body.architectureYaml, body.overlaysYaml);
         sendJson(response, result.ok ? 200 : 422, result);
         return;
@@ -131,9 +138,12 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
       }
 
       if (method === "POST" && url.pathname === "/api/overlays/snapshot") {
-        const body = (await readJson(request)) as { overlays?: unknown; source?: unknown; generatedAt?: unknown };
+        const body = await readJson(request);
+        if (!isRecord(body)) {
+          throw new BadRequestError("Request body must be a JSON object");
+        }
         const result = store.updateOverlaySnapshot({
-          overlays: body.overlays as never,
+          overlays: body.overlays,
           source: typeof body.source === "string" ? body.source : undefined,
           generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined
         });

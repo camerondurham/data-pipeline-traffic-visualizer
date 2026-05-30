@@ -7,6 +7,7 @@ import type {
   OverlayMetric,
   RouteDecorator
 } from "./zod";
+import { formatMetricChip, uniqueStrings } from "./overlayFormatting";
 
 export type OverlayTone = "default" | "primary" | "secondary" | "cross" | "read";
 
@@ -126,18 +127,6 @@ export function buildOverlayModel(manifest: ArchitectureManifest, overlays: Arch
     edgeDecoratorsByEdgeId,
     routeDecoratorsByEdgeId
   };
-}
-
-function uniqueStrings(values: string[]): string[] {
-  return Array.from(new Set(values));
-}
-
-function formatMetricChip(metric: OverlayMetric): string {
-  const label = metric.label.toLowerCase();
-  if (label === "instance" || label === "instance type") {
-    return String(metric.value);
-  }
-  return `${metric.value} ${metric.label}`;
 }
 
 function decoratorTitle(decorator: { id: string; title?: string }): string {

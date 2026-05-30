@@ -40,7 +40,7 @@ export interface ArchitectureLintResponse {
 }
 
 export interface OverlaySnapshotRequest {
-  overlays: ArchitectureOverlays;
+  overlays: unknown;
   source?: string;
   generatedAt?: string;
 }
