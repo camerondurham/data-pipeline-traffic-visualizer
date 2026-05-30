@@ -735,6 +735,7 @@ views:
         label: Data processing applications
         lane: normal
         node_ids:
+          - use1.processing.apps
           - use1.processing.orders_app
           - use1.processing.partner_app
           - use1.processing.inventory_app
@@ -749,10 +750,12 @@ views:
         node_ids:
           - use1.pre_agg.slow_processor
       - id: aggregate_stream
-        label: Aggregate Kinesis stream
+        label: Aggregate streams
         lane: normal
         node_ids:
           - use1.aggregate.stream
+          - usw2.aggregate.stream
+          - euw1.aggregate.stream
       - id: cold_router
         label: Cold-tier router
         lane: cold
@@ -818,10 +821,12 @@ views:
         node_ids:
           - use1.hot.slow_processor
       - id: partner_streams
-        label: Partner streams
+        label: Partner streams and remote destinations
         lane: partner
         node_ids:
           - use1.partner.stream
+          - usw2.partner.stream.example
+          - euw1.partner.stream.example
           - use1.partner.slow_streams
       - id: partner_processors
         label: Partner indexers/processors
