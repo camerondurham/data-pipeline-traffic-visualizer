@@ -109,7 +109,7 @@ Every edge requires:
 - `type`: edge classification such as `publish`, `feed`, `route`, `consume`, `index`, `serve`, `sideline`, `drain`, or `replay`.
 - `label`: optional display text.
 
-Views are explicit. The sample emphasizes regional topology views. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs, but those should be used sparingly for targeted investigations rather than as default navigation.
+Views are explicit. The default sample view is a broad end-to-end path: it keeps the USE1 local workflow visible while staging summary destination streams for USW2 and EUW1 so cross-region publish behavior is visible without switching views. Per-region views retain deeper destination-region detail. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs, but those should be used sparingly for targeted investigations rather than as default navigation.
 
 Region views can also define presentation metadata:
 

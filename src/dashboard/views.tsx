@@ -162,12 +162,26 @@ function RegionalView({
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const layout = getFlowLayout(model, view);
+  const regions = [
+    view.region,
+    ...Array.from(new Set(layout.stages.flatMap((stage) => stage.nodes.map((node) => node.region))))
+      .filter((region) => region !== view.region)
+  ];
+  const spansRegions = regions.length > 1;
 
   return (
     <section className="topology-view" aria-label="Regional end-to-end topology">
       <FlowDiagram
-        title={`${view.region} sequential architecture flow`}
-        subtitle="Whiteboard-style stages grouped by application/system type"
+        title={
+          spansRegions
+            ? `${regions.join(" + ")} end-to-end architecture flow`
+            : `${view.region} sequential architecture flow`
+        }
+        subtitle={
+          spansRegions
+            ? "Source-region workflow with remote destination stream summary nodes"
+            : "Whiteboard-style stages grouped by application/system type"
+        }
         layout={layout}
         model={model}
         overlayModel={overlayModel}

@@ -78,14 +78,14 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data processing applications" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Aggregate Kinesis stream" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aggregate streams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold-tier router" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold API read surface" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot-tier router" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot API read surface" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Partner streams" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Partner streams and remote destinations" })).toBeInTheDocument();
     expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mobile App").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Webhook").length).toBeGreaterThan(0);
@@ -93,7 +93,11 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mobile Events Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
   });
 
@@ -143,9 +147,13 @@ describe("Dashboard", () => {
     expect(screen.getByText("edge.use1.sources.mobile.to.mobile.ingestion")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.mobile.ingestion.to.orders.processor")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.orders.processor.to.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.processing.to.usw2.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.processing.to.euw1.aggregate")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.cold.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.partner.stream")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.euw1.partner.stream")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.slow")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.processor.to.products.stream")).toBeInTheDocument();
   });
@@ -409,15 +417,21 @@ describe("Dashboard", () => {
     const detailPanel = screen.getByRole("complementary", { name: "Selected node details" });
     expect(within(detailPanel).getByText("use1.hot.router")).toBeInTheDocument();
     expect(within(detailPanel).getByText("Incoming (1)")).toBeInTheDocument();
-    expect(within(detailPanel).getByText("Outgoing (5)")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("Outgoing (7)")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.hot.router.to.products.stream")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.euw1.partner.stream")).toBeInTheDocument();
 
     expect(container.querySelector('[data-id="use1.hot.router"] .node-card.is-selected')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.aggregate.to.hot.router"] .topology-edge.is-incoming')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.hot.router.to.products.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.usw2.partner.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.euw1.partner.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
     expect(container.querySelector('[data-id="use1.aggregate.stream"] .node-card.is-incoming')).toBeInTheDocument();
     expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="usw2.partner.stream.example"] .node-card.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="euw1.partner.stream.example"] .node-card.is-outgoing')).toBeInTheDocument();
     expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
   });
 
