@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Code2, RotateCcw, ShieldCheck, Upload, XCircle } from "lucide-react";
 import { stringify } from "yaml";
 import { lintArchitectureDocuments } from "./server/runtimeValidation";
 import type { ArchitectureManifest, ArchitectureOverlays } from "./zod";
@@ -31,6 +30,16 @@ async function readJson<T>(response: Response): Promise<T> {
 function diagnosticLabel(diagnostic: RuntimeDiagnostic): string {
   const path = diagnostic.path ? ` ${diagnostic.path}` : "";
   return `${diagnostic.file}${path}: ${diagnostic.message}`;
+}
+
+function editorStateLabel(isValid: boolean, hasDiagnostics: boolean): string | undefined {
+  if (isValid) {
+    return "Valid draft";
+  }
+  if (hasDiagnostics) {
+    return "Invalid draft";
+  }
+  return undefined;
 }
 
 export function ArchitectureEditor({
@@ -230,74 +239,92 @@ export function ArchitectureEditor({
 
   return (
     <div className="architecture-editor">
-      <button className="icon-button editor-toggle" type="button" onClick={() => setOpen((current) => !current)}>
-        <Code2 size={18} aria-hidden="true" />
-        <span>Runtime YAML</span>
+      <button
+        type="button"
+        className="aws-button aws-button-normal editor-toggle"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        Runtime YAML
       </button>
 
       {open ? (
         <section className="editor-panel" aria-label="Runtime architecture editor">
-          <div className="editor-header">
-            <div>
-              <span className="eyebrow">Runtime Editor</span>
-              <h2>Architecture and overlays</h2>
+          <div className="aws-container editor-container">
+            <header className="editor-header">
+              <div className="editor-title">
+                <h2>Architecture and overlays</h2>
+                <p>Edit the active architecture and overlay YAML against the same validation path used by the runtime API.</p>
+              </div>
+              <div className="editor-header-actions">
+                {editorStateLabel(Boolean(lintResult?.ok), Boolean(diagnostics.length)) ? (
+                  <span className={`editor-state ${lintResult?.ok ? "is-valid" : "is-invalid"}`}>
+                    {editorStateLabel(Boolean(lintResult?.ok), Boolean(diagnostics.length))}
+                  </span>
+                ) : null}
+                <div className="editor-actions">
+                  <button type="button" className="aws-button aws-button-normal" onClick={() => void loadSource()} disabled={!enabled || loading}>
+                    {loading ? "Loading" : "Load"}
+                  </button>
+                  <button
+                    type="button"
+                    className="aws-button aws-button-normal"
+                    onClick={() => void lintSource()}
+                    disabled={!enabled || !hasSource || loading}
+                  >
+                    Lint
+                  </button>
+                  <button type="button" className="aws-button aws-button-primary" onClick={() => void applyDraft()} disabled={!canApply || loading}>
+                    Apply
+                  </button>
+                  <button type="button" className="aws-button aws-button-normal" onClick={() => void resetDraft()} disabled={!enabled || loading}>
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </header>
+            <div className="editor-grid">
+              <label className="aws-form-field">
+                <span>architecture.yaml</span>
+                <textarea
+                  aria-label="architecture.yaml"
+                  className="yaml-editor-textarea"
+                  value={architectureYaml}
+                  onChange={(event) => setArchitectureYaml(event.target.value)}
+                  rows={24}
+                  spellCheck={false}
+                />
+              </label>
+              <label className="aws-form-field">
+                <span>architecture-overlays.yaml</span>
+                <textarea
+                  aria-label="architecture-overlays.yaml"
+                  className="yaml-editor-textarea"
+                  value={overlaysYaml}
+                  onChange={(event) => setOverlaysYaml(event.target.value)}
+                  rows={24}
+                  spellCheck={false}
+                />
+              </label>
             </div>
-            {lintResult?.ok ? (
-              <CheckCircle2 className="editor-state is-valid" size={20} aria-label="Valid draft" />
-            ) : diagnostics.length ? (
-              <XCircle className="editor-state is-invalid" size={20} aria-label="Invalid draft" />
+
+            {diagnostics.length ? (
+              <div className="aws-alert aws-alert-error" role="alert">
+                <h3>Runtime YAML diagnostics</h3>
+                <ul className="diagnostics" aria-label="Runtime YAML diagnostics">
+                  {diagnostics.map((diagnostic, index) => (
+                    <li key={`${diagnostic.file}-${diagnostic.path ?? "root"}-${index}`}>{diagnosticLabel(diagnostic)}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {status ? (
+              <div className={`aws-alert ${lintResult?.ok ? "aws-alert-success" : "aws-alert-info"}`} role="status">
+                {status}
+              </div>
             ) : null}
           </div>
-
-          <div className="editor-actions">
-            <button type="button" onClick={loadSource} disabled={!enabled || loading}>
-              <ShieldCheck size={16} aria-hidden="true" />
-              Load
-            </button>
-            <button type="button" onClick={() => void lintSource()} disabled={!enabled || !hasSource || loading}>
-              <CheckCircle2 size={16} aria-hidden="true" />
-              Lint
-            </button>
-            <button type="button" onClick={applyDraft} disabled={!canApply || loading}>
-              <Upload size={16} aria-hidden="true" />
-              Apply
-            </button>
-            <button type="button" onClick={resetDraft} disabled={!enabled || loading}>
-              <RotateCcw size={16} aria-hidden="true" />
-              Reset
-            </button>
-          </div>
-
-          <div className="editor-grid">
-            <label>
-              <span>architecture.yaml</span>
-              <textarea
-                aria-label="architecture.yaml"
-                value={architectureYaml}
-                onChange={(event) => setArchitectureYaml(event.target.value)}
-                spellCheck={false}
-              />
-            </label>
-            <label>
-              <span>architecture-overlays.yaml</span>
-              <textarea
-                aria-label="architecture-overlays.yaml"
-                value={overlaysYaml}
-                onChange={(event) => setOverlaysYaml(event.target.value)}
-                spellCheck={false}
-              />
-            </label>
-          </div>
-
-          {diagnostics.length ? (
-            <ul className="diagnostics" aria-label="Runtime YAML diagnostics">
-              {diagnostics.map((diagnostic, index) => (
-                <li key={`${diagnostic.file}-${diagnostic.path ?? "root"}-${index}`}>{diagnosticLabel(diagnostic)}</li>
-              ))}
-            </ul>
-          ) : null}
-
-          {status ? <p className="editor-status">{status}</p> : null}
         </section>
       ) : null}
     </div>
