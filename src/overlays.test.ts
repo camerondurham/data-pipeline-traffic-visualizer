@@ -62,6 +62,32 @@ function overlayFixture(): ArchitectureOverlays {
         badges: ["throttle 500/s"],
         metrics: []
       }
+    ],
+    controls: [
+      {
+        id: "edge-a-token-throttle",
+        target: { kind: "edge", id: "edge.a.remote" },
+        dimensions: { token: "partner-v3" },
+        label: "A token throttle",
+        spec: {
+          value_type: "number",
+          min: 0,
+          max: 1000,
+          step: 50,
+          unit: "/s",
+          priority: {
+            editable: true,
+            min: 0,
+            max: 100,
+            step: 1
+          }
+        },
+        state: {
+          desired_value: 500,
+          effective_value: 500,
+          priority: 20
+        }
+      }
     ]
   };
 }
@@ -115,7 +141,7 @@ describe("overlays", () => {
         ...overlayFixture(),
         edge_decorators: [{ ...overlayFixture().edge_decorators[0], id: "node-capacity" }]
       })
-    ).toThrow(/Duplicate overlay decorator id/);
+    ).toThrow(/Duplicate overlay id/);
 
     expect(() =>
       validateOverlayReferences(manifest, {
@@ -131,12 +157,66 @@ describe("overlays", () => {
     ).toThrow(/non-contiguous route/);
   });
 
+  it("validates editable control references and value specs", () => {
+    const manifest = smallManifest();
+
+    expect(() => validateOverlayReferences(manifest, overlayFixture())).not.toThrow();
+
+    expect(() =>
+      validateOverlayReferences(manifest, {
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            target: { kind: "edge", id: "missing.edge" }
+          }
+        ]
+      })
+    ).toThrow(/missing edge/);
+
+    expect(() =>
+      validateArchitectureOverlays({
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            state: { desired_value: 1200 }
+          }
+        ]
+      })
+    ).toThrow(/less than or equal to 1000/);
+
+    expect(() =>
+      validateArchitectureOverlays({
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            state: { desired_value: "500" }
+          }
+        ]
+      })
+    ).toThrow(/expected number control value/);
+  });
+
   it("resolves node, edge, and route decorators", () => {
     const manifest = smallManifest();
     const graph = buildGraphModel(manifest);
-    const overlayModel = buildOverlayModel(manifest, overlayFixture());
+    const nodeControl = {
+      ...overlayFixture().controls[0],
+      id: "node-b-token-throttle",
+      target: { kind: "node" as const, id: "use1.child.b" },
+      label: "B node throttle"
+    };
+    const overlayModel = buildOverlayModel(manifest, {
+      ...overlayFixture(),
+      controls: [...overlayFixture().controls, nodeControl]
+    });
 
     expect(resolveNodeOverlay(overlayModel, "use1.child.a")?.chips).toEqual(["4 shards"]);
+    const nodeControlOverlay = resolveNodeOverlay(overlayModel, "use1.child.b");
+    expect(nodeControlOverlay?.decorators).toEqual([]);
+    expect(nodeControlOverlay?.controls.map((control) => control.id)).toEqual(["node-b-token-throttle"]);
 
     const singleEdge = graph.edges.find((edge) => edge.id === "edge.a.remote") as VisualEdge;
     const singleOverlay = resolveEdgeOverlay(overlayModel, singleEdge);

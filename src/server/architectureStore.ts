@@ -11,12 +11,14 @@ import {
 import type {
   ArchitectureLintResponse,
   ArchitectureSourcePayload,
+  OverlayControlValueUpdateRequest,
   OverlayRuntimeStatus,
   OverlaySnapshotRequest,
   RuntimeArchitecturePayload,
+  RuntimeDiagnostic,
   RuntimeRevisionEvent
 } from "../runtime/types";
-import type { ArchitectureManifest, ArchitectureOverlays } from "../zod";
+import type { ArchitectureManifest, ArchitectureOverlays, OverlayControl } from "../zod";
 
 type RuntimeOverlayKind = "sample" | "file" | "dynamic";
 type RuntimeListener = (event: RuntimeRevisionEvent) => void;
@@ -26,9 +28,14 @@ export interface ArchitectureStoreOptions {
   sampleDir?: string;
   staleAfterSeconds?: number;
   watchFiles?: boolean;
+  graphControlsPreviewEnabled?: boolean;
 }
 
 const DEFAULT_SAMPLE_DIR = resolve(process.cwd(), "data", "sample");
+
+function isEnabled(value: string | undefined): boolean {
+  return ["1", "true", "yes", "on"].includes((value ?? "").toLowerCase());
+}
 
 function normalizeIsoDate(input: string | undefined, fallback = new Date()): string {
   if (!input) {
@@ -42,6 +49,7 @@ function normalizeIsoDate(input: string | undefined, fallback = new Date()): str
 export class ArchitectureStore {
   private readonly dataDir: string;
   private readonly usesSampleData: boolean;
+  readonly graphControlsPreviewEnabled: boolean;
   private readonly staleAfterSeconds?: number;
   private readonly watchers: FSWatcher[] = [];
   private readonly listeners = new Set<RuntimeListener>();
@@ -61,6 +69,7 @@ export class ArchitectureStore {
   constructor(options: ArchitectureStoreOptions = {}) {
     this.dataDir = resolve(options.dataDir ?? process.env.ARCHITECTURE_DATA_DIR ?? options.sampleDir ?? DEFAULT_SAMPLE_DIR);
     this.usesSampleData = !options.dataDir && !process.env.ARCHITECTURE_DATA_DIR;
+    this.graphControlsPreviewEnabled = options.graphControlsPreviewEnabled ?? isEnabled(process.env.GRAPH_CONTROLS_PREVIEW);
     this.overlayKind = this.usesSampleData ? "sample" : "file";
     this.overlaySource = this.usesSampleData ? "sample" : "file";
     const configuredStaleAfter = options.staleAfterSeconds ?? Number(process.env.OVERLAY_STALE_AFTER_SECONDS || 0);
@@ -122,7 +131,8 @@ export class ArchitectureStore {
       overlayGeneratedAt: this.overlayGeneratedAt,
       overlaySource: this.overlaySource,
       overlayStatus: this.getOverlayStatus(),
-      editorEnabled: this.editorEnabled
+      editorEnabled: this.editorEnabled,
+      graphControlsPreviewEnabled: this.graphControlsPreviewEnabled
     };
   }
 
@@ -203,6 +213,33 @@ export class ArchitectureStore {
     };
   }
 
+  updateOverlayControlValue(request: OverlayControlValueUpdateRequest): ArchitectureLintResponse {
+    // Future control-plane integrations should attach here: validate desired state,
+    // call the registered backend handler, track operation state, then update
+    // effective_value only after the external system confirms convergence.
+    const result = this.buildUpdatedControlOverlay(request);
+    if (!result.ok) {
+      this.lastRejectedOverlay = result.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
+      return result;
+    }
+
+    this.overlays = result.overlays;
+    this.overlaysYaml = stringify(result.overlays);
+    this.overlayKind = "dynamic";
+    this.overlaySource = request.source?.trim() || "control-edit";
+    this.overlayGeneratedAt = normalizeIsoDate(request.generatedAt);
+    this.overlayRevision += 1;
+    this.lastRejectedOverlay = undefined;
+    this.emit("overlays");
+
+    return {
+      ok: true,
+      diagnostics: [],
+      manifest: this.manifest,
+      overlays: this.overlays
+    };
+  }
+
   private async reloadFromDisk(): Promise<void> {
     const architecturePath = resolve(this.dataDir, "architecture.yaml");
     const overlaysPath = resolve(this.dataDir, "architecture-overlays.yaml");
@@ -248,6 +285,72 @@ export class ArchitectureStore {
     };
   }
 
+  private buildUpdatedControlOverlay(
+    request: OverlayControlValueUpdateRequest
+  ): { ok: true; overlays: ArchitectureOverlays } | { ok: false; diagnostics: RuntimeDiagnostic[] } {
+    const requestedDesiredValue = Object.hasOwn(request, "desiredValue");
+    const requestedPriority = Object.hasOwn(request, "priority");
+    if (!requestedDesiredValue && !requestedPriority) {
+      return controlUpdateError("desiredValue or priority is required");
+    }
+
+    const control = this.overlays.controls.find((candidate) => candidate.id === request.controlId);
+    if (!control) {
+      return controlUpdateError(`Control ${request.controlId} does not exist`);
+    }
+
+    if (requestedPriority) {
+      const priorityDiagnostics = this.validateEditablePriority(control, request.priority);
+      if (priorityDiagnostics.length > 0) {
+        return { ok: false, diagnostics: priorityDiagnostics };
+      }
+    }
+
+    const overlays = {
+      ...this.overlays,
+      controls: this.overlays.controls.map((candidate) =>
+        candidate.id === request.controlId
+          ? {
+              ...candidate,
+              state: {
+                ...candidate.state,
+                ...(requestedDesiredValue ? { desired_value: request.desiredValue } : {}),
+                ...(requestedPriority ? { priority: request.priority } : {})
+              }
+            }
+          : candidate
+      )
+    };
+    const validation = validateOverlaySnapshot(this.manifest, overlays);
+    if (!validation.ok) {
+      return validation;
+    }
+
+    return { ok: true, overlays: validation.overlays };
+  }
+
+  private validateEditablePriority(control: OverlayControl, priority: unknown): RuntimeDiagnostic[] {
+    if (!control.spec.priority?.editable) {
+      return [
+        {
+          file: "overlays",
+          severity: "error",
+          message: `Control ${control.id} priority is not editable`
+        }
+      ];
+    }
+    if (typeof priority !== "number") {
+      return [
+        {
+          file: "overlays",
+          severity: "error",
+          message: `Control ${control.id} priority must be a number`
+        }
+      ];
+    }
+    return [];
+  }
+
   private emit(type: RuntimeRevisionEvent["type"]): void {
     const event = this.getRevisionEvent(type);
     for (const listener of this.listeners) {
@@ -265,6 +368,19 @@ export class ArchitectureStore {
       overlayStatus: this.getOverlayStatus()
     };
   }
+}
+
+function controlUpdateError(message: string): { ok: false; diagnostics: RuntimeDiagnostic[] } {
+  return {
+    ok: false,
+    diagnostics: [
+      {
+        file: "overlays",
+        severity: "error",
+        message
+      }
+    ]
+  };
 }
 
 export async function createArchitectureStore(options: ArchitectureStoreOptions = {}): Promise<ArchitectureStore> {

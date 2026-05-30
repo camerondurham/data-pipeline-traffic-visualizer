@@ -244,6 +244,7 @@ export function buildSampleLiveTpsOverlays(
       ...baseOverlays.edge_decorators.filter((decorator) => !LIVE_EDGE_DECORATOR_IDS.has(decorator.id)),
       ...EDGE_TPS_SERIES.map((series) => liveEdgeDecorator(series, tick))
     ],
-    route_decorators: [...baseOverlays.route_decorators]
+    route_decorators: [...baseOverlays.route_decorators],
+    controls: [...baseOverlays.controls]
   };
 }

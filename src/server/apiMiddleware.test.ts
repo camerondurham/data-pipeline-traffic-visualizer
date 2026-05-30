@@ -12,8 +12,8 @@ interface TestApi {
   close: () => Promise<void>;
 }
 
-async function startApi(): Promise<TestApi> {
-  const store = await createArchitectureStore();
+async function startApi(options: { graphControlsPreviewEnabled?: boolean } = {}): Promise<TestApi> {
+  const store = await createArchitectureStore(options);
   const middleware = createArchitectureApiMiddleware(store);
   const sockets = new Set<Socket>();
   const server = createServer((request, response) => {
@@ -77,7 +77,8 @@ function liveOverlay(value = "99"): ArchitectureOverlays {
         metrics: []
       }
     ],
-    route_decorators: []
+    route_decorators: [],
+    controls: []
   };
 }
 
@@ -86,6 +87,22 @@ async function postOverlay(baseUrl: string, overlays: ArchitectureOverlays, sour
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: { overlays, source, generatedAt: "2026-05-25T12:00:00.000Z" }
+  });
+}
+
+async function postControlValue(
+  baseUrl: string,
+  body: { controlId: string; desiredValue?: unknown; priority?: unknown; source?: string } = {
+    controlId: "partner-token-aggregate-throttle",
+    desiredValue: 750,
+    priority: 30,
+    source: "graph-control"
+  }
+) {
+  return requestJson(baseUrl, "/api/overlays/control-value", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body
   });
 }
 
@@ -218,6 +235,7 @@ describe("architecture runtime API", () => {
       expect(payload.overlays.edge_decorators.length).toBeGreaterThan(0);
       expect(payload.overlays.route_decorators.length).toBeGreaterThan(0);
       expect(payload.overlayStatus.state).toBe("sample");
+      expect(payload.graphControlsPreviewEnabled).toBe(false);
     } finally {
       await api.close();
     }
@@ -269,7 +287,8 @@ describe("architecture runtime API", () => {
       const invalid: ArchitectureOverlays = {
         node_decorators: [{ id: "bad-node", node_id: "missing-node", metrics: [], badges: [], notes: [] }],
         edge_decorators: [],
-        route_decorators: []
+        route_decorators: [],
+        controls: []
       };
       expect((await postOverlay(api.baseUrl, invalid)).status).toBe(422);
 
@@ -283,6 +302,103 @@ describe("architecture runtime API", () => {
     }
   });
 
+  it("updates editable control desired values and priority in memory", async () => {
+    const api = await startApi({ graphControlsPreviewEnabled: true });
+    try {
+      const seed = await readArchitecture(api.baseUrl);
+      const seedControl = seed.overlays.controls.find((control) => control.id === "partner-token-aggregate-throttle");
+      expect(seedControl?.state.desired_value).toBe(500);
+      expect(seedControl?.state.priority).toBe(20);
+
+      const response = await postControlValue(api.baseUrl);
+      expect(response.status).toBe(200);
+
+      const payload = await readArchitecture(api.baseUrl);
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(payload.overlayRevision).toBe(seed.overlayRevision + 1);
+      expect(payload.overlaySource).toBe("graph-control");
+      expect(payload.overlayStatus.state).toBe("dynamic");
+      expect(control?.state.desired_value).toBe(750);
+      expect(control?.state.effective_value).toBe(500);
+      expect(control?.state.priority).toBe(30);
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("rejects control edits when the graph controls preview flag is disabled", async () => {
+    const api = await startApi();
+    try {
+      const seed = await readArchitecture(api.baseUrl);
+      const response = await postControlValue(api.baseUrl);
+
+      expect(response.status).toBe(403);
+      expect(response.json).toEqual({ error: "Graph controls preview is disabled" });
+
+      const payload = await readArchitecture(api.baseUrl);
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(payload.overlayRevision).toBe(seed.overlayRevision);
+      expect(control?.state.desired_value).toBe(500);
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("rejects invalid control edits and preserves the previous active overlay", async () => {
+    const api = await startApi({ graphControlsPreviewEnabled: true });
+    try {
+      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 700 })).status).toBe(200);
+
+      const response = await postControlValue(api.baseUrl, {
+        controlId: "partner-token-aggregate-throttle",
+        desiredValue: 2050
+      });
+      expect(response.status).toBe(422);
+
+      const payload = await readArchitecture(api.baseUrl);
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(control?.state.desired_value).toBe(700);
+      expect(payload.overlayStatus.state).toBe("error");
+      expect(payload.overlayStatus.message).toContain("less than or equal to 2000");
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("rejects missing controls and non-editable priority updates", async () => {
+    const api = await startApi({ graphControlsPreviewEnabled: true });
+    try {
+      const missing = await postControlValue(api.baseUrl, { controlId: "missing-control", desiredValue: 800 });
+      expect(missing.status).toBe(422);
+      expect(missing.text).toContain("does not exist");
+
+      const seed = await readArchitecture(api.baseUrl);
+      const readonlyPriorityOverlay: ArchitectureOverlays = {
+        ...seed.overlays,
+        controls: [
+          {
+            ...seed.overlays.controls[0],
+            id: "readonly-priority",
+            spec: {
+              ...seed.overlays.controls[0].spec,
+              priority: { editable: false, min: 0, max: 100 }
+            }
+          }
+        ]
+      };
+      expect((await postOverlay(api.baseUrl, readonlyPriorityOverlay)).status).toBe(200);
+
+      const readonlyPriority = await postControlValue(api.baseUrl, {
+        controlId: "readonly-priority",
+        priority: 40
+      });
+      expect(readonlyPriority.status).toBe(422);
+      expect(readonlyPriority.text).toContain("priority is not editable");
+    } finally {
+      await api.close();
+    }
+  });
+
   it("broadcasts an SSE revision event after a valid overlay update", async () => {
       const api = await startApi();
     try {
@@ -290,6 +406,18 @@ describe("architecture runtime API", () => {
       expect((await postOverlay(api.baseUrl, liveOverlay("13"), "sse-test")).status).toBe(200);
 
       await expect(eventText).resolves.toContain('"overlaySource":"sse-test"');
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("broadcasts an SSE revision event after a valid control update", async () => {
+    const api = await startApi({ graphControlsPreviewEnabled: true });
+    try {
+      const eventText = waitForSsePattern(`${api.baseUrl}/api/architecture/events`, "graph-control");
+      expect((await postControlValue(api.baseUrl)).status).toBe(200);
+
+      await expect(eventText).resolves.toContain('"overlaySource":"graph-control"');
     } finally {
       await api.close();
     }

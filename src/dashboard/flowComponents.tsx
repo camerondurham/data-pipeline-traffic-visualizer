@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   BaseEdge,
   Background,
@@ -12,10 +12,11 @@ import {
   type EdgeProps,
   type NodeProps
 } from "@xyflow/react";
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, ChevronRight, Save, SlidersHorizontal } from "lucide-react";
 import type { GraphModel, GraphNode, VisualEdge } from "../graphBuilder";
 import type { ResolvedEdgeOverlay, ResolvedNodeOverlay } from "../overlays";
 import { formatMetricChip } from "../overlayFormatting";
+import type { OverlayControl, OverlayControlValue } from "../zod";
 import {
   FLOW_FIT_VIEW_OPTIONS,
   FLOW_MAX_ZOOM,
@@ -134,6 +135,21 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
           className={`edge-label tone-${tone} ${overlayLabelChips.length ? "has-overlay-chips" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
           style={{ transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
+          role="button"
+          aria-label={`Select edge ${label}`}
+          tabIndex={0}
+          onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.data?.onSelectEdge?.(props.id);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              props.data?.onSelectEdge?.(props.id);
+            }
+          }}
         >
           <span className="edge-label-text">{label}</span>
           {overlayLabelChips.length ? (
@@ -272,17 +288,25 @@ export function InteractiveFlowCanvas({
 
 export function NodeDetailPanel({
   node,
+  overlay,
   incomingEdges,
   outgoingEdges,
   model,
+  controlEditingEnabled,
+  onControlUpdated,
   onClose
 }: {
   node: GraphNode;
+  overlay?: ResolvedNodeOverlay;
   incomingEdges: VisualEdge[];
   outgoingEdges: VisualEdge[];
   model: GraphModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const controls = controlEditingEnabled ? overlay?.controls ?? [] : [];
+
   return (
     <aside className="selected-edge-panel selected-node-panel" aria-label="Selected node details">
       <div className="panel-heading">
@@ -310,6 +334,21 @@ export function NodeDetailPanel({
           <dd>{node.zone}</dd>
         </div>
       </dl>
+      {controls.length ? (
+        <section className="selected-edge-controls" aria-label="Editable node controls">
+          <h3>Controls</h3>
+          <div className="edge-control-list">
+            {controls.map((control) => (
+              <OverlayControlCard
+                key={control.id}
+                control={control}
+                editingEnabled={controlEditingEnabled}
+                onUpdated={onControlUpdated}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
       <div className="selected-node-connection-grid">
         <EdgePanel title={`Incoming (${incomingEdges.length})`} edges={incomingEdges} model={model} />
         <EdgePanel title={`Outgoing (${outgoingEdges.length})`} edges={outgoingEdges} model={model} />
@@ -322,30 +361,227 @@ export function getSelectedNodeDetail(
   nodes: TopologyFlowNode[],
   edges: TopologyFlowEdge[],
   selectedNodeId?: string
-): { node: GraphNode; incomingEdges: VisualEdge[]; outgoingEdges: VisualEdge[] } | undefined {
+): { node: GraphNode; overlay?: ResolvedNodeOverlay; incomingEdges: VisualEdge[]; outgoingEdges: VisualEdge[] } | undefined {
   if (!selectedNodeId) {
     return undefined;
   }
-  const node = nodes.find((candidate) => candidate.id === selectedNodeId)?.data.node;
-  if (!node) {
+  const selectedNode = nodes.find((candidate) => candidate.id === selectedNodeId);
+  if (!selectedNode) {
     return undefined;
   }
   return {
-    node,
+    node: selectedNode.data.node,
+    overlay: selectedNode.data.overlay,
     incomingEdges: edges.flatMap((edge) => (edge.data?.edge.to === selectedNodeId ? [edge.data.edge] : [])),
     outgoingEdges: edges.flatMap((edge) => (edge.data?.edge.from === selectedNodeId ? [edge.data.edge] : []))
   };
+}
+
+function formatControlValue(value: OverlayControlValue | undefined, unit?: string): string {
+  if (value === undefined) {
+    return "none";
+  }
+  return `${String(value)}${unit ?? ""}`;
+}
+
+function dimensionsLabel(control: OverlayControl): string {
+  const entries = Object.entries(control.dimensions);
+  if (entries.length === 0) {
+    return control.target.id;
+  }
+  return entries.map(([key, value]) => `${key}=${String(value)}`).join(" / ");
+}
+
+function inputValue(value: OverlayControlValue): string {
+  return typeof value === "boolean" ? String(value) : `${value}`;
+}
+
+function parseDesiredValue(control: OverlayControl, value: string): OverlayControlValue {
+  if (control.spec.value_type === "number") {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      throw new Error("Desired value is required");
+    }
+    const parsed = Number(trimmedValue);
+    if (Number.isNaN(parsed)) {
+      throw new Error("Desired value must be a number");
+    }
+    return parsed;
+  }
+  if (control.spec.value_type === "boolean") {
+    return value === "true";
+  }
+  return value;
+}
+
+function diagnosticsMessage(body: unknown): string | undefined {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  if (typeof body.error === "string") {
+    return body.error;
+  }
+  if (Array.isArray(body.diagnostics)) {
+    return body.diagnostics
+      .flatMap((diagnostic) =>
+        isRecord(diagnostic) && typeof diagnostic.message === "string" ? [diagnostic.message] : []
+      )
+      .join("; ");
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function OverlayControlCard({
+  control,
+  editingEnabled,
+  onUpdated
+}: {
+  control: OverlayControl;
+  editingEnabled: boolean;
+  onUpdated?: () => void | Promise<void>;
+}) {
+  // Keep this card generic. Control-specific apply/poll behavior belongs behind
+  // POST /api/overlays/control-value, not in the graph UI.
+  const [desiredValue, setDesiredValue] = useState(inputValue(control.state.desired_value));
+  const [priority, setPriority] = useState(control.state.priority === undefined ? "" : String(control.state.priority));
+  const [status, setStatus] = useState<string>();
+  const [loading, setLoading] = useState(false);
+  const prioritySpec = control.spec.priority;
+  const canEditPriority = Boolean(prioritySpec?.editable);
+
+  useEffect(() => {
+    setDesiredValue(inputValue(control.state.desired_value));
+    setPriority(control.state.priority === undefined ? "" : String(control.state.priority));
+  }, [control.id, control.state.desired_value, control.state.priority]);
+
+  useEffect(() => {
+    setStatus(undefined);
+  }, [control.id]);
+
+  async function applyControlUpdate(): Promise<void> {
+    setLoading(true);
+    setStatus(undefined);
+    try {
+      const body: Record<string, unknown> = {
+        controlId: control.id,
+        desiredValue: parseDesiredValue(control, desiredValue),
+        source: "graph-control"
+      };
+      if (canEditPriority && priority.trim()) {
+        const parsedPriority = Number(priority);
+        if (Number.isNaN(parsedPriority)) {
+          throw new Error("Priority must be a number");
+        }
+        body.priority = parsedPriority;
+      }
+
+      const response = await fetch("/api/overlays/control-value", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const responseBody = await response.json().catch(() => ({}));
+      if (!response.ok || (isRecord(responseBody) && responseBody.ok === false)) {
+        throw new Error(diagnosticsMessage(responseBody) ?? `Control update failed with ${response.status}`);
+      }
+
+      setStatus("Applied");
+      await onUpdated?.();
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Unable to update control");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <article className="edge-control-card" data-testid={`edge-control-${control.id}`}>
+      <div className="edge-control-header">
+        <SlidersHorizontal size={15} aria-hidden="true" />
+        <div>
+          <strong>{control.label}</strong>
+          <span>{dimensionsLabel(control)}</span>
+        </div>
+      </div>
+      <div className="edge-control-readout">
+        <span>Desired <b>{formatControlValue(control.state.desired_value, control.spec.unit)}</b></span>
+        <span>Effective <b>{formatControlValue(control.state.effective_value, control.spec.unit)}</b></span>
+        {control.state.priority !== undefined ? <span>Priority <b>{control.state.priority}</b></span> : null}
+      </div>
+      <form
+        className="edge-control-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (editingEnabled) {
+            void applyControlUpdate();
+          }
+        }}
+      >
+        <label>
+          <span>Desired</span>
+          {control.spec.value_type === "boolean" ? (
+            <input
+              aria-label={`${control.label} desired value`}
+              type="checkbox"
+              checked={desiredValue === "true"}
+              disabled={!editingEnabled || loading}
+              onChange={(event) => setDesiredValue(event.target.checked ? "true" : "false")}
+            />
+          ) : (
+            <input
+              aria-label={`${control.label} desired value`}
+              type={control.spec.value_type === "number" ? "number" : "text"}
+              min={control.spec.min}
+              max={control.spec.max}
+              step={control.spec.step}
+              value={desiredValue}
+              disabled={!editingEnabled || loading}
+              onChange={(event) => setDesiredValue(event.target.value)}
+            />
+          )}
+        </label>
+        {prioritySpec ? (
+          <label>
+            <span>Priority</span>
+            <input
+              aria-label={`${control.label} priority`}
+              type="number"
+              min={prioritySpec.min}
+              max={prioritySpec.max}
+              step={prioritySpec.step}
+              value={priority}
+              disabled={!editingEnabled || !canEditPriority || loading}
+              onChange={(event) => setPriority(event.target.value)}
+            />
+          </label>
+        ) : null}
+        <button type="submit" disabled={!editingEnabled || loading}>
+          <Save size={14} aria-hidden="true" />
+          <span>Apply</span>
+        </button>
+      </form>
+      {status ? <p className="edge-control-status" role="status">{status}</p> : null}
+    </article>
+  );
 }
 
 export function EdgeDetailPanel({
   edge,
   overlay,
   model,
+  controlEditingEnabled,
+  onControlUpdated,
   onClose
 }: {
   edge: VisualEdge;
   overlay?: ResolvedEdgeOverlay;
   model: GraphModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
   onClose: () => void;
 }) {
   const fields = [
@@ -367,6 +603,7 @@ export function EdgeDetailPanel({
       ]
     : [];
   const annotations = buildEdgeAnnotations(overlay);
+  const controls = controlEditingEnabled ? overlay?.controls ?? [] : [];
 
   return (
     <aside className="selected-edge-panel" aria-label="Selected edge details">
@@ -397,6 +634,21 @@ export function EdgeDetailPanel({
                   </div>
                 ) : null}
               </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+      {controls.length ? (
+        <section className="selected-edge-controls" aria-label="Editable edge controls">
+          <h3>Controls</h3>
+          <div className="edge-control-list">
+            {controls.map((control) => (
+              <OverlayControlCard
+                key={control.id}
+                control={control}
+                editingEnabled={controlEditingEnabled}
+                onUpdated={onControlUpdated}
+              />
             ))}
           </div>
         </section>

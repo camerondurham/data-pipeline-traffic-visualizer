@@ -25,6 +25,7 @@ export interface RuntimeArchitecturePayload {
   overlaySource: string;
   overlayStatus: OverlayRuntimeStatus;
   editorEnabled: boolean;
+  graphControlsPreviewEnabled: boolean;
 }
 
 export interface ArchitectureSourcePayload {
@@ -41,6 +42,14 @@ export interface ArchitectureLintResponse {
 
 export interface OverlaySnapshotRequest {
   overlays: unknown;
+  source?: string;
+  generatedAt?: string;
+}
+
+export interface OverlayControlValueUpdateRequest {
+  controlId: string;
+  desiredValue?: unknown;
+  priority?: unknown;
   source?: string;
   generatedAt?: string;
 }

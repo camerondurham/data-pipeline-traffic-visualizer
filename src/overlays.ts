@@ -4,6 +4,7 @@ import type {
   ArchitectureOverlays,
   EdgeDecorator,
   NodeDecorator,
+  OverlayControl,
   OverlayMetric,
   RouteDecorator
 } from "./zod";
@@ -14,6 +15,7 @@ export type OverlayTone = "default" | "primary" | "secondary" | "cross" | "read"
 export interface ResolvedNodeOverlay {
   decorators: NodeDecorator[];
   chips: string[];
+  controls: OverlayControl[];
   tooltip?: string;
 }
 
@@ -26,6 +28,7 @@ export interface ResolvedEdgeOverlay {
   tone?: OverlayTone;
   thickness?: number;
   metricLabel?: string;
+  controls: OverlayControl[];
   tooltip?: string;
 }
 
@@ -34,6 +37,7 @@ export interface OverlayModel {
   nodeDecoratorsByNodeId: Map<string, NodeDecorator[]>;
   edgeDecoratorsByEdgeId: Map<string, EdgeDecorator[]>;
   routeDecoratorsByEdgeId: Map<string, RouteDecorator[]>;
+  controlsByTarget: Map<string, OverlayControl[]>;
 }
 
 function assertUniqueDecoratorIds(overlays: ArchitectureOverlays): void {
@@ -41,12 +45,13 @@ function assertUniqueDecoratorIds(overlays: ArchitectureOverlays): void {
   const allDecorators = [
     ...overlays.node_decorators,
     ...overlays.edge_decorators,
-    ...overlays.route_decorators
+    ...overlays.route_decorators,
+    ...overlays.controls
   ];
 
   for (const decorator of allDecorators) {
     if (seen.has(decorator.id)) {
-      throw new Error(`Duplicate overlay decorator id: ${decorator.id}`);
+      throw new Error(`Duplicate overlay id: ${decorator.id}`);
     }
     seen.add(decorator.id);
   }
@@ -57,6 +62,7 @@ export function validateOverlayReferences(manifest: ArchitectureManifest, overla
 
   const nodeIds = new Set(manifest.nodes.map((node) => node.id));
   const edgeById = new Map(manifest.edges.map((edge) => [edge.id, edge]));
+  const routeDecoratorIds = new Set(overlays.route_decorators.map((decorator) => decorator.id));
 
   for (const decorator of overlays.node_decorators) {
     if (!nodeIds.has(decorator.node_id)) {
@@ -89,6 +95,18 @@ export function validateOverlayReferences(manifest: ArchitectureManifest, overla
       expectedFrom = edge.to;
     }
   }
+
+  for (const control of overlays.controls) {
+    if (control.target.kind === "node" && !nodeIds.has(control.target.id)) {
+      throw new Error(`Control ${control.id} references missing node: ${control.target.id}`);
+    }
+    if (control.target.kind === "edge" && !edgeById.has(control.target.id)) {
+      throw new Error(`Control ${control.id} references missing edge: ${control.target.id}`);
+    }
+    if (control.target.kind === "route" && !routeDecoratorIds.has(control.target.id)) {
+      throw new Error(`Control ${control.id} references missing route decorator: ${control.target.id}`);
+    }
+  }
 }
 
 export function buildOverlayModel(manifest: ArchitectureManifest, overlays: ArchitectureOverlays): OverlayModel {
@@ -97,6 +115,7 @@ export function buildOverlayModel(manifest: ArchitectureManifest, overlays: Arch
   const nodeDecoratorsByNodeId = new Map<string, NodeDecorator[]>();
   const edgeDecoratorsByEdgeId = new Map<string, EdgeDecorator[]>();
   const routeDecoratorsByEdgeId = new Map<string, RouteDecorator[]>();
+  const controlsByTarget = new Map<string, OverlayControl[]>();
 
   for (const decorator of overlays.node_decorators) {
     nodeDecoratorsByNodeId.set(decorator.node_id, [
@@ -121,11 +140,17 @@ export function buildOverlayModel(manifest: ArchitectureManifest, overlays: Arch
     }
   }
 
+  for (const control of overlays.controls) {
+    const key = overlayControlTargetKey(control.target.kind, control.target.id);
+    controlsByTarget.set(key, [...(controlsByTarget.get(key) ?? []), control]);
+  }
+
   return {
     overlays,
     nodeDecoratorsByNodeId,
     edgeDecoratorsByEdgeId,
-    routeDecoratorsByEdgeId
+    routeDecoratorsByEdgeId,
+    controlsByTarget
   };
 }
 
@@ -149,7 +174,8 @@ function tooltipForDecorators(decorators: Array<NodeDecorator | EdgeDecorator | 
 
 export function resolveNodeOverlay(model: OverlayModel, nodeId: string): ResolvedNodeOverlay | undefined {
   const decorators = model.nodeDecoratorsByNodeId.get(nodeId) ?? [];
-  if (decorators.length === 0) {
+  const controls = uniqueDecorators(model.controlsByTarget.get(overlayControlTargetKey("node", nodeId)) ?? []);
+  if (decorators.length === 0 && controls.length === 0) {
     return undefined;
   }
 
@@ -159,6 +185,7 @@ export function resolveNodeOverlay(model: OverlayModel, nodeId: string): Resolve
       ...decorator.metrics.map(formatMetricChip),
       ...decorator.badges
     ])),
+    controls,
     tooltip: tooltipForDecorators(decorators)
   };
 }
@@ -167,8 +194,12 @@ export function resolveEdgeOverlay(model: OverlayModel, edge: VisualEdge): Resol
   const edgeDecorators = uniqueDecorators(model.edgeDecoratorsByEdgeId.get(edge.id) ?? []);
   const routeDecorators = uniqueDecorators(model.routeDecoratorsByEdgeId.get(edge.id) ?? []);
   const decorators = [...edgeDecorators, ...routeDecorators];
+  const controls = uniqueDecorators([
+    ...(model.controlsByTarget.get(overlayControlTargetKey("edge", edge.id)) ?? []),
+    ...routeDecorators.flatMap((decorator) => model.controlsByTarget.get(overlayControlTargetKey("route", decorator.id)) ?? [])
+  ]);
 
-  if (decorators.length === 0) {
+  if (decorators.length === 0 && controls.length === 0) {
     return undefined;
   }
 
@@ -187,8 +218,13 @@ export function resolveEdgeOverlay(model: OverlayModel, edge: VisualEdge): Resol
     tone,
     thickness,
     metricLabel: explicitMetricLabel,
+    controls,
     tooltip: tooltipForDecorators(decorators)
   };
+}
+
+function overlayControlTargetKey(kind: OverlayControl["target"]["kind"], id: string): string {
+  return `${kind}:${id}`;
 }
 
 function uniqueDecorators<T extends { id: string }>(decorators: T[]): T[] {

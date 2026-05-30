@@ -20,6 +20,7 @@ describe("sample live TPS overlays", () => {
     expect(snapshot.edge_decorators.map((decorator) => decorator.id)).toContain("live-tps-edge-web-orders-ingestion");
     expect(snapshot.node_decorators.find((decorator) => decorator.id === "orders-stream-capacity")).toBeDefined();
     expect(snapshot.route_decorators).toEqual(seedOverlays.route_decorators);
+    expect(snapshot.controls).toEqual(seedOverlays.controls);
   });
 
   it("changes TPS values between ticks without mutating the seed overlays", () => {

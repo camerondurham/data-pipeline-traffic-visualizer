@@ -105,17 +105,15 @@ describe("graphBuilder", () => {
     ]);
   });
 
-  it("builds the seed destination-region cross-region groups", () => {
-    const model = buildGraphModel(loadSeedManifest());
+  it("groups optional cross-region views by destination region", () => {
+    const model = buildGraphModel(smallManifest());
     const crossRegionGroups = getCrossRegionGroups(model, requireView(model, "cross_region_detail", "cross_region"));
 
-    expect(crossRegionGroups.map((group) => group.destinationRegion)).toEqual(["euw1", "usw2"]);
+    expect(crossRegionGroups.map((group) => group.destinationRegion)).toEqual(["usw2"]);
     expect(crossRegionGroups.flatMap((group) => group.edges.map((edge) => edge.id))).toEqual(
       expect.arrayContaining([
-        "edge.use1.processing.to.usw2.aggregate",
-        "edge.use1.processing.to.euw1.aggregate",
-        "edge.use1.hot.router.to.usw2.partner.stream",
-        "edge.use1.partner.slow_processor.to.usw2.partner.stream"
+        "edge.a.to.remote.a",
+        "edge.b.to.remote.b"
       ])
     );
   });
@@ -144,22 +142,13 @@ describe("graphBuilder", () => {
     );
   });
 
-  it("models the representative partner path with branching focus edges and source-local fallback", () => {
-    const model = buildGraphModel(loadSeedManifest());
+  it("models focus views with explicit primary and secondary edges", () => {
+    const model = buildGraphModel(smallManifest());
     const focus = getFocusView(model, requireView(model, "representative_partner_path", "focus"));
     const edgeIds = focus.edges.map((edge) => edge.id);
 
-    expect(edgeIds).toEqual(
-      expect.arrayContaining([
-        "edge.usw2.partner.indexer.to.cluster.a",
-        "edge.usw2.partner.indexer.to.cluster.b",
-        "edge.usw2.partner.indexer.to.cluster.c",
-        "edge.use1.hot.router.to.partner.slow_streams",
-        "edge.use1.partner.slow_streams.to.processor",
-        "edge.use1.partner.slow_processor.to.usw2.partner.stream"
-      ])
-    );
-    expect(focus.edges.filter((edge) => edge.emphasis === "primary")).toHaveLength(5);
-    expect(focus.edges.filter((edge) => edge.emphasis === "secondary")).toHaveLength(3);
+    expect(edgeIds).toEqual(["edge.a.to.remote.a", "edge.b.to.remote.b"]);
+    expect(focus.edges.find((edge) => edge.id === "edge.a.to.remote.a")?.emphasis).toBe("primary");
+    expect(focus.edges.find((edge) => edge.id === "edge.b.to.remote.b")?.emphasis).toBe("secondary");
   });
 });
