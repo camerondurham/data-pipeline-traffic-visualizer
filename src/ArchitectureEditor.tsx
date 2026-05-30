@@ -5,6 +5,12 @@ import type { ArchitectureManifest, ArchitectureOverlays } from "./zod";
 import type { ArchitectureLintResponse, ArchitectureSourcePayload, RuntimeDiagnostic } from "./runtime/types";
 
 type EditorBackend = "server" | "browser";
+type EditorStatusTone = "info" | "success" | "error";
+
+interface EditorStatus {
+  message: string;
+  tone: EditorStatusTone;
+}
 
 interface ArchitectureEditorProps {
   enabled: boolean;
@@ -57,13 +63,17 @@ export function ArchitectureEditor({
   const [architectureYaml, setArchitectureYaml] = useState("");
   const [overlaysYaml, setOverlaysYaml] = useState("");
   const [lintResult, setLintResult] = useState<ArchitectureLintResponse>();
-  const [status, setStatus] = useState<string>();
+  const [status, setStatus] = useState<EditorStatus>();
   const [loading, setLoading] = useState(false);
 
   const hasSource = architectureYaml.length > 0 || overlaysYaml.length > 0;
   const canApply = Boolean(lintResult?.ok && hasSource && enabled);
 
   const diagnostics = lintResult?.diagnostics ?? [];
+
+  function setEditorStatus(message: string, tone: EditorStatusTone = "info"): void {
+    setStatus({ message, tone });
+  }
 
   useEffect(() => {
     if (!open || hasSource) {
@@ -72,7 +82,7 @@ export function ArchitectureEditor({
 
     setArchitectureYaml(stringify(manifest));
     setOverlaysYaml(stringify(overlays));
-    setStatus("Loaded currently rendered model");
+    setEditorStatus("Loaded currently rendered model");
   }, [open, hasSource, manifest, overlays]);
 
   useEffect(() => {
@@ -98,7 +108,7 @@ export function ArchitectureEditor({
       if (backend === "browser") {
         setArchitectureYaml(source?.architectureYaml ?? stringify(manifest));
         setOverlaysYaml(source?.overlaysYaml ?? stringify(overlays));
-        setStatus("Loaded browser demo source");
+        setEditorStatus("Loaded browser demo source");
         return;
       }
 
@@ -106,15 +116,15 @@ export function ArchitectureEditor({
       const runtimeSource = await readJson<ArchitectureSourcePayload>(response);
       setArchitectureYaml(runtimeSource.architectureYaml);
       setOverlaysYaml(runtimeSource.overlaysYaml);
-      setStatus("Loaded active runtime source");
+      setEditorStatus("Loaded active runtime source");
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to load source");
+      setEditorStatus(error instanceof Error ? error.message : "Unable to load source", "error");
     } finally {
       setLoading(false);
     }
   }
 
-  async function lintSource(showStatus = true): Promise<void> {
+  async function lintSource(announceStatus = true): Promise<void> {
     if (!enabled || !hasSource) {
       return;
     }
@@ -125,13 +135,13 @@ export function ArchitectureEditor({
         setLintResult(result);
         if (result.ok && result.manifest && result.overlays) {
           onPreview({ manifest: result.manifest, overlays: result.overlays });
-          if (showStatus) {
-            setStatus("Previewing validated browser draft");
+          if (announceStatus) {
+            setEditorStatus("Previewing validated browser draft", "success");
           }
         } else {
           onPreview(undefined);
-          if (showStatus) {
-            setStatus("Draft has validation errors");
+          if (announceStatus) {
+            setEditorStatus("Draft has validation errors", "error");
           }
         }
         return;
@@ -146,18 +156,18 @@ export function ArchitectureEditor({
       setLintResult(result);
       if (result.ok && result.manifest && result.overlays) {
         onPreview({ manifest: result.manifest, overlays: result.overlays });
-        if (showStatus) {
-          setStatus("Previewing validated draft");
+        if (announceStatus) {
+          setEditorStatus("Previewing validated draft", "success");
         }
       } else {
         onPreview(undefined);
-        if (showStatus) {
-          setStatus("Draft has validation errors");
+        if (announceStatus) {
+          setEditorStatus("Draft has validation errors", "error");
         }
       }
     } catch (error) {
       onPreview(undefined);
-      setStatus(error instanceof Error ? error.message : "Unable to lint draft");
+      setEditorStatus(error instanceof Error ? error.message : "Unable to lint draft", "error");
     }
   }
 
@@ -170,13 +180,13 @@ export function ArchitectureEditor({
         setLintResult(result);
         if (!result.ok) {
           onPreview(undefined);
-          setStatus("Draft has validation errors");
+          setEditorStatus("Draft has validation errors", "error");
           return;
         }
 
         onBrowserApply?.({ architectureYaml, overlaysYaml }, result);
         onPreview(undefined);
-        setStatus("Browser draft saved");
+        setEditorStatus("Browser draft saved", "success");
         onApplied();
         return;
       }
@@ -190,14 +200,14 @@ export function ArchitectureEditor({
       setLintResult(result);
       if (!result.ok) {
         onPreview(undefined);
-        setStatus("Draft has validation errors");
+        setEditorStatus("Draft has validation errors", "error");
         return;
       }
       onPreview(undefined);
-      setStatus("Runtime draft applied");
+      setEditorStatus("Runtime draft applied", "success");
       onApplied();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to apply draft");
+      setEditorStatus(error instanceof Error ? error.message : "Unable to apply draft", "error");
     } finally {
       setLoading(false);
     }
@@ -213,7 +223,7 @@ export function ArchitectureEditor({
         setArchitectureYaml("");
         setOverlaysYaml("");
         setLintResult(undefined);
-        setStatus("Browser draft reset");
+        setEditorStatus("Browser draft reset");
         onApplied();
         return;
       }
@@ -228,10 +238,10 @@ export function ArchitectureEditor({
       setArchitectureYaml("");
       setOverlaysYaml("");
       setLintResult(undefined);
-      setStatus("Runtime draft reset");
+      setEditorStatus("Runtime draft reset");
       onApplied();
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : "Unable to reset draft");
+      setEditorStatus(error instanceof Error ? error.message : "Unable to reset draft", "error");
     } finally {
       setLoading(false);
     }
@@ -320,8 +330,8 @@ export function ArchitectureEditor({
             ) : null}
 
             {status ? (
-              <div className={`aws-alert ${lintResult?.ok ? "aws-alert-success" : "aws-alert-info"}`} role="status">
-                {status}
+              <div className={`aws-alert aws-alert-${status.tone}`} role="status">
+                {status.message}
               </div>
             ) : null}
           </div>
