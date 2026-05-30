@@ -39,6 +39,7 @@ sequenceDiagram
   participant API as Runtime API
   participant Browser as Dashboard and Runtime YAML editor
   participant Updater as Overlay updater job or local live TPS demo
+  participant Operator as Graph control editor
 
   Files->>Store: load on startup and optional file watch
   Store->>Store: validate topology, overlays, and references
@@ -53,6 +54,8 @@ sequenceDiagram
   API->>Store: apply validated architecture and overlays draft
   Updater->>API: POST /api/overlays/snapshot
   API->>Store: replace overlays only after validation
+  Operator->>API: POST /api/overlays/control-value
+  API->>Store: update one editable overlay control in memory
 ```
 
 ## Local Live TPS Demo
@@ -106,7 +109,7 @@ Every edge requires:
 - `type`: edge classification such as `publish`, `feed`, `route`, `consume`, `index`, `serve`, `sideline`, `drain`, or `replay`.
 - `label`: optional display text.
 
-Views are explicit. Region views select a region, cross-region views group derived cross-region edges by destination region, and focus views use `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs.
+Views are explicit. The sample emphasizes regional topology views. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs, but those should be used sparingly for targeted investigations rather than as default navigation.
 
 Region views can also define presentation metadata:
 
@@ -124,6 +127,7 @@ Overlay files can define:
 - `node_decorators`: reference `node_id` and render compact node chips such as shard count, retention, OpenSearch node count, and instance type.
 - `edge_decorators`: reference `edge_id` and render edge badges, warning state, metric labels, tone, or thickness.
 - `route_decorators`: reference a `source_node_id` plus an ordered `edge_ids` path. Route decorators apply only to those explicit edges, which is the intended way to show source-app throttle/schema config downstream.
+- `controls`: reference a node, edge, or route decorator and expose editable operator intent such as a per-token throttle. A control separates `spec` edit constraints from mutable `state`, so a throttle value is not confused with its min, max, step, unit, or priority policy.
 
 Example:
 
@@ -158,6 +162,30 @@ route_decorators:
       - edge.use1.sources.partner.to.partner.ingestion
       - edge.use1.partner.ingestion.to.partner.processor
       - edge.use1.partner.processor.to.aggregate
+
+controls:
+  - id: partner-token-aggregate-throttle
+    target:
+      kind: route
+      id: partner-source-downstream-throttle
+    dimensions:
+      token: partner-v3
+    label: Partner route throttle
+    spec:
+      value_type: number
+      min: 0
+      max: 2000
+      step: 50
+      unit: /s
+      priority:
+        editable: true
+        min: 0
+        max: 100
+        step: 1
+    state:
+      desired_value: 500
+      effective_value: 500
+      priority: 20
 ```
 
 ## Topology Invariants
@@ -172,8 +200,8 @@ route_decorators:
 
 1. Add the node with a stable `id`, required display fields, and optional `parent`.
 2. Add edges with stable IDs. Do not reuse or rename edge IDs once overlays depend on them.
-3. Add edge IDs to focus views when a route should be highlighted.
-4. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
+3. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
+4. Add cross-region or focus views only when a route needs a dedicated investigation surface.
 5. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
 
 ## Runtime API
@@ -183,5 +211,21 @@ The browser loads parsed architecture data from `GET /api/architecture`; raw YAM
 - `GET /api/architecture`: returns `manifest`, current `overlays`, revisions, source, generated time, and status.
 - `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
 - `POST /api/overlays/snapshot`: full overlay replacement for runtime update jobs.
+- `POST /api/overlays/control-value`: updates one editable overlay control value in runtime memory and emits the same overlay revision event. This preview endpoint is disabled unless `GRAPH_CONTROLS_PREVIEW=1` is set.
 
 Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes, or more frequently for local/demo use. Invalid snapshots are rejected and the previous active overlay remains visible. `npm run demo:live` is the sample implementation: it posts generated stream TPS overlays with `source: "sample-live-tps"` every 2 seconds.
+
+Control edits are operator-owned runtime intent, not telemetry. The first API experiment stores them in memory, so edits survive refetches and SSE updates but reset on server restart. The feature is explicitly gated behind `GRAPH_CONTROLS_PREVIEW=1`; when enabled, the dashboard shows a preview badge that states no backend apply handler is wired. A control edit request looks like:
+
+```json
+{
+  "controlId": "partner-token-aggregate-throttle",
+  "desiredValue": 750,
+  "priority": 30,
+  "source": "graph-control"
+}
+```
+
+The server validates the control ID, target reference, value type, numeric bounds, step alignment, and whether priority is editable before updating the active overlay.
+
+See [Control Plane Extension Plan](docs/control-plane-extension.md) for how this model should grow into a real apply-and-poll control plane that calls external APIs, tracks operation state, and updates `effective_value` only after the downstream system confirms the change.

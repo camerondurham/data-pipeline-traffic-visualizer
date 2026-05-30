@@ -347,6 +347,36 @@
   font-size: 13px;
 }
 
+.feature-badge-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.feature-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid rgba(245, 180, 69, 0.58);
+  border-radius: var(--rad);
+  background: rgba(245, 180, 69, 0.11);
+  color: var(--amber);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.feature-badge-note {
+  color: var(--ash);
+  font-size: 12px;
+}
+
 .eyebrow {
   display: inline-flex;
   align-items: center;

@@ -47,7 +47,8 @@ function loadSeedPayload(): RuntimeArchitecturePayload {
     overlayGeneratedAt: "2026-05-25T12:00:00.000Z",
     overlaySource: "sample",
     overlayStatus: { state: "sample" },
-    editorEnabled: false
+    editorEnabled: false,
+    graphControlsPreviewEnabled: false
   };
 }
 
@@ -68,7 +69,8 @@ describe("App", () => {
       overlayGeneratedAt: new Date().toISOString(),
       overlaySource: "test",
       overlayStatus: { state: "file" },
-      editorEnabled: false
+      editorEnabled: false,
+      graphControlsPreviewEnabled: false
     });
 
     render(<App />);
@@ -87,7 +89,8 @@ describe("App", () => {
       overlayGeneratedAt: new Date().toISOString(),
       overlaySource: "test",
       overlayStatus: { state: "file" },
-      editorEnabled: false
+      editorEnabled: false,
+      graphControlsPreviewEnabled: false
     });
 
     render(<App />);
@@ -187,5 +190,14 @@ describe("App", () => {
     expect((screen.getByLabelText("architecture.yaml") as HTMLTextAreaElement).value).toContain("nodes:");
     expect((screen.getByLabelText("architecture-overlays.yaml") as HTMLTextAreaElement).value).toContain("node_decorators:");
     expect(screen.getByText("Loaded currently rendered model")).toBeInTheDocument();
+  });
+
+  it("surfaces the graph controls preview badge when the runtime flag is enabled", async () => {
+    installFetchMock({ ...loadSeedPayload(), graphControlsPreviewEnabled: true });
+
+    render(<App />);
+
+    expect(await screen.findByText("Graph Controls Preview")).toBeInTheDocument();
+    expect(screen.getByText("Local desired state only; no backend apply handler is wired.")).toBeInTheDocument();
   });
 });

@@ -73,3 +73,28 @@ route_decorators:
       - edge.use1.partner.processor.to.aggregate
       - edge.use1.aggregate.to.hot.router
       - edge.use1.hot.router.to.partner.stream
+
+controls:
+  - id: partner-token-aggregate-throttle
+    target:
+      kind: route
+      id: partner-source-downstream-throttle
+    dimensions:
+      token: partner-v3
+    label: Partner route throttle
+    description: Runtime throttle for the partner token across the explicit downstream path
+    spec:
+      value_type: number
+      min: 0
+      max: 2000
+      step: 50
+      unit: /s
+      priority:
+        editable: true
+        min: 0
+        max: 100
+        step: 1
+    state:
+      desired_value: 500
+      effective_value: 500
+      priority: 20

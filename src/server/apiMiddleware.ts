@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ArchitectureStore } from "./architectureStore";
+import type { OverlayControlValueUpdateRequest } from "../runtime/types";
 
 type NextFunction = () => void;
 
@@ -61,6 +62,20 @@ async function readArchitectureSourceBody(request: IncomingMessage): Promise<{ a
   return {
     architectureYaml: body.architectureYaml,
     overlaysYaml: body.overlaysYaml
+  };
+}
+
+async function readOverlayControlValueBody(request: IncomingMessage): Promise<OverlayControlValueUpdateRequest> {
+  const body = await readJson(request);
+  if (!isRecord(body) || typeof body.controlId !== "string") {
+    throw new BadRequestError("controlId is required");
+  }
+  return {
+    controlId: body.controlId,
+    ...(Object.hasOwn(body, "desiredValue") ? { desiredValue: body.desiredValue } : {}),
+    ...(Object.hasOwn(body, "priority") ? { priority: body.priority } : {}),
+    source: typeof body.source === "string" ? body.source : undefined,
+    generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined
   };
 }
 
@@ -147,6 +162,17 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
           source: typeof body.source === "string" ? body.source : undefined,
           generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined
         });
+        sendJson(response, result.ok ? 200 : 422, result);
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/api/overlays/control-value") {
+        if (!store.graphControlsPreviewEnabled) {
+          sendJson(response, 403, { error: "Graph controls preview is disabled" });
+          return;
+        }
+        const body = await readOverlayControlValueBody(request);
+        const result = store.updateOverlayControlValue(body);
         sendJson(response, result.ok ? 200 : 422, result);
         return;
       }

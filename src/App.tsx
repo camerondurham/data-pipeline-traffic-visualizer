@@ -79,7 +79,8 @@ async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
     overlayGeneratedAt: new Date(0).toISOString(),
     overlaySource: usingDraft ? "browser draft" : "sample static demo",
     overlayStatus: { state: usingDraft ? "dynamic" : "sample" },
-    editorEnabled: true
+    editorEnabled: true,
+    graphControlsPreviewEnabled: false
   };
 }
 
@@ -104,7 +105,8 @@ async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
   return {
     ...payload,
     manifest,
-    overlays
+    overlays,
+    graphControlsPreviewEnabled: Boolean(payload.graphControlsPreviewEnabled)
   };
 }
 
@@ -170,6 +172,12 @@ export default function App() {
       manifest={manifest}
       overlays={overlays}
       runtimeInfo={{ ...runtimePayload, previewActive: Boolean(preview) }}
+      controlEditingEnabled={runtimePayload.graphControlsPreviewEnabled && !isStaticDemo() && !preview}
+      onControlUpdated={() =>
+        loadRuntimeArchitecture()
+          .then(setRuntimePayload)
+          .catch((loadError: unknown) => setError(formatValidationError(loadError)))
+      }
       toolbarSlot={
         <ArchitectureEditor
           enabled={runtimePayload.editorEnabled}

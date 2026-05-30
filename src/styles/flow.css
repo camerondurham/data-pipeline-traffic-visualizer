@@ -771,7 +771,8 @@
   padding: 0 14px 12px;
 }
 
-.selected-edge-annotations h3 {
+.selected-edge-annotations h3,
+.selected-edge-controls h3 {
   margin: 0;
   font-family: var(--mono);
   font-size: 10px;
@@ -844,6 +845,146 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.selected-edge-controls {
+  display: grid;
+  gap: 10px;
+  padding: 0 14px 12px;
+}
+
+.edge-control-list {
+  display: grid;
+  gap: 8px;
+}
+
+.edge-control-card {
+  display: grid;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(91, 233, 210, 0.32);
+  border-left: 3px solid var(--signal);
+  border-radius: var(--rad);
+  background: rgba(12, 38, 32, 0.42);
+}
+
+.edge-control-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.edge-control-header svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--signal);
+}
+
+.edge-control-header strong,
+.edge-control-header span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.edge-control-header strong {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--bone);
+}
+
+.edge-control-header span {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ash);
+}
+
+.edge-control-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.edge-control-readout span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 20px;
+  padding: 1px 7px;
+  border: 1px solid var(--rule);
+  border-radius: var(--rad);
+  background: rgba(7, 9, 12, 0.5);
+  color: var(--ash);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.edge-control-readout b {
+  color: var(--bone);
+  font-weight: 600;
+}
+
+.edge-control-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(82px, 0.62fr) auto;
+  gap: 8px;
+  align-items: end;
+}
+
+.edge-control-form label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.edge-control-form label > span {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ash);
+}
+
+.edge-control-form input {
+  min-width: 0;
+  min-height: 30px;
+  width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--rad);
+  background: rgba(7, 9, 12, 0.72);
+  color: var(--bone);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.edge-control-form input[type="checkbox"] {
+  justify-self: start;
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--signal);
+}
+
+.edge-control-form input:disabled {
+  opacity: 0.55;
+}
+
+.selected-edge-panel .edge-control-form button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  min-width: 78px;
+}
+
+.edge-control-status {
+  margin: -2px 0 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--bone-dim);
   overflow-wrap: anywhere;
 }
 

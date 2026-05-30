@@ -16,8 +16,11 @@ interface DashboardProps {
     overlayGeneratedAt: string;
     overlaySource: string;
     overlayStatus: OverlayRuntimeStatus;
+    graphControlsPreviewEnabled: boolean;
     previewActive?: boolean;
   };
+  controlEditingEnabled?: boolean;
+  onControlUpdated?: () => void | Promise<void>;
   toolbarSlot?: ReactNode;
 }
 
@@ -35,7 +38,14 @@ function formatOverlayTime(value: string): string {
   return date.toLocaleString();
 }
 
-export function Dashboard({ manifest, overlays = EMPTY_OVERLAYS, runtimeInfo, toolbarSlot }: DashboardProps) {
+export function Dashboard({
+  manifest,
+  overlays = EMPTY_OVERLAYS,
+  runtimeInfo,
+  controlEditingEnabled = false,
+  onControlUpdated,
+  toolbarSlot
+}: DashboardProps) {
   const [activeViewId, setActiveViewId] = useState(manifest.views[0]?.id ?? "");
 
   const modelResult = useMemo(() => {
@@ -167,11 +177,23 @@ export function Dashboard({ manifest, overlays = EMPTY_OVERLAYS, runtimeInfo, to
             <span className="eyebrow">Topology Manifest // {activeView.id}</span>
             <h1 data-testid="dashboard-title">Architecture Topology Explorer</h1>
             <p>Loaded from the runtime architecture API with validated overlay decorators.</p>
+            {runtimeInfo?.graphControlsPreviewEnabled ? (
+              <div className="feature-badge-row" aria-label="Feature flags">
+                <span className="feature-badge">Graph Controls Preview</span>
+                <span className="feature-badge-note">Local desired state only; no backend apply handler is wired.</span>
+              </div>
+            ) : null}
           </div>
           <div className="topbar-actions">{toolbarSlot}</div>
         </header>
 
-        <ViewBody activeView={activeView} model={model} overlayModel={overlayModel} />
+        <ViewBody
+          activeView={activeView}
+          model={model}
+          overlayModel={overlayModel}
+          controlEditingEnabled={controlEditingEnabled && !runtimeInfo?.previewActive}
+          onControlUpdated={onControlUpdated}
+        />
       </div>
     </div>
   );

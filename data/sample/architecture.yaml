@@ -835,10 +835,6 @@ views:
         node_ids:
           - use1.partner.cluster.a
           - use1.partner.cluster.b
-  - id: cross_region_detail
-    label: Cross-Region Detail
-    mode: cross_region
-    group_by: destination_region
   - id: regional_usw2
     label: USW2 Regional Topology
     mode: region
@@ -901,25 +897,3 @@ views:
         lane: partner
         node_ids:
           - euw1.partner.cluster.a
-  - id: representative_partner_path
-    label: Representative Partner Cross-Region Path
-    mode: focus
-    focus_edges:
-      - edge.use1.hot.router.to.usw2.partner.stream
-      - edge.usw2.partner.stream.to.indexer
-      - edge.usw2.partner.indexer.to.cluster.a
-      - edge.usw2.partner.indexer.to.cluster.b
-      - edge.usw2.partner.indexer.to.cluster.c
-      - edge.use1.hot.router.to.partner.slow_streams
-      - edge.use1.partner.slow_streams.to.processor
-      - edge.use1.partner.slow_processor.to.usw2.partner.stream
-    primary_edges:
-      - edge.use1.hot.router.to.usw2.partner.stream
-      - edge.usw2.partner.stream.to.indexer
-      - edge.usw2.partner.indexer.to.cluster.a
-      - edge.usw2.partner.indexer.to.cluster.b
-      - edge.usw2.partner.indexer.to.cluster.c
-    secondary_edges:
-      - edge.use1.hot.router.to.partner.slow_streams
-      - edge.use1.partner.slow_streams.to.processor
-      - edge.use1.partner.slow_processor.to.usw2.partner.stream

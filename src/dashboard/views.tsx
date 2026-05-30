@@ -38,18 +38,26 @@ function FlowDiagram({
   subtitle,
   layout,
   model,
-  overlayModel
+  overlayModel,
+  controlEditingEnabled,
+  onControlUpdated
 }: {
   title: string;
   subtitle: string;
   layout: FlowLayoutModel;
   model: GraphModel;
   overlayModel: OverlayModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
 }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const selectEdge = (edgeId: string) => {
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edgeId);
+  };
   const { nodes, edges } = useMemo(
-    () => buildFlowElements(layout, overlayModel, selectedEdgeId, selectedNodeId),
+    () => buildFlowElements(layout, overlayModel, selectedEdgeId, selectedNodeId, selectEdge),
     [layout, overlayModel, selectedEdgeId, selectedNodeId]
   );
   const selectedFlowEdge = edges.find((edge) => edge.id === selectedEdgeId);
@@ -68,14 +76,24 @@ function FlowDiagram({
       </div>
       <div className="flow-viewport">
         {selectedEdge ? (
-          <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
+          <EdgeDetailPanel
+            edge={selectedEdge}
+            overlay={selectedOverlay}
+            model={model}
+            controlEditingEnabled={controlEditingEnabled}
+            onControlUpdated={onControlUpdated}
+            onClose={() => setSelectedEdgeId(undefined)}
+          />
         ) : null}
         {selectedNodeDetail ? (
           <NodeDetailPanel
             node={selectedNodeDetail.node}
+            overlay={selectedNodeDetail.overlay}
             incomingEdges={selectedNodeDetail.incomingEdges}
             outgoingEdges={selectedNodeDetail.outgoingEdges}
             model={model}
+            controlEditingEnabled={controlEditingEnabled}
+            onControlUpdated={onControlUpdated}
             onClose={() => setSelectedNodeId(undefined)}
           />
         ) : null}
@@ -89,8 +107,7 @@ function FlowDiagram({
             setSelectedNodeId(nodeId);
           }}
           onEdgeClick={(edgeId) => {
-            setSelectedNodeId(undefined);
-            setSelectedEdgeId(edgeId);
+            selectEdge(edgeId);
           }}
           onPaneClick={() => {
             setSelectedEdgeId(undefined);
@@ -134,11 +151,15 @@ function FlowDiagram({
 function RegionalView({
   view,
   model,
-  overlayModel
+  overlayModel,
+  controlEditingEnabled,
+  onControlUpdated
 }: {
   view: RegionViewManifest;
   model: GraphModel;
   overlayModel: OverlayModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
 }) {
   const layout = getFlowLayout(model, view);
 
@@ -150,17 +171,35 @@ function RegionalView({
         layout={layout}
         model={model}
         overlayModel={overlayModel}
+        controlEditingEnabled={controlEditingEnabled}
+        onControlUpdated={onControlUpdated}
       />
     </section>
   );
 }
 
-function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewManifest; model: GraphModel; overlayModel: OverlayModel }) {
+function CrossRegionView({
+  view,
+  model,
+  overlayModel,
+  controlEditingEnabled,
+  onControlUpdated
+}: {
+  view: CrossRegionViewManifest;
+  model: GraphModel;
+  overlayModel: OverlayModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
+}) {
   const groups = useMemo(() => getCrossRegionGroups(model, view), [model, view]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
   const [selectedNodeId, setSelectedNodeId] = useState<string>();
+  const selectEdge = (edgeId: string) => {
+    setSelectedNodeId(undefined);
+    setSelectedEdgeId(edgeId);
+  };
   const routeMap = useMemo(
-    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId, selectedNodeId),
+    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId, selectedNodeId, selectEdge),
     [model, overlayModel, groups, selectedEdgeId, selectedNodeId]
   );
   const selectedFlowEdge = routeMap.edges.find((edge) => edge.id === selectedEdgeId);
@@ -185,14 +224,24 @@ function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewM
         </div>
         <div className="flow-viewport">
           {selectedEdge ? (
-            <EdgeDetailPanel edge={selectedEdge} overlay={selectedOverlay} model={model} onClose={() => setSelectedEdgeId(undefined)} />
+            <EdgeDetailPanel
+              edge={selectedEdge}
+              overlay={selectedOverlay}
+              model={model}
+              controlEditingEnabled={controlEditingEnabled}
+              onControlUpdated={onControlUpdated}
+              onClose={() => setSelectedEdgeId(undefined)}
+            />
           ) : null}
           {selectedNodeDetail ? (
             <NodeDetailPanel
               node={selectedNodeDetail.node}
+              overlay={selectedNodeDetail.overlay}
               incomingEdges={selectedNodeDetail.incomingEdges}
               outgoingEdges={selectedNodeDetail.outgoingEdges}
               model={model}
+              controlEditingEnabled={controlEditingEnabled}
+              onControlUpdated={onControlUpdated}
               onClose={() => setSelectedNodeId(undefined)}
             />
           ) : null}
@@ -206,8 +255,7 @@ function CrossRegionView({ view, model, overlayModel }: { view: CrossRegionViewM
               setSelectedNodeId(nodeId);
             }}
             onEdgeClick={(edgeId) => {
-              setSelectedNodeId(undefined);
-              setSelectedEdgeId(edgeId);
+              selectEdge(edgeId);
             }}
             onPaneClick={() => {
               setSelectedEdgeId(undefined);
@@ -254,11 +302,15 @@ function focusStagesFor(focus: ReturnType<typeof getFocusView>): FlowStageModel[
 function FocusView({
   view,
   model,
-  overlayModel
+  overlayModel,
+  controlEditingEnabled,
+  onControlUpdated
 }: {
   view: FocusViewManifest;
   model: GraphModel;
   overlayModel: OverlayModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
 }) {
   const focus = getFocusView(model, view);
 
@@ -270,6 +322,8 @@ function FocusView({
         layout={{ view, lanes: DEFAULT_FLOW_LANES, stages: focusStagesFor(focus), edges: focus.edges }}
         model={model}
         overlayModel={overlayModel}
+        controlEditingEnabled={controlEditingEnabled}
+        onControlUpdated={onControlUpdated}
       />
     </section>
   );
@@ -278,17 +332,45 @@ function FocusView({
 export function ViewBody({
   activeView,
   model,
-  overlayModel
+  overlayModel,
+  controlEditingEnabled,
+  onControlUpdated
 }: {
   activeView: ArchitectureView;
   model: GraphModel;
   overlayModel: OverlayModel;
+  controlEditingEnabled: boolean;
+  onControlUpdated?: () => void | Promise<void>;
 }) {
   if (activeView.mode === "region") {
-    return <RegionalView view={activeView} model={model} overlayModel={overlayModel} />;
+    return (
+      <RegionalView
+        view={activeView}
+        model={model}
+        overlayModel={overlayModel}
+        controlEditingEnabled={controlEditingEnabled}
+        onControlUpdated={onControlUpdated}
+      />
+    );
   }
   if (activeView.mode === "cross_region") {
-    return <CrossRegionView view={activeView} model={model} overlayModel={overlayModel} />;
+    return (
+      <CrossRegionView
+        view={activeView}
+        model={model}
+        overlayModel={overlayModel}
+        controlEditingEnabled={controlEditingEnabled}
+        onControlUpdated={onControlUpdated}
+      />
+    );
   }
-  return <FocusView view={activeView} model={model} overlayModel={overlayModel} />;
+  return (
+    <FocusView
+      view={activeView}
+      model={model}
+      overlayModel={overlayModel}
+      controlEditingEnabled={controlEditingEnabled}
+      onControlUpdated={onControlUpdated}
+    />
+  );
 }
