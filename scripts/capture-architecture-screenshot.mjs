@@ -60,7 +60,7 @@ async function main() {
       const editor = document.querySelector('textarea[aria-label="architecture.yaml"]');
       return editor instanceof HTMLTextAreaElement && editor.value.includes("nodes:");
     });
-    await page.locator(".app-shell").screenshot({ path: editorScreenshotPath });
+    await page.locator(".cloudscape-app-shell").screenshot({ path: editorScreenshotPath });
 
     console.log(`Captured ${screenshotPath}`);
     console.log(`Captured ${editorScreenshotPath}`);

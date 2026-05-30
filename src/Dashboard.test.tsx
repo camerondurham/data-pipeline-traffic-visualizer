@@ -73,7 +73,7 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Architecture Topology Explorer");
     expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
     expectInteractiveChrome("flow-diagram");
-    expect(screen.getAllByRole("tab")).toHaveLength(3);
+    expect((screen.getByLabelText("View") as HTMLSelectElement).options).toHaveLength(3);
     expect(screen.queryByText("Cross-Region Detail")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();

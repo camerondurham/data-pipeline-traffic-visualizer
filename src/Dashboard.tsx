@@ -1,5 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { Network } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { buildGraphModel } from "./graphBuilder";
 import { buildOverlayModel } from "./overlays";
 import { ErrorPanel } from "./dashboard/flowComponents";
@@ -30,12 +29,63 @@ const VIEW_MODE_LABEL: Record<ArchitectureView["mode"], string> = {
   focus: "Focus path"
 };
 
+const EDGE_LEGEND = [
+  { label: "Primary path", tone: "success", chip: "Primary" },
+  { label: "Cross-region", tone: "info", chip: "Cross" },
+  { label: "Read serve", tone: "neutral", chip: "Read" },
+  { label: "Slow / replay", tone: "warning", chip: "Replay" },
+  { label: "Warning", tone: "error", chip: "Warn" }
+] as const;
+
+type BadgeTone = "success" | "info" | "neutral" | "warning" | "error";
+type VisualMode = "dark" | "light";
+
 function formatOverlayTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return value;
   }
   return date.toLocaleString();
+}
+
+function statusTone(state: string | undefined): BadgeTone {
+  switch (state) {
+    case "dynamic":
+    case "file":
+    case "sample":
+      return "success";
+    case "preview":
+    case "stale":
+      return "warning";
+    case "error":
+      return "error";
+    default:
+      return "info";
+  }
+}
+
+function viewModeTone(mode: ArchitectureView["mode"]): BadgeTone {
+  switch (mode) {
+    case "cross_region":
+      return "info";
+    case "focus":
+      return "success";
+    default:
+      return "neutral";
+  }
+}
+
+function AwsBadge({ tone, children }: { tone: BadgeTone; children: ReactNode }) {
+  return <span className={`aws-badge aws-badge-${tone}`}>{children}</span>;
+}
+
+function AwsStatus({ tone, children }: { tone: BadgeTone; children: ReactNode }) {
+  return (
+    <span className={`aws-status aws-status-${tone}`}>
+      <span aria-hidden="true" />
+      {children}
+    </span>
+  );
 }
 
 export function Dashboard({
@@ -47,6 +97,8 @@ export function Dashboard({
   toolbarSlot
 }: DashboardProps) {
   const [activeViewId, setActiveViewId] = useState(manifest.views[0]?.id ?? "");
+  const [visualMode, setVisualMode] = useState<VisualMode>("dark");
+  const [navigationOpen, setNavigationOpen] = useState(true);
 
   const modelResult = useMemo(() => {
     try {
@@ -64,6 +116,10 @@ export function Dashboard({
     }
   }, [manifest, overlays]);
 
+  useEffect(() => {
+    document.body.dataset.visualMode = visualMode;
+  }, [visualMode]);
+
   if (modelResult.error || !modelResult.model || !modelResult.overlayModel) {
     return <ErrorPanel title="Invalid architecture data" message={modelResult.error ?? "Graph model failed to build"} />;
   }
@@ -74,127 +130,141 @@ export function Dashboard({
   const overlayState = runtimeInfo?.previewActive ? "preview" : runtimeInfo?.overlayStatus.state;
 
   return (
-    <div className="app-shell">
-      <aside className="command-rail" aria-label="Primary navigation">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            <Network size={18} />
-          </span>
-          <div>
-            <span className="brand-eyebrow">Topology / v0.1</span>
-            <strong className="brand-name">Mission Console</strong>
-          </div>
+    <div className={`cloudscape-app-shell ${navigationOpen ? "" : "is-navigation-closed"}`} data-visual-mode={visualMode}>
+      <aside className="aws-side-navigation" aria-label="Primary navigation">
+        <div className="aws-side-navigation-header">
+          <span className="aws-shell-service">Topology Explorer</span>
+          <button
+            type="button"
+            className="aws-icon-button"
+            aria-label="Close navigation"
+            onClick={() => setNavigationOpen(false)}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
 
-        <nav className="rail-section rail-views" aria-label="Architecture views">
-          <header className="rail-section-header">
-            <span className="rail-section-index">01</span>
-            <h2>Views</h2>
-            <span className="rail-section-count">{manifest.views.length.toString().padStart(2, "0")}</span>
-          </header>
-          <ul className="view-list" role="tablist">
-            {manifest.views.map((view, index) => {
-              const isActive = view.id === activeView.id;
-              return (
-                <li key={view.id}>
-                  <button
-                    type="button"
-                    className={`view-tab ${isActive ? "is-active" : ""}`}
-                    role="tab"
-                    aria-selected={isActive}
-                    onClick={() => setActiveViewId(view.id)}
-                  >
-                    <span className="view-tab-index">{(index + 1).toString().padStart(2, "0")}</span>
-                    <span className="view-tab-body">
-                      <span className="view-tab-label">{view.label}</span>
-                      <span className="view-tab-mode">{VIEW_MODE_LABEL[view.mode]}</span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          <label className="view-picker">
-            <span>View</span>
-            <select value={activeView.id} onChange={(event) => setActiveViewId(event.target.value)}>
-              {manifest.views.map((view) => (
-                <option key={view.id} value={view.id}>
-                  {view.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </nav>
-
-        <section className="rail-section rail-legend" aria-label="Edge legend">
-          <header className="rail-section-header">
-            <span className="rail-section-index">02</span>
-            <h2>Legend</h2>
-          </header>
-          <ul className="legend-list">
-            <li><i className="legend-line primary" /><span>Primary path</span></li>
-            <li><i className="legend-line cross" /><span>Cross-region</span></li>
-            <li><i className="legend-line read" /><span>Read serve</span></li>
-            <li><i className="legend-line secondary" /><span>Slow / replay</span></li>
-            <li><i className="legend-line warning" /><span>Warning</span></li>
-          </ul>
+        <section className="aws-nav-section" aria-labelledby="aws-nav-views">
+          <div className="aws-nav-section-title" id="aws-nav-views">
+            <span>Views</span>
+            <AwsBadge tone="neutral">{manifest.views.length}</AwsBadge>
+          </div>
+          <div className="aws-nav-list">
+            {manifest.views.map((view) => (
+              <button
+                key={view.id}
+                type="button"
+                className={`aws-nav-item ${view.id === activeView.id ? "is-active" : ""}`}
+                aria-current={view.id === activeView.id ? "page" : undefined}
+                onClick={() => setActiveViewId(view.id)}
+              >
+                <span>{view.label}</span>
+                <AwsBadge tone={viewModeTone(view.mode)}>{VIEW_MODE_LABEL[view.mode]}</AwsBadge>
+              </button>
+            ))}
+          </div>
         </section>
 
-        {runtimeInfo ? (
-          <section className={`rail-section rail-status status-${overlayState}`} aria-label="Overlay runtime status">
-            <header className="rail-section-header">
-              <span className="rail-section-index">03</span>
-              <h2>Status</h2>
-            </header>
-            <div className="status-readout">
-              <span className="status-led" aria-hidden="true" />
-              <div className="status-rows">
-                <div className="status-row">
-                  <span>State</span>
-                  <b>{overlayState}</b>
-                </div>
-                <div className="status-row">
-                  <span>Revision</span>
-                  <b>r{runtimeInfo.overlayRevision}</b>
-                </div>
-                <div className="status-row">
-                  <span>Source</span>
-                  <b title={runtimeInfo.overlaySource}>{runtimeInfo.overlaySource}</b>
-                </div>
-                <div className="status-row">
-                  <span>Updated</span>
-                  <b>{formatOverlayTime(runtimeInfo.overlayGeneratedAt)}</b>
-                </div>
+        <section className="aws-nav-section" aria-labelledby="aws-nav-legend">
+          <div className="aws-nav-section-title" id="aws-nav-legend">
+            <span>Edge legend</span>
+          </div>
+          <div className="aws-nav-list aws-nav-list-compact">
+            {EDGE_LEGEND.map((item) => (
+              <div className="aws-nav-item aws-nav-item-static" key={item.label}>
+                <span>{item.label}</span>
+                <AwsBadge tone={item.tone}>{item.chip}</AwsBadge>
               </div>
-            </div>
-          </section>
-        ) : null}
+            ))}
+          </div>
+        </section>
       </aside>
 
-      <div className="workspace">
-        <header className="topbar">
-          <div className="topbar-title">
-            <span className="eyebrow">Topology Manifest // {activeView.id}</span>
+      <section className="aws-workspace">
+        <header className="aws-content-header">
+          <button
+            type="button"
+            className="aws-navigation-toggle"
+            aria-label="Open navigation"
+            onClick={() => setNavigationOpen(true)}
+          >
+            ☰
+          </button>
+          <div className="aws-content-heading">
+            <p className="aws-content-breadcrumb">Runtime architecture API / validated overlays</p>
             <h1 data-testid="dashboard-title">Architecture Topology Explorer</h1>
             <p>Loaded from the runtime architecture API with validated overlay decorators.</p>
-            {runtimeInfo?.graphControlsPreviewEnabled ? (
-              <div className="feature-badge-row" aria-label="Feature flags">
-                <span className="feature-badge">Graph Controls Preview</span>
-                <span className="feature-badge-note">Local desired state only; no backend apply handler is wired.</span>
-              </div>
-            ) : null}
           </div>
-          <div className="topbar-actions">{toolbarSlot}</div>
+          <div className="aws-content-actions">
+            <label className="cloudscape-native-view-picker">
+              <span>View</span>
+              <select value={activeView.id} onChange={(event) => setActiveViewId(event.target.value)}>
+                {manifest.views.map((view) => (
+                  <option key={view.id} value={view.id}>
+                    {view.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="aws-segmented-control" role="group" aria-label="Visual mode">
+              <button
+                type="button"
+                className={visualMode === "dark" ? "is-selected" : ""}
+                aria-pressed={visualMode === "dark"}
+                onClick={() => setVisualMode("dark")}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                className={visualMode === "light" ? "is-selected" : ""}
+                aria-pressed={visualMode === "light"}
+                onClick={() => setVisualMode("light")}
+              >
+                Light
+              </button>
+            </div>
+            {toolbarSlot}
+          </div>
         </header>
 
-        <ViewBody
-          activeView={activeView}
-          model={model}
-          overlayModel={overlayModel}
-          controlEditingEnabled={controlEditingEnabled && !runtimeInfo?.previewActive}
-          onControlUpdated={onControlUpdated}
-        />
-      </div>
+        {runtimeInfo ? (
+          <section className="aws-status-strip" aria-label="Overlay runtime status">
+            <div className="aws-kv">
+              <span>State</span>
+              <AwsStatus tone={statusTone(overlayState)}>{overlayState}</AwsStatus>
+            </div>
+            <div className="aws-kv">
+              <span>Revision</span>
+              <b>r{runtimeInfo.overlayRevision}</b>
+            </div>
+            <div className="aws-kv">
+              <span>Source</span>
+              <b>{runtimeInfo.overlaySource}</b>
+            </div>
+            <div className="aws-kv">
+              <span>Updated</span>
+              <b>{formatOverlayTime(runtimeInfo.overlayGeneratedAt)}</b>
+            </div>
+            {runtimeInfo.graphControlsPreviewEnabled ? (
+              <div className="aws-kv aws-kv-wide">
+                <AwsBadge tone="warning">Graph Controls Preview</AwsBadge>
+                <b>Local desired state only; no backend apply handler is wired.</b>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        <main className="cloudscape-dashboard-content" aria-label={`Topology Manifest ${activeView.id}`}>
+          <ViewBody
+            activeView={activeView}
+            model={model}
+            overlayModel={overlayModel}
+            controlEditingEnabled={controlEditingEnabled && !runtimeInfo?.previewActive}
+            onControlUpdated={onControlUpdated}
+          />
+        </main>
+      </section>
     </div>
   );
 }

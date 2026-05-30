@@ -1,55 +1,82 @@
 /* ============================================================
-   Mission Console
-   Operations terminal × engineering schematic.
-   Sharp, monospace-heavy, ink/bone palette, signal-mint accent.
+   AWS-familiar design tokens.
+   The shell is implemented locally; these aliases keep the custom React Flow
+   topology canvas readable in both visual modes without a design-system bundle.
    ============================================================ */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
 
-  --display:  "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --body:     "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --mono:     "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --display: "Amazon Ember", "Helvetica Neue", Arial, sans-serif;
+  --body: "Amazon Ember", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 
-  /* Surfaces */
-  --ink:        #07090c;
-  --char:       #0d1117;
-  --steel:      #141a22;
-  --steel-2:    #1a2230;
-  --rule:       rgba(232, 228, 216, 0.08);
-  --rule-strong:rgba(232, 228, 216, 0.18);
+  /* Dark defaults: applied before the Dashboard effect toggles visual mode. */
+  --ink: #0f141a;
+  --char: #161d26;
+  --steel: #1f2937;
+  --steel-2: #293546;
+  --rule: rgba(209, 217, 226, 0.14);
+  --rule-strong: rgba(209, 217, 226, 0.28);
 
-  /* Type */
-  --bone:       #ebe7d8;
-  --bone-dim:   #c9c4b3;
-  --ash:        #8a93a0;
-  --ash-dim:    #5a6470;
+  --bone: #f2f3f3;
+  --bone-dim: #d5dbdb;
+  --ash: #9ba7b6;
+  --ash-dim: #697586;
 
-  /* Signal */
-  --signal:     #5be9d2;   /* mint cyan — primary metric */
-  --signal-soft: rgba(91, 233, 210, 0.16);
-  --amber:      #f5b445;   /* caution */
-  --amber-soft: rgba(245, 180, 69, 0.16);
-  --vermillion: #ff5a4e;   /* alert */
-  --vermillion-soft: rgba(255, 90, 78, 0.18);
-  --indigo:     #8c8cff;   /* cross-region */
-  --indigo-soft: rgba(140, 140, 255, 0.18);
+  --signal: #1d9e89;
+  --signal-soft: rgba(29, 158, 137, 0.16);
+  --amber: #f2b824;
+  --amber-soft: rgba(242, 184, 36, 0.16);
+  --vermillion: #ff5d64;
+  --vermillion-soft: rgba(255, 93, 100, 0.18);
+  --indigo: #6b8fff;
+  --indigo-soft: rgba(107, 143, 255, 0.18);
 
   /* Legacy aliases used by JSX classes */
-  --bg:           var(--ink);
-  --panel:        var(--char);
+  --bg: var(--ink);
+  --panel: var(--char);
   --panel-strong: var(--steel);
-  --border:       var(--rule);
-  --muted:        var(--ash);
-  --text:         var(--bone);
-  --green:        var(--signal);
-  --blue:         var(--indigo);
-  --red:          var(--vermillion);
-  --violet:       var(--indigo);
+  --border: var(--rule);
+  --muted: var(--ash);
+  --text: var(--bone);
+  --green: var(--signal);
+  --blue: var(--indigo);
+  --red: var(--vermillion);
+  --violet: var(--indigo);
 
   --rail-w: 280px;
   --topbar-h: 72px;
-  --rad: 2px;
+  --rad: 4px;
+}
+
+body[data-visual-mode="light"] {
+  color-scheme: light;
+
+  --ink: #f2f3f3;
+  --char: #ffffff;
+  --steel: #f9fafa;
+  --steel-2: #eef2f6;
+  --rule: rgba(95, 107, 122, 0.24);
+  --rule-strong: rgba(95, 107, 122, 0.42);
+
+  --bone: #0f141a;
+  --bone-dim: #354150;
+  --ash: #5f6b7a;
+  --ash-dim: #7d8998;
+
+  --signal: #0972d3;
+  --signal-soft: rgba(9, 114, 211, 0.12);
+  --amber: #8d6605;
+  --amber-soft: rgba(185, 128, 7, 0.12);
+  --vermillion: #d91515;
+  --vermillion-soft: rgba(217, 21, 21, 0.1);
+  --indigo: #414dff;
+  --indigo-soft: rgba(65, 77, 255, 0.12);
+}
+
+body[data-visual-mode="dark"] {
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -63,12 +90,7 @@ body {
   font-size: 14px;
   line-height: 1.5;
   color: var(--bone);
-  background:
-    radial-gradient(1200px 600px at 14% -10%, rgba(91, 233, 210, 0.05), transparent 60%),
-    radial-gradient(900px 500px at 110% 110%, rgba(140, 140, 255, 0.045), transparent 60%),
-    linear-gradient(rgba(232, 228, 216, 0.02) 1px, transparent 1px) 0 0 / 32px 32px,
-    linear-gradient(90deg, rgba(232, 228, 216, 0.02) 1px, transparent 1px) 0 0 / 32px 32px,
-    var(--ink);
+  background: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
 
