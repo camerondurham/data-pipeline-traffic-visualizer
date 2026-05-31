@@ -26,7 +26,6 @@ export interface OverlayControlHandler {
 
 interface SimulatedOperation {
   effectiveValue?: OverlayControlValue;
-  requestedAt: string;
 }
 
 export class SimulatedThrottleConfigHandler implements OverlayControlHandler {
@@ -37,8 +36,7 @@ export class SimulatedThrottleConfigHandler implements OverlayControlHandler {
     this.sequence += 1;
     const operationId = `sim-throttle-${this.sequence}`;
     this.operations.set(operationId, {
-      effectiveValue: request.desiredValue,
-      requestedAt: request.requestedAt
+      effectiveValue: request.desiredValue
     });
     return {
       operationId,

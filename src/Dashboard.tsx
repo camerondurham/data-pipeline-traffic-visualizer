@@ -17,7 +17,6 @@ interface DashboardProps {
     overlayStatus: OverlayRuntimeStatus;
     graphControlsVisible: boolean;
     graphControlApplyEnabled: boolean;
-    graphControlsPreviewEnabled?: boolean;
     previewActive?: boolean;
   };
   controlControlsVisible?: boolean;
