@@ -56,7 +56,7 @@ sequenceDiagram
   API->>Store: merge observed overlay metrics after validation
   Operator->>API: POST /api/overlays/control-value
   API->>Store: validate intent and mark control applying
-  Store->>Store: simulated handler polls generated config
+  Store->>Store: poll handler until terminal phase
   Store-->>Browser: revision event after observed apply result
 ```
 
@@ -74,7 +74,7 @@ The live values are generated sample telemetry from the committed architecture; 
 
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
+The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
@@ -216,7 +216,7 @@ The browser loads parsed architecture data from `GET /api/architecture`; raw YAM
 
 - `GET /api/architecture`: returns `manifest`, current `overlays`, revisions, source, generated time, and status.
 - `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
-- `POST /api/overlays/snapshot`: runtime update job input for observed overlay metrics. Non-control snapshots merge decorators by ID and preserve editable controls so live traffic updates do not erase operator intent.
+- `POST /api/overlays/snapshot`: runtime update job input for observed overlay metrics. Snapshot `mode` defaults to `merge`; use `control` only for authoritative control-backend observations.
 - `POST /api/overlays/control-value`: starts one editable control apply operation. The server validates intent, marks the control `applying`, emits an overlay revision, polls the configured handler, and updates `effective_value` only after the simulated generated config is observed.
 
 Overlay updaters should post `ArchitectureOverlays` snapshots every N minutes, or more frequently for local/demo use. Invalid snapshots are rejected and the previous active overlay remains visible. `npm run demo:live` is the sample implementation: it posts generated stream TPS overlays with `source: "sample-live-tps"` every 2 seconds.
@@ -225,7 +225,6 @@ Control edits are operator-owned runtime intent, not telemetry. The first contro
 
 - `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status in the dashboard.
 - `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to call the configured handler.
-- `GRAPH_CONTROLS_PREVIEW=1`: compatibility alias for visible-only mode. Apply remains disabled unless `GRAPH_CONTROL_APPLY_ENABLED=1` is also set.
 
 A control edit request looks like:
 
@@ -238,6 +237,6 @@ A control edit request looks like:
 }
 ```
 
-The server validates the control ID, target reference, handler, value type, numeric bounds, step alignment, and whether priority is editable before starting an apply operation. The included `simulated-throttle-config` handler returns an operation ID immediately, then later marks the control `applied` and updates `effective_value`.
+The server validates the control ID, target reference, explicit handler, value type, numeric bounds, step alignment, and whether priority is editable before starting an apply operation. The included `simulated-throttle-config` handler returns an operation ID immediately. The store polls until the handler reports a terminal phase or the poll budget expires, and `effective_value` updates only after observation.
 
 See [Control Plane Extension Plan](docs/control-plane-extension.md) for how this model maps to a real SQS/S3 apply-and-poll control plane.

@@ -13,6 +13,7 @@ import type {
   ArchitectureSourcePayload,
   OverlayControlValueUpdateRequest,
   OverlayRuntimeStatus,
+  OverlaySnapshotMode,
   OverlaySnapshotRequest,
   RuntimeArchitecturePayload,
   RuntimeDiagnostic,
@@ -35,12 +36,13 @@ export interface ArchitectureStoreOptions {
   watchFiles?: boolean;
   graphControlsVisible?: boolean;
   graphControlApplyEnabled?: boolean;
-  graphControlsPreviewEnabled?: boolean;
   controlHandlers?: Record<string, OverlayControlHandler>;
   controlPollDelayMs?: number;
+  controlPollMaxAttempts?: number;
 }
 
 const DEFAULT_SAMPLE_DIR = resolve(process.cwd(), "data", "sample");
+const DEFAULT_CONTROL_POLL_MAX_ATTEMPTS = 80;
 
 function isEnabled(value: string | undefined): boolean {
   return ["1", "true", "yes", "on"].includes((value ?? "").toLowerCase());
@@ -63,9 +65,12 @@ export class ArchitectureStore {
   private readonly staleAfterSeconds?: number;
   private readonly controlHandlers: Record<string, OverlayControlHandler>;
   private readonly controlPollDelayMs: number;
+  private readonly controlPollMaxAttempts: number;
   private readonly controlPollTimers = new Set<ReturnType<typeof setTimeout>>();
+  private readonly startingControlApplies = new Set<string>();
   private readonly watchers: FSWatcher[] = [];
   private readonly listeners = new Set<RuntimeListener>();
+  private closed = false;
 
   private architectureYaml = "";
   private overlaysYaml = "";
@@ -85,12 +90,10 @@ export class ArchitectureStore {
     this.graphControlApplyEnabled = options.graphControlApplyEnabled ?? isEnabled(process.env.GRAPH_CONTROL_APPLY_ENABLED);
     this.graphControlsVisible =
       options.graphControlsVisible ??
-      options.graphControlsPreviewEnabled ??
-      (isEnabled(process.env.GRAPH_CONTROLS_VISIBLE) ||
-        isEnabled(process.env.GRAPH_CONTROLS_PREVIEW) ||
-        this.graphControlApplyEnabled);
+      (isEnabled(process.env.GRAPH_CONTROLS_VISIBLE) || this.graphControlApplyEnabled);
     this.controlHandlers = options.controlHandlers ?? createDefaultControlHandlers();
     this.controlPollDelayMs = options.controlPollDelayMs ?? 750;
+    this.controlPollMaxAttempts = Math.max(1, Math.floor(options.controlPollMaxAttempts ?? DEFAULT_CONTROL_POLL_MAX_ATTEMPTS));
     this.overlayKind = this.usesSampleData ? "sample" : "file";
     this.overlaySource = this.usesSampleData ? "sample" : "file";
     const configuredStaleAfter = options.staleAfterSeconds ?? Number(process.env.OVERLAY_STALE_AFTER_SECONDS || 0);
@@ -127,6 +130,7 @@ export class ArchitectureStore {
   }
 
   close(): void {
+    this.closed = true;
     for (const watcher of this.watchers) {
       watcher.close();
     }
@@ -158,8 +162,7 @@ export class ArchitectureStore {
       overlayStatus: this.getOverlayStatus(),
       editorEnabled: this.editorEnabled,
       graphControlsVisible: this.graphControlsVisible,
-      graphControlApplyEnabled: this.graphControlApplyEnabled,
-      graphControlsPreviewEnabled: this.graphControlsVisible
+      graphControlApplyEnabled: this.graphControlApplyEnabled
     };
   }
 
@@ -223,7 +226,7 @@ export class ArchitectureStore {
       };
     }
 
-    const overlays = this.mergeOverlaySnapshot(result.overlays, request.source);
+    const overlays = this.mergeOverlaySnapshot(result.overlays, request.mode ?? "merge");
     const validation = validateOverlaySnapshot(this.manifest, overlays);
     if (!validation.ok) {
       this.lastRejectedOverlay = validation.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
@@ -251,7 +254,15 @@ export class ArchitectureStore {
   }
 
   async updateOverlayControlValue(request: OverlayControlValueUpdateRequest): Promise<ArchitectureLintResponse> {
-    const result = await this.buildUpdatedControlOverlay(request);
+    if (this.startingControlApplies.has(request.controlId)) {
+      const error = controlUpdateError(`Control ${request.controlId} already has an apply operation in flight`, 409);
+      this.lastRejectedOverlay = error.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
+      return error;
+    }
+    this.startingControlApplies.add(request.controlId);
+    const result = await this.buildUpdatedControlOverlay(request).finally(() => {
+      this.startingControlApplies.delete(request.controlId);
+    });
     if (!result.ok) {
       this.lastRejectedOverlay = result.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
       return result;
@@ -445,45 +456,65 @@ export class ArchitectureStore {
     return [];
   }
 
-  private mergeOverlaySnapshot(overlays: ArchitectureOverlays, source: string | undefined): ArchitectureOverlays {
-    if (source !== "control-backend") {
-      return {
-        ...overlays,
-        node_decorators: mergeById(this.overlays.node_decorators, overlays.node_decorators),
-        edge_decorators: mergeById(this.overlays.edge_decorators, overlays.edge_decorators),
-        route_decorators: mergeById(this.overlays.route_decorators, overlays.route_decorators),
-        controls: this.overlays.controls
-      };
-    }
-    return {
-      ...overlays,
-      controls: overlays.controls.map((control) => {
-        const current = this.overlays.controls.find((candidate) => candidate.id === control.id);
-        if (current?.state.apply.phase === "applying" && control.state.apply.phase !== "applying") {
-          return {
-            ...control,
-            state: {
-              ...control.state,
-              apply: current.state.apply
+  private mergeOverlaySnapshot(overlays: ArchitectureOverlays, mode: OverlaySnapshotMode): ArchitectureOverlays {
+    switch (mode) {
+      case "control":
+        return {
+          ...overlays,
+          controls: overlays.controls.map((control) => {
+            const current = this.overlays.controls.find((candidate) => candidate.id === control.id);
+            if (
+              current?.state.apply.phase === "applying" &&
+              control.state.apply.operation_id !== current.state.apply.operation_id
+            ) {
+              return {
+                ...control,
+                state: {
+                  ...control.state,
+                  desired_value: current.state.desired_value,
+                  priority: current.state.priority,
+                  apply: current.state.apply
+                }
+              };
             }
-          };
-        }
-        return control;
-      })
-    };
+            return control;
+          })
+        };
+      case "merge":
+        return {
+          ...overlays,
+          node_decorators: mergeById(this.overlays.node_decorators, overlays.node_decorators),
+          edge_decorators: mergeById(this.overlays.edge_decorators, overlays.edge_decorators),
+          route_decorators: mergeById(this.overlays.route_decorators, overlays.route_decorators),
+          controls: this.overlays.controls
+        };
+    }
   }
 
-  private scheduleControlPoll(controlId: string, handlerName: string, operationId: string): void {
+  private scheduleControlPoll(
+    controlId: string,
+    handlerName: string,
+    operationId: string,
+    remainingAttempts = this.controlPollMaxAttempts
+  ): void {
+    if (this.closed) {
+      return;
+    }
     const timer = setTimeout(() => {
       this.controlPollTimers.delete(timer);
-      void this.pollControlOperation(controlId, handlerName, operationId);
+      void this.pollControlOperation(controlId, handlerName, operationId, remainingAttempts);
     }, this.controlPollDelayMs);
     this.controlPollTimers.add(timer);
   }
 
-  private async pollControlOperation(controlId: string, handlerName: string, operationId: string): Promise<void> {
+  private async pollControlOperation(
+    controlId: string,
+    handlerName: string,
+    operationId: string,
+    remainingAttempts: number
+  ): Promise<void> {
     const handler = this.controlHandlers[handlerName];
-    const pollResult = handler
+    const rawPollResult = handler
       ? await handler.poll(operationId).catch((error: unknown): ControlPollResult => ({
           phase: "failed",
           observedAt: new Date().toISOString(),
@@ -494,11 +525,27 @@ export class ArchitectureStore {
           observedAt: new Date().toISOString(),
           message: `Control handler ${handlerName} is not registered`
         };
+    if (this.closed) {
+      return;
+    }
+    const pollResult: ControlPollResult =
+      rawPollResult.phase === "applying" && remainingAttempts <= 1
+        ? {
+            ...rawPollResult,
+            phase: "stale",
+            observedAt: rawPollResult.observedAt ?? new Date().toISOString(),
+            message: rawPollResult.message
+              ? `${rawPollResult.message}; polling budget exhausted`
+              : "Polling budget exhausted before control convergence"
+          }
+        : rawPollResult;
 
+    let operationMatched = false;
     const overlays = this.withUpdatedControl(controlId, (control) => {
-      if (control.state.apply.operation_id !== operationId) {
+      if (control.state.apply.operation_id !== operationId || control.state.apply.phase !== "applying") {
         return control;
       }
+      operationMatched = true;
       return {
         ...control,
         state: {
@@ -514,6 +561,9 @@ export class ArchitectureStore {
         }
       };
     });
+    if (!operationMatched) {
+      return;
+    }
     const validation = validateOverlaySnapshot(this.manifest, overlays);
     if (!validation.ok) {
       this.lastRejectedOverlay = validation.diagnostics.map((diagnostic) => diagnostic.message).join("; ");
@@ -528,6 +578,9 @@ export class ArchitectureStore {
     this.overlayRevision += 1;
     this.lastRejectedOverlay = undefined;
     this.emit("overlays");
+    if (pollResult.phase === "applying") {
+      this.scheduleControlPoll(controlId, handlerName, operationId, remainingAttempts - 1);
+    }
   }
 
   private withUpdatedControl(controlId: string, update: (control: OverlayControl) => OverlayControl): ArchitectureOverlays {

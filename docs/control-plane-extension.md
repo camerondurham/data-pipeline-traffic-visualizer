@@ -8,7 +8,6 @@ The React control card stays generic. It should not call throttle services, SQS,
 
 - `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status.
 - `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to invoke handlers.
-- `GRAPH_CONTROLS_PREVIEW=1`: compatibility alias for visible-only mode.
 
 The runtime payload exposes `graphControlsVisible` and `graphControlApplyEnabled`. Visible-only mode lets demos show the architecture and future control surface while clearly disabling Apply.
 
@@ -32,7 +31,7 @@ The key boundary is desired versus effective. The UI edits desired state; backen
 The control-plane integration seam is:
 
 - `src/server/apiMiddleware.ts`: accepts `POST /api/overlays/control-value` and enforces `GRAPH_CONTROL_APPLY_ENABLED`.
-- `src/server/architectureStore.ts`: validates controls, marks operations applying, schedules polling, and emits SSE revisions.
+- `src/server/architectureStore.ts`: validates controls, rejects concurrent applies for the same control, schedules polling, and emits SSE revisions.
 - `src/server/controlHandlers.ts`: defines `OverlayControlHandler` and the simulated handler.
 
 The handler interface is intentionally small:
@@ -43,6 +42,8 @@ interface OverlayControlHandler {
   poll(operationId: string): Promise<ControlPollResult>;
 }
 ```
+
+`poll` may return `applying` while the downstream system is still converging. The store reschedules polling until a terminal phase is observed or the poll budget expires.
 
 For the internal throttle system, add a handler keyed by `apply.handler` that:
 
@@ -56,12 +57,12 @@ For the internal throttle system, add a handler keyed by `apply.handler` that:
 
 Telemetry snapshots are observed truth, not operator intent. Non-control snapshots merge decorator updates by ID and preserve controls so live traffic updates do not erase desired state or in-flight operations.
 
-Use `source: "control-backend"` only for authoritative control-backend snapshots that intentionally refresh control state. Even then, in-flight operation metadata is preserved unless the incoming control remains in `applying`.
+Use snapshot `mode: "control"` only for authoritative control-backend snapshots that intentionally refresh control state. In-flight operator intent is preserved unless the incoming control reports the same operation ID, so stale observations cannot overwrite a newer apply.
 
 ## Production Follow-Ups
 
 - Persist operation state so applies survive server restart.
 - Add actor identity, authorization, and audit logging before exposing apply outside a trusted environment.
-- Add timeout/staleness policy for operations that never converge.
+- Tune timeout/staleness policy for real downstream convergence windows.
 - Replace the simulated handler with SQS send and S3/config polling.
 - Keep topology read-only during control edits.

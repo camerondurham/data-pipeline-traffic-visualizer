@@ -55,7 +55,6 @@ function loadSeedPayload(): RuntimeArchitecturePayload {
 
 describe("App", () => {
   afterEach(() => {
-    localStorage.clear();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     FakeEventSource.instance = undefined;
@@ -132,7 +131,7 @@ describe("App", () => {
     expect(screen.getByText(SAMPLE_LIVE_TPS_SOURCE)).toBeInTheDocument();
   });
 
-  it("lets static demo users edit and reset the bundled sample without runtime API calls", async () => {
+  it("lets static demo users preview and reset sample YAML without runtime API calls", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
     vi.stubEnv("VITE_STATIC_DEMO", "1");
@@ -146,6 +145,8 @@ describe("App", () => {
     expect(FakeEventSource.instance).toBeUndefined();
 
     await user.click(screen.getByRole("button", { name: /Runtime YAML/i }));
+    expect(screen.queryByRole("button", { name: /^Apply$/i })).not.toBeInTheDocument();
+
     const overlaysEditor = screen.getByLabelText("architecture-overlays.yaml") as HTMLTextAreaElement;
     fireEvent.change(overlaysEditor, {
       target: { value: overlaysEditor.value.replace("value: 12", "value: 99") }
@@ -153,31 +154,18 @@ describe("App", () => {
 
     await user.click(screen.getByRole("button", { name: /^Lint$/i }));
     expect(await screen.findByText("99 shards")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Previewing validated static YAML");
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^Apply$/i })).toBeEnabled());
-    await user.click(screen.getByRole("button", { name: /^Apply$/i }));
-
-    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toContain("value: 99");
-    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.change(overlaysEditor, {
+      target: { value: "node_decorators: [" }
+    });
+    await user.click(screen.getByRole("button", { name: /^Lint$/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("overlays");
+    await waitFor(() => expect(screen.queryByText("99 shards")).not.toBeInTheDocument());
+    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: /^Reset$/i }));
     expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
-    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toBeNull();
-  });
-
-  it("falls back to bundled static demo data when a stored browser draft is invalid", async () => {
-    const fetchMock = vi.fn();
-    vi.stubEnv("VITE_STATIC_DEMO", "1");
-    vi.stubGlobal("fetch", fetchMock);
-    localStorage.setItem("architecture-demo:v2:architectureYaml", "nodes: [");
-    localStorage.setItem("architecture-demo:v2:overlaysYaml", "node_decorators: []");
-
-    render(<App />);
-
-    expect(await screen.findAllByText("12 shards")).not.toHaveLength(0);
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(localStorage.getItem("architecture-demo:v2:architectureYaml")).toBeNull();
-    expect(localStorage.getItem("architecture-demo:v2:overlaysYaml")).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

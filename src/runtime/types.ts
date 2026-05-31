@@ -27,7 +27,6 @@ export interface RuntimeArchitecturePayload {
   editorEnabled: boolean;
   graphControlsVisible: boolean;
   graphControlApplyEnabled: boolean;
-  graphControlsPreviewEnabled?: boolean;
 }
 
 export interface ArchitectureSourcePayload {
@@ -43,8 +42,11 @@ export interface ArchitectureLintResponse {
   status?: number;
 }
 
+export type OverlaySnapshotMode = "merge" | "control";
+
 export interface OverlaySnapshotRequest {
   overlays: unknown;
+  mode?: OverlaySnapshotMode;
   source?: string;
   generatedAt?: string;
 }

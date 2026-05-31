@@ -20,8 +20,6 @@ interface ArchitectureEditorProps {
   source?: ArchitectureSourcePayload;
   onPreview: (preview: { manifest: ArchitectureManifest; overlays: ArchitectureOverlays } | undefined) => void;
   onApplied: () => void;
-  onBrowserApply?: (source: ArchitectureSourcePayload, result: ArchitectureLintResponse) => void;
-  onBrowserReset?: () => void;
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -55,9 +53,7 @@ export function ArchitectureEditor({
   overlays,
   source,
   onPreview,
-  onApplied,
-  onBrowserApply,
-  onBrowserReset
+  onApplied
 }: ArchitectureEditorProps) {
   const [open, setOpen] = useState(false);
   const [architectureYaml, setArchitectureYaml] = useState("");
@@ -67,7 +63,7 @@ export function ArchitectureEditor({
   const [loading, setLoading] = useState(false);
 
   const hasSource = architectureYaml.length > 0 || overlaysYaml.length > 0;
-  const canApply = Boolean(lintResult?.ok && hasSource && enabled);
+  const canApply = Boolean(backend === "server" && lintResult?.ok && hasSource && enabled);
 
   const diagnostics = lintResult?.diagnostics ?? [];
 
@@ -136,7 +132,7 @@ export function ArchitectureEditor({
         if (result.ok && result.manifest && result.overlays) {
           onPreview({ manifest: result.manifest, overlays: result.overlays });
           if (announceStatus) {
-            setEditorStatus("Previewing validated browser draft", "success");
+            setEditorStatus("Previewing validated static YAML", "success");
           }
         } else {
           onPreview(undefined);
@@ -172,25 +168,13 @@ export function ArchitectureEditor({
   }
 
   async function applyDraft(): Promise<void> {
+    if (backend === "browser") {
+      return;
+    }
+
     setLoading(true);
     setStatus(undefined);
     try {
-      if (backend === "browser") {
-        const result = lintArchitectureDocuments(architectureYaml, overlaysYaml);
-        setLintResult(result);
-        if (!result.ok) {
-          onPreview(undefined);
-          setEditorStatus("Draft has validation errors", "error");
-          return;
-        }
-
-        onBrowserApply?.({ architectureYaml, overlaysYaml }, result);
-        onPreview(undefined);
-        setEditorStatus("Browser draft saved", "success");
-        onApplied();
-        return;
-      }
-
       const response = await fetch("/api/architecture/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -218,13 +202,11 @@ export function ArchitectureEditor({
     setStatus(undefined);
     try {
       if (backend === "browser") {
-        onBrowserReset?.();
         onPreview(undefined);
         setArchitectureYaml("");
         setOverlaysYaml("");
         setLintResult(undefined);
-        setEditorStatus("Browser draft reset");
-        onApplied();
+        setEditorStatus("Static preview reset");
         return;
       }
 
@@ -284,9 +266,11 @@ export function ArchitectureEditor({
                   >
                     Lint
                   </button>
-                  <button type="button" className="aws-button aws-button-primary" onClick={() => void applyDraft()} disabled={!canApply || loading}>
-                    Apply
-                  </button>
+                  {backend === "server" ? (
+                    <button type="button" className="aws-button aws-button-primary" onClick={() => void applyDraft()} disabled={!canApply || loading}>
+                      Apply
+                    </button>
+                  ) : null}
                   <button type="button" className="aws-button aws-button-normal" onClick={() => void resetDraft()} disabled={!enabled || loading}>
                     Reset
                   </button>
