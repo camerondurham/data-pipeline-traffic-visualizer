@@ -3,7 +3,7 @@ import type { AddressInfo, Socket } from "node:net";
 import { buildSampleLiveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE } from "../sampleLiveTps";
 import { createArchitectureStore, type ArchitectureStore, type ArchitectureStoreOptions } from "./architectureStore";
 import { createArchitectureApiMiddleware } from "./apiMiddleware";
-import type { RuntimeArchitecturePayload } from "../runtime/types";
+import type { OverlaySnapshotMode, RuntimeArchitecturePayload } from "../runtime/types";
 import type { ArchitectureOverlays } from "../zod";
 import type { OverlayControlHandler } from "./controlHandlers";
 
@@ -85,11 +85,16 @@ function liveOverlay(value = "99"): ArchitectureOverlays {
   };
 }
 
-async function postOverlay(baseUrl: string, overlays: ArchitectureOverlays, source = "test-updater") {
+async function postOverlay(
+  baseUrl: string,
+  overlays: ArchitectureOverlays,
+  source = "test-updater",
+  mode?: OverlaySnapshotMode
+) {
   return requestJson(baseUrl, "/api/overlays/snapshot", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: { overlays, source, generatedAt: "2026-05-25T12:00:00.000Z" }
+    body: { overlays, source, mode, generatedAt: "2026-05-25T12:00:00.000Z" }
   });
 }
 
@@ -294,6 +299,7 @@ describe("architecture runtime API", () => {
         label: "lag",
         value: "42"
       });
+      expect(payload.overlays.controls).toHaveLength(1);
     } finally {
       await api.close();
     }
@@ -356,6 +362,75 @@ describe("architecture runtime API", () => {
     }
   });
 
+  it("keeps polling while a control operation is still applying", async () => {
+    let pollCalls = 0;
+    const handler: OverlayControlHandler = {
+      async apply() {
+        return { operationId: "multi-poll-operation" };
+      },
+      async poll() {
+        pollCalls += 1;
+        if (pollCalls < 3) {
+          return { phase: "applying", message: `poll ${pollCalls} still applying` };
+        }
+        return { phase: "applied", effectiveValue: 900, message: "observed requested value" };
+      }
+    };
+    const api = await startApi({
+      graphControlsVisible: true,
+      graphControlApplyEnabled: true,
+      controlHandlers: { "simulated-throttle-config": handler },
+      controlPollDelayMs: 5
+    });
+    try {
+      expect(
+        (await postControlValue(api.baseUrl, {
+          controlId: "partner-token-aggregate-throttle",
+          desiredValue: 900
+        })).status
+      ).toBe(200);
+
+      const observedPayload = await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "applied");
+      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(pollCalls).toBe(3);
+      expect(observedControl?.state.effective_value).toBe(900);
+      expect(observedControl?.state.apply.message).toBe("observed requested value");
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("marks a control operation stale when polling budget is exhausted", async () => {
+    let pollCalls = 0;
+    const handler: OverlayControlHandler = {
+      async apply() {
+        return { operationId: "stuck-operation" };
+      },
+      async poll() {
+        pollCalls += 1;
+        return { phase: "applying", message: "still waiting" };
+      }
+    };
+    const api = await startApi({
+      graphControlsVisible: true,
+      graphControlApplyEnabled: true,
+      controlHandlers: { "simulated-throttle-config": handler },
+      controlPollDelayMs: 5,
+      controlPollMaxAttempts: 2
+    });
+    try {
+      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 950 })).status).toBe(200);
+
+      const observedPayload = await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "stale");
+      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(pollCalls).toBe(2);
+      expect(observedControl?.state.effective_value).toBe(500);
+      expect(observedControl?.state.apply.message).toContain("polling budget exhausted");
+    } finally {
+      await api.close();
+    }
+  });
+
   it("rejects control applies when controls are visible but apply is disabled", async () => {
     const api = await startApi({ graphControlsVisible: true });
     try {
@@ -391,6 +466,52 @@ describe("architecture runtime API", () => {
       expect(control?.state.desired_value).toBe(700);
       expect(payload.overlayStatus.state).toBe("error");
       expect(payload.overlayStatus.message).toContain("less than or equal to 2000");
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("ignores delayed polls after backend observation reaches a terminal phase", async () => {
+    const handler: OverlayControlHandler = {
+      async apply() {
+        return { operationId: "backend-observed-operation" };
+      },
+      async poll() {
+        return { phase: "applying", message: "stale poll result" };
+      }
+    };
+    const api = await startApi({
+      graphControlsVisible: true,
+      graphControlApplyEnabled: true,
+      controlHandlers: { "simulated-throttle-config": handler },
+      controlPollDelayMs: 5
+    });
+    try {
+      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 750 })).status).toBe(200);
+      const applyingPayload = await readArchitecture(api.baseUrl);
+      const applyingControl = applyingPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+
+      const observedBackendOverlay: ArchitectureOverlays = {
+        ...applyingPayload.overlays,
+        controls: [
+          {
+            ...applyingControl!,
+            state: {
+              ...applyingControl!.state,
+              effective_value: 750,
+              apply: { phase: "applied", operation_id: applyingControl!.state.apply.operation_id }
+            }
+          }
+        ]
+      };
+      expect((await postOverlay(api.baseUrl, observedBackendOverlay, "control-backend", "control")).status).toBe(200);
+
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const payload = await readArchitecture(api.baseUrl);
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      expect(control?.state.apply.phase).toBe("applied");
+      expect(control?.state.apply.message).not.toBe("stale poll result");
+      expect(payload.overlaySource).toBe("control-backend");
     } finally {
       await api.close();
     }
@@ -447,7 +568,7 @@ describe("architecture runtime API", () => {
           }
         ]
       };
-      expect((await postOverlay(api.baseUrl, readonlyPriorityOverlay, "control-backend")).status).toBe(200);
+      expect((await postOverlay(api.baseUrl, readonlyPriorityOverlay, "control-backend", "control")).status).toBe(200);
 
       const readonlyPriority = await postControlValue(api.baseUrl, {
         controlId: "readonly-priority",
@@ -473,6 +594,54 @@ describe("architecture runtime API", () => {
     }
   });
 
+  it("rejects concurrent apply attempts while the handler is still starting", async () => {
+    let applyCalls = 0;
+    let releaseApply!: () => void;
+    let markStarted!: () => void;
+    const applyStarted = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const handler: OverlayControlHandler = {
+      async apply() {
+        applyCalls += 1;
+        markStarted();
+        await new Promise<void>((resolve) => {
+          releaseApply = resolve;
+        });
+        return { operationId: `slow-operation-${applyCalls}` };
+      },
+      async poll() {
+        return { phase: "applied" };
+      }
+    };
+    const api = await startApi({
+      graphControlsVisible: true,
+      graphControlApplyEnabled: true,
+      controlHandlers: { "simulated-throttle-config": handler }
+    });
+    try {
+      const firstApply = postControlValue(api.baseUrl, {
+        controlId: "partner-token-aggregate-throttle",
+        desiredValue: 800
+      });
+      await applyStarted;
+
+      const secondApply = await postControlValue(api.baseUrl, {
+        controlId: "partner-token-aggregate-throttle",
+        desiredValue: 850
+      });
+      expect(secondApply.status).toBe(409);
+      expect(secondApply.text).toContain("already has an apply operation in flight");
+
+      releaseApply();
+      expect((await firstApply).status).toBe(200);
+      expect(applyCalls).toBe(1);
+    } finally {
+      releaseApply?.();
+      await api.close();
+    }
+  });
+
   it("rejects controls that reference an unknown apply handler", async () => {
     const api = await startApi({ graphControlsVisible: true, graphControlApplyEnabled: true });
     try {
@@ -487,7 +656,7 @@ describe("architecture runtime API", () => {
           }
         ]
       };
-      expect((await postOverlay(api.baseUrl, unknownHandlerOverlay, "control-backend")).status).toBe(200);
+      expect((await postOverlay(api.baseUrl, unknownHandlerOverlay, "control-backend", "control")).status).toBe(200);
 
       const response = await postControlValue(api.baseUrl, {
         controlId: "unknown-handler-control",

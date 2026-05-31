@@ -182,8 +182,7 @@ export const OverlayControlApplySchema = z
   .object({
     handler: RequiredString
   })
-  .strict()
-  .default({ handler: "simulated-throttle-config" });
+  .strict();
 
 export const OverlayControlApplyStateSchema = z
   .object({

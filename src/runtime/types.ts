@@ -43,8 +43,11 @@ export interface ArchitectureLintResponse {
   status?: number;
 }
 
+export type OverlaySnapshotMode = "merge" | "control";
+
 export interface OverlaySnapshotRequest {
   overlays: unknown;
+  mode?: OverlaySnapshotMode;
   source?: string;
   generatedAt?: string;
 }

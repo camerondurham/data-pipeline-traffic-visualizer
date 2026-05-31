@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ArchitectureStore } from "./architectureStore";
-import type { OverlayControlValueUpdateRequest } from "../runtime/types";
+import type { OverlayControlValueUpdateRequest, OverlaySnapshotMode } from "../runtime/types";
 
 type NextFunction = () => void;
 
@@ -77,6 +77,16 @@ async function readOverlayControlValueBody(request: IncomingMessage): Promise<Ov
     source: typeof body.source === "string" ? body.source : undefined,
     generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined
   };
+}
+
+function readOverlaySnapshotMode(value: unknown): OverlaySnapshotMode | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "merge" || value === "control") {
+    return value;
+  }
+  throw new BadRequestError("mode must be merge or control");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -159,6 +169,7 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
         }
         const result = store.updateOverlaySnapshot({
           overlays: body.overlays,
+          mode: readOverlaySnapshotMode(body.mode),
           source: typeof body.source === "string" ? body.source : undefined,
           generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : undefined
         });
