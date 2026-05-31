@@ -13,7 +13,7 @@ export interface ControlApplyResult {
 }
 
 export interface ControlPollResult {
-  phase: Exclude<OverlayControlApplyPhase, "idle" | "applying">;
+  phase: Exclude<OverlayControlApplyPhase, "idle">;
   effectiveValue?: OverlayControlValue;
   message?: string;
   observedAt?: string;

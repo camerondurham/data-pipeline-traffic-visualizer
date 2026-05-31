@@ -204,18 +204,29 @@ describe("overlays", () => {
       })
     ).toThrow(/expected number control value/);
 
-    const legacy = validateArchitectureOverlays({
+    expect(() =>
+      validateArchitectureOverlays({
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            apply: undefined,
+            state: { desired_value: 500, effective_value: 500, priority: 20 }
+          }
+        ]
+      })
+    ).toThrow(/Required/);
+
+    const legacyState = validateArchitectureOverlays({
       ...overlayFixture(),
       controls: [
         {
           ...overlayFixture().controls[0],
-          apply: undefined,
           state: { desired_value: 500, effective_value: 500, priority: 20 }
         }
       ]
     });
-    expect(legacy.controls[0].apply.handler).toBe("simulated-throttle-config");
-    expect(legacy.controls[0].state.apply.phase).toBe("idle");
+    expect(legacyState.controls[0].state.apply.phase).toBe("idle");
   });
 
   it("resolves node, edge, and route decorators", () => {
