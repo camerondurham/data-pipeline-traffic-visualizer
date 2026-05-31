@@ -292,7 +292,8 @@ export function NodeDetailPanel({
   incomingEdges,
   outgoingEdges,
   model,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated,
   onClose
 }: {
@@ -301,11 +302,12 @@ export function NodeDetailPanel({
   incomingEdges: VisualEdge[];
   outgoingEdges: VisualEdge[];
   model: GraphModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
   onClose: () => void;
 }) {
-  const controls = controlEditingEnabled ? overlay?.controls ?? [] : [];
+  const controls = controlControlsVisible ? overlay?.controls ?? [] : [];
 
   return (
     <aside className="selected-edge-panel selected-node-panel" aria-label="Selected node details">
@@ -334,6 +336,16 @@ export function NodeDetailPanel({
           <dd>{node.zone}</dd>
         </div>
       </dl>
+      {overlay?.chips.length ? (
+        <section className="selected-overlay-section selected-observed-section" aria-label="Observed node metrics">
+          <h3>Observed</h3>
+          <div className="selected-overlay-chip-list">
+            {overlay.chips.map((chip) => (
+              <b key={chip}>{chip}</b>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {controls.length ? (
         <section className="selected-edge-controls" aria-label="Editable node controls">
           <h3>Controls</h3>
@@ -342,7 +354,7 @@ export function NodeDetailPanel({
               <OverlayControlCard
                 key={control.id}
                 control={control}
-                editingEnabled={controlEditingEnabled}
+                applyEnabled={controlApplyEnabled}
                 onUpdated={onControlUpdated}
               />
             ))}
@@ -435,13 +447,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+function applyPhaseLabel(control: OverlayControl): string {
+  const phase = control.state.apply.phase;
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
+}
+
 function OverlayControlCard({
   control,
-  editingEnabled,
+  applyEnabled,
   onUpdated
 }: {
   control: OverlayControl;
-  editingEnabled: boolean;
+  applyEnabled: boolean;
   onUpdated?: () => void | Promise<void>;
 }) {
   // Keep this card generic. Control-specific apply/poll behavior belongs behind
@@ -452,6 +469,8 @@ function OverlayControlCard({
   const [loading, setLoading] = useState(false);
   const prioritySpec = control.spec.priority;
   const canEditPriority = Boolean(prioritySpec?.editable);
+  const applying = control.state.apply.phase === "applying";
+  const disabled = !applyEnabled || loading || applying;
 
   useEffect(() => {
     setDesiredValue(inputValue(control.state.desired_value));
@@ -516,7 +535,7 @@ function OverlayControlCard({
         className="edge-control-form"
         onSubmit={(event) => {
           event.preventDefault();
-          if (editingEnabled) {
+          if (applyEnabled && !applying) {
             void applyControlUpdate();
           }
         }}
@@ -528,7 +547,7 @@ function OverlayControlCard({
               aria-label={`${control.label} desired value`}
               type="checkbox"
               checked={desiredValue === "true"}
-              disabled={!editingEnabled || loading}
+              disabled={disabled}
               onChange={(event) => setDesiredValue(event.target.checked ? "true" : "false")}
             />
           ) : (
@@ -539,7 +558,7 @@ function OverlayControlCard({
               max={control.spec.max}
               step={control.spec.step}
               value={desiredValue}
-              disabled={!editingEnabled || loading}
+              disabled={disabled}
               onChange={(event) => setDesiredValue(event.target.value)}
             />
           )}
@@ -554,17 +573,22 @@ function OverlayControlCard({
               max={prioritySpec.max}
               step={prioritySpec.step}
               value={priority}
-              disabled={!editingEnabled || !canEditPriority || loading}
+              disabled={disabled || !canEditPriority}
               onChange={(event) => setPriority(event.target.value)}
             />
           </label>
         ) : null}
-        <button type="submit" disabled={!editingEnabled || loading}>
+        <button type="submit" disabled={disabled}>
           <Save size={14} aria-hidden="true" />
           <span>Apply</span>
         </button>
       </form>
-      {status ? <p className="edge-control-status" role="status">{status}</p> : null}
+      <p className={`edge-control-status phase-${control.state.apply.phase}`} role="status">
+        <b>{applyPhaseLabel(control)}</b>
+        {control.state.apply.message ? `: ${control.state.apply.message}` : null}
+        {!applyEnabled ? " Apply is disabled until backend integration is enabled." : null}
+        {status ? ` ${status}` : null}
+      </p>
     </article>
   );
 }
@@ -573,14 +597,16 @@ export function EdgeDetailPanel({
   edge,
   overlay,
   model,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated,
   onClose
 }: {
   edge: VisualEdge;
   overlay?: ResolvedEdgeOverlay;
   model: GraphModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
   onClose: () => void;
 }) {
@@ -603,7 +629,7 @@ export function EdgeDetailPanel({
       ]
     : [];
   const annotations = buildEdgeAnnotations(overlay);
-  const controls = controlEditingEnabled ? overlay?.controls ?? [] : [];
+  const controls = controlControlsVisible ? overlay?.controls ?? [] : [];
 
   return (
     <aside className="selected-edge-panel" aria-label="Selected edge details">
@@ -614,9 +640,19 @@ export function EdgeDetailPanel({
         </div>
         <button type="button" onClick={onClose}>Close</button>
       </div>
+      {overlay?.metrics.length ? (
+        <section className="selected-overlay-section selected-observed-section" aria-label="Observed edge metrics">
+          <h3>Observed</h3>
+          <div className="selected-overlay-chip-list">
+            {overlay.metrics.map((metric) => (
+              <b key={`${metric.label}-${String(metric.value)}`}>{formatMetricChip(metric)}</b>
+            ))}
+          </div>
+        </section>
+      ) : null}
       {annotations.length ? (
-        <section className="selected-edge-annotations" aria-label="Selected edge annotations">
-          <h3>Annotations</h3>
+        <section className="selected-edge-annotations" aria-label="Selected edge config">
+          <h3>Config</h3>
           <div className="selected-edge-annotation-list">
             {annotations.map((annotation) => (
               <article
@@ -646,7 +682,7 @@ export function EdgeDetailPanel({
               <OverlayControlCard
                 key={control.id}
                 control={control}
-                editingEnabled={controlEditingEnabled}
+                applyEnabled={controlApplyEnabled}
                 onUpdated={onControlUpdated}
               />
             ))}

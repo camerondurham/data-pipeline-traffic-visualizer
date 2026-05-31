@@ -12,7 +12,8 @@ import {
 } from "./zod";
 
 type RenderSeedDashboardOptions = {
-  controlEditingEnabled?: boolean;
+  controlControlsVisible?: boolean;
+  controlApplyEnabled?: boolean;
   onControlUpdated?: () => void | Promise<void>;
   overlays?: ArchitectureOverlays;
 };
@@ -50,7 +51,8 @@ function renderSeedDashboard(options: RenderSeedDashboardOptions = {}) {
     <Dashboard
       manifest={manifest}
       overlays={options.overlays ?? overlays}
-      controlEditingEnabled={options.controlEditingEnabled}
+      controlControlsVisible={options.controlControlsVisible}
+      controlApplyEnabled={options.controlApplyEnabled}
       onControlUpdated={options.onControlUpdated}
     />
   );
@@ -78,14 +80,14 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data processing applications" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Aggregate Kinesis stream" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Aggregate streams" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold-tier router" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Cold API read surface" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot-tier router" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Hot API read surface" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Partner streams" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Partner streams and remote destinations" })).toBeInTheDocument();
     expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mobile App").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Webhook").length).toBeGreaterThan(0);
@@ -93,7 +95,11 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mobile Events Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
   });
 
@@ -143,9 +149,13 @@ describe("Dashboard", () => {
     expect(screen.getByText("edge.use1.sources.mobile.to.mobile.ingestion")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.mobile.ingestion.to.orders.processor")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.orders.processor.to.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.processing.to.usw2.aggregate")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.processing.to.euw1.aggregate")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.aggregate.to.cold.router")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.partner.stream")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
+    expect(screen.getByText("edge.use1.hot.router.to.euw1.partner.stream")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.router.to.slow")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.hot.processor.to.products.stream")).toBeInTheDocument();
   });
@@ -218,7 +228,7 @@ describe("Dashboard", () => {
         new Response(JSON.stringify({ ok: true, diagnostics: [] }), { status: 200, headers: { "Content-Type": "application/json" } })
     );
     vi.stubGlobal("fetch", fetchMock);
-    const { container } = renderSeedDashboard({ controlEditingEnabled: true, onControlUpdated });
+    const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: true, onControlUpdated });
     const edgeLabel = await waitFor(() => {
       const element = container.querySelector('[aria-label="Select edge hot feed"]');
       expect(element).toBeInTheDocument();
@@ -242,7 +252,7 @@ describe("Dashboard", () => {
     await user.clear(desiredInput);
     await user.click(applyButton);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(await within(control).findByRole("status")).toHaveTextContent("Desired value is required");
+    await waitFor(() => expect(within(control).getByRole("status")).toHaveTextContent("Desired value is required"));
 
     await user.type(desiredInput, "850");
     await user.clear(priorityInput);
@@ -266,6 +276,27 @@ describe("Dashboard", () => {
     await waitFor(() => expect(onControlUpdated).toHaveBeenCalled());
   });
 
+  it("shows controls in visible-only mode but disables apply", async () => {
+    const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: false });
+    const edgeLabel = await waitFor(() => {
+      const element = container.querySelector('[aria-label="Select edge hot feed"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+
+    await act(async () => {
+      fireEvent.click(edgeLabel as Element);
+      await Promise.resolve();
+    });
+
+    const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
+    expect(within(detailPanel).getByRole("heading", { name: "Config" })).toBeInTheDocument();
+    expect(within(detailPanel).getByRole("heading", { name: "Controls" })).toBeInTheDocument();
+    const control = within(detailPanel).getByTestId("edge-control-partner-token-aggregate-throttle");
+    expect(within(control).getByRole("button", { name: /Apply/i })).toBeDisabled();
+    expect(within(control).getByRole("status")).toHaveTextContent("Apply is disabled until backend integration is enabled");
+  });
+
   it("lets operators edit selected node controls", async () => {
     const user = userEvent.setup();
     const onControlUpdated = vi.fn();
@@ -283,7 +314,10 @@ describe("Dashboard", () => {
           id: "hot-router-concurrency-cap",
           target: { kind: "node", id: "use1.hot.router" },
           dimensions: { scope: "all" },
-          label: "Hot router concurrency cap",
+            label: "Hot router concurrency cap",
+          apply: {
+            handler: "simulated-throttle-config"
+          },
           spec: {
             value_type: "number",
             min: 1,
@@ -299,14 +333,18 @@ describe("Dashboard", () => {
           state: {
             desired_value: 24,
             effective_value: 16,
-            priority: 30
+            priority: 30,
+            apply: {
+              phase: "idle"
+            }
           }
         }
       ]
     });
     const { container } = renderSeedDashboard({
       overlays: overlaysWithNodeControl,
-      controlEditingEnabled: true,
+      controlControlsVisible: true,
+      controlApplyEnabled: true,
       onControlUpdated
     });
     const node = await waitFor(() => {
@@ -409,15 +447,21 @@ describe("Dashboard", () => {
     const detailPanel = screen.getByRole("complementary", { name: "Selected node details" });
     expect(within(detailPanel).getByText("use1.hot.router")).toBeInTheDocument();
     expect(within(detailPanel).getByText("Incoming (1)")).toBeInTheDocument();
-    expect(within(detailPanel).getByText("Outgoing (5)")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("Outgoing (7)")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.aggregate.to.hot.router")).toBeInTheDocument();
     expect(within(detailPanel).getByText("edge.use1.hot.router.to.products.stream")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.usw2.partner.stream")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("edge.use1.hot.router.to.euw1.partner.stream")).toBeInTheDocument();
 
     expect(container.querySelector('[data-id="use1.hot.router"] .node-card.is-selected')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.aggregate.to.hot.router"] .topology-edge.is-incoming')).toBeInTheDocument();
     expect(container.querySelector('[data-id="edge.use1.hot.router.to.products.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.usw2.partner.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="edge.use1.hot.router.to.euw1.partner.stream"] .topology-edge.is-outgoing')).toBeInTheDocument();
     expect(container.querySelector('[data-id="use1.aggregate.stream"] .node-card.is-incoming')).toBeInTheDocument();
     expect(container.querySelector('[data-id="use1.hot.stream.products"] .node-card.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="usw2.partner.stream.example"] .node-card.is-outgoing')).toBeInTheDocument();
+    expect(container.querySelector('[data-id="euw1.partner.stream.example"] .node-card.is-outgoing')).toBeInTheDocument();
     expect(container.querySelector(".topology-edge.is-dimmed")).toBeInTheDocument();
   });
 

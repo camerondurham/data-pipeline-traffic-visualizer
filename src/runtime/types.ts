@@ -25,7 +25,9 @@ export interface RuntimeArchitecturePayload {
   overlaySource: string;
   overlayStatus: OverlayRuntimeStatus;
   editorEnabled: boolean;
-  graphControlsPreviewEnabled: boolean;
+  graphControlsVisible: boolean;
+  graphControlApplyEnabled: boolean;
+  graphControlsPreviewEnabled?: boolean;
 }
 
 export interface ArchitectureSourcePayload {
@@ -38,6 +40,7 @@ export interface ArchitectureLintResponse {
   diagnostics: RuntimeDiagnostic[];
   manifest?: ArchitectureManifest;
   overlays?: ArchitectureOverlays;
+  status?: number;
 }
 
 export interface OverlaySnapshotRequest {

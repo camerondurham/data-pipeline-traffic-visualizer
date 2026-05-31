@@ -39,7 +39,8 @@ function FlowDiagram({
   layout,
   model,
   overlayModel,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated
 }: {
   title: string;
@@ -47,7 +48,8 @@ function FlowDiagram({
   layout: FlowLayoutModel;
   model: GraphModel;
   overlayModel: OverlayModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
@@ -80,7 +82,8 @@ function FlowDiagram({
             edge={selectedEdge}
             overlay={selectedOverlay}
             model={model}
-            controlEditingEnabled={controlEditingEnabled}
+            controlControlsVisible={controlControlsVisible}
+            controlApplyEnabled={controlApplyEnabled}
             onControlUpdated={onControlUpdated}
             onClose={() => setSelectedEdgeId(undefined)}
           />
@@ -92,7 +95,8 @@ function FlowDiagram({
             incomingEdges={selectedNodeDetail.incomingEdges}
             outgoingEdges={selectedNodeDetail.outgoingEdges}
             model={model}
-            controlEditingEnabled={controlEditingEnabled}
+            controlControlsVisible={controlControlsVisible}
+            controlApplyEnabled={controlApplyEnabled}
             onControlUpdated={onControlUpdated}
             onClose={() => setSelectedNodeId(undefined)}
           />
@@ -152,26 +156,43 @@ function RegionalView({
   view,
   model,
   overlayModel,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated
 }: {
   view: RegionViewManifest;
   model: GraphModel;
   overlayModel: OverlayModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const layout = getFlowLayout(model, view);
+  const regions = [
+    view.region,
+    ...Array.from(new Set(layout.stages.flatMap((stage) => stage.nodes.map((node) => node.region))))
+      .filter((region) => region !== view.region)
+  ];
+  const spansRegions = regions.length > 1;
 
   return (
     <section className="topology-view" aria-label="Regional end-to-end topology">
       <FlowDiagram
-        title={`${view.region} sequential architecture flow`}
-        subtitle="Whiteboard-style stages grouped by application/system type"
+        title={
+          spansRegions
+            ? `${regions.join(" + ")} end-to-end architecture flow`
+            : `${view.region} sequential architecture flow`
+        }
+        subtitle={
+          spansRegions
+            ? "Source-region workflow with remote destination stream summary nodes"
+            : "Whiteboard-style stages grouped by application/system type"
+        }
         layout={layout}
         model={model}
         overlayModel={overlayModel}
-        controlEditingEnabled={controlEditingEnabled}
+        controlControlsVisible={controlControlsVisible}
+        controlApplyEnabled={controlApplyEnabled}
         onControlUpdated={onControlUpdated}
       />
     </section>
@@ -182,13 +203,15 @@ function CrossRegionView({
   view,
   model,
   overlayModel,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated
 }: {
   view: CrossRegionViewManifest;
   model: GraphModel;
   overlayModel: OverlayModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const groups = useMemo(() => getCrossRegionGroups(model, view), [model, view]);
@@ -228,7 +251,8 @@ function CrossRegionView({
               edge={selectedEdge}
               overlay={selectedOverlay}
               model={model}
-              controlEditingEnabled={controlEditingEnabled}
+              controlControlsVisible={controlControlsVisible}
+              controlApplyEnabled={controlApplyEnabled}
               onControlUpdated={onControlUpdated}
               onClose={() => setSelectedEdgeId(undefined)}
             />
@@ -240,7 +264,8 @@ function CrossRegionView({
               incomingEdges={selectedNodeDetail.incomingEdges}
               outgoingEdges={selectedNodeDetail.outgoingEdges}
               model={model}
-              controlEditingEnabled={controlEditingEnabled}
+              controlControlsVisible={controlControlsVisible}
+              controlApplyEnabled={controlApplyEnabled}
               onControlUpdated={onControlUpdated}
               onClose={() => setSelectedNodeId(undefined)}
             />
@@ -303,13 +328,15 @@ function FocusView({
   view,
   model,
   overlayModel,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated
 }: {
   view: FocusViewManifest;
   model: GraphModel;
   overlayModel: OverlayModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const focus = getFocusView(model, view);
@@ -322,7 +349,8 @@ function FocusView({
         layout={{ view, lanes: DEFAULT_FLOW_LANES, stages: focusStagesFor(focus), edges: focus.edges }}
         model={model}
         overlayModel={overlayModel}
-        controlEditingEnabled={controlEditingEnabled}
+        controlControlsVisible={controlControlsVisible}
+        controlApplyEnabled={controlApplyEnabled}
         onControlUpdated={onControlUpdated}
       />
     </section>
@@ -333,13 +361,15 @@ export function ViewBody({
   activeView,
   model,
   overlayModel,
-  controlEditingEnabled,
+  controlControlsVisible,
+  controlApplyEnabled,
   onControlUpdated
 }: {
   activeView: ArchitectureView;
   model: GraphModel;
   overlayModel: OverlayModel;
-  controlEditingEnabled: boolean;
+  controlControlsVisible: boolean;
+  controlApplyEnabled: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   if (activeView.mode === "region") {
@@ -348,7 +378,8 @@ export function ViewBody({
         view={activeView}
         model={model}
         overlayModel={overlayModel}
-        controlEditingEnabled={controlEditingEnabled}
+        controlControlsVisible={controlControlsVisible}
+        controlApplyEnabled={controlApplyEnabled}
         onControlUpdated={onControlUpdated}
       />
     );
@@ -359,7 +390,8 @@ export function ViewBody({
         view={activeView}
         model={model}
         overlayModel={overlayModel}
-        controlEditingEnabled={controlEditingEnabled}
+        controlControlsVisible={controlControlsVisible}
+        controlApplyEnabled={controlApplyEnabled}
         onControlUpdated={onControlUpdated}
       />
     );
@@ -369,7 +401,8 @@ export function ViewBody({
       view={activeView}
       model={model}
       overlayModel={overlayModel}
-      controlEditingEnabled={controlEditingEnabled}
+      controlControlsVisible={controlControlsVisible}
+      controlApplyEnabled={controlApplyEnabled}
       onControlUpdated={onControlUpdated}
     />
   );

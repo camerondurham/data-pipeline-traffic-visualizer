@@ -48,7 +48,8 @@ function loadSeedPayload(): RuntimeArchitecturePayload {
     overlaySource: "sample",
     overlayStatus: { state: "sample" },
     editorEnabled: false,
-    graphControlsPreviewEnabled: false
+    graphControlsVisible: false,
+    graphControlApplyEnabled: false
   };
 }
 
@@ -70,7 +71,8 @@ describe("App", () => {
       overlaySource: "test",
       overlayStatus: { state: "file" },
       editorEnabled: false,
-      graphControlsPreviewEnabled: false
+      graphControlsVisible: false,
+      graphControlApplyEnabled: false
     });
 
     render(<App />);
@@ -90,7 +92,8 @@ describe("App", () => {
       overlaySource: "test",
       overlayStatus: { state: "file" },
       editorEnabled: false,
-      graphControlsPreviewEnabled: false
+      graphControlsVisible: false,
+      graphControlApplyEnabled: false
     });
 
     render(<App />);
@@ -192,12 +195,12 @@ describe("App", () => {
     expect(screen.getByText("Loaded currently rendered model")).toBeInTheDocument();
   });
 
-  it("surfaces the graph controls preview badge when the runtime flag is enabled", async () => {
-    installFetchMock({ ...loadSeedPayload(), graphControlsPreviewEnabled: true });
+  it("surfaces the graph controls visible-only badge when controls are visible but apply is disabled", async () => {
+    installFetchMock({ ...loadSeedPayload(), graphControlsVisible: true, graphControlApplyEnabled: false });
 
     render(<App />);
 
-    expect(await screen.findByText("Graph Controls Preview")).toBeInTheDocument();
-    expect(screen.getByText("Local desired state only; no backend apply handler is wired.")).toBeInTheDocument();
+    expect(await screen.findByText("Graph Controls Visible Only")).toBeInTheDocument();
+    expect(screen.getByText("Control cards are visible, but Apply is disabled until backend integration is enabled.")).toBeInTheDocument();
   });
 });

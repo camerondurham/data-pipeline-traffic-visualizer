@@ -129,15 +129,21 @@ describe("graphBuilder", () => {
       "preagg_slow_queues"
     ]);
     expect(layout.stages.find((stage) => stage.id === "aggregate_stream")?.nodes.map((node) => node.id)).toEqual([
-      "use1.aggregate.stream"
+      "use1.aggregate.stream",
+      "usw2.aggregate.stream",
+      "euw1.aggregate.stream"
     ]);
     expect(layout.edges.map((edge) => edge.id)).toEqual(
       expect.arrayContaining([
         "edge.use1.sources.web.to.orders.ingestion",
         "edge.use1.mobile.ingestion.to.orders.processor",
+        "edge.use1.processing.to.usw2.aggregate",
+        "edge.use1.processing.to.euw1.aggregate",
         "edge.use1.aggregate.to.hot.router",
         "edge.use1.aggregate.to.cold.router",
-        "edge.use1.hot.router.to.partner.stream"
+        "edge.use1.hot.router.to.partner.stream",
+        "edge.use1.hot.router.to.usw2.partner.stream",
+        "edge.use1.hot.router.to.euw1.partner.stream"
       ])
     );
   });

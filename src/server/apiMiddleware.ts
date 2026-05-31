@@ -167,13 +167,13 @@ export function createArchitectureApiMiddleware(store: ArchitectureStore) {
       }
 
       if (method === "POST" && url.pathname === "/api/overlays/control-value") {
-        if (!store.graphControlsPreviewEnabled) {
-          sendJson(response, 403, { error: "Graph controls preview is disabled" });
+        if (!store.graphControlApplyEnabled) {
+          sendJson(response, 403, { error: "Graph control apply is disabled" });
           return;
         }
         const body = await readOverlayControlValueBody(request);
-        const result = store.updateOverlayControlValue(body);
-        sendJson(response, result.ok ? 200 : 422, result);
+        const result = await store.updateOverlayControlValue(body);
+        sendJson(response, result.ok ? 200 : result.status ?? 422, result);
         return;
       }
 
