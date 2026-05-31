@@ -53,9 +53,11 @@ sequenceDiagram
   Browser->>API: POST /api/architecture/draft
   API->>Store: apply validated architecture and overlays draft
   Updater->>API: POST /api/overlays/snapshot
-  API->>Store: replace overlays only after validation
+  API->>Store: merge observed overlay metrics after validation
   Operator->>API: POST /api/overlays/control-value
-  API->>Store: update one editable overlay control in memory
+  API->>Store: validate intent and mark control applying
+  Store->>Store: simulated handler polls generated config
+  Store-->>Browser: revision event after observed apply result
 ```
 
 ## Local Live TPS Demo
@@ -171,6 +173,8 @@ controls:
     dimensions:
       token: partner-v3
     label: Partner route throttle
+    apply:
+      handler: simulated-throttle-config
     spec:
       value_type: number
       min: 0
@@ -186,6 +190,8 @@ controls:
       desired_value: 500
       effective_value: 500
       priority: 20
+      apply:
+        phase: idle
 ```
 
 ## Topology Invariants
@@ -210,12 +216,18 @@ The browser loads parsed architecture data from `GET /api/architecture`; raw YAM
 
 - `GET /api/architecture`: returns `manifest`, current `overlays`, revisions, source, generated time, and status.
 - `GET /api/architecture/events`: emits revision events with server-sent events so connected browsers refetch after runtime changes.
-- `POST /api/overlays/snapshot`: full overlay replacement for runtime update jobs.
-- `POST /api/overlays/control-value`: updates one editable overlay control value in runtime memory and emits the same overlay revision event. This preview endpoint is disabled unless `GRAPH_CONTROLS_PREVIEW=1` is set.
+- `POST /api/overlays/snapshot`: runtime update job input for observed overlay metrics. Non-control snapshots merge decorators by ID and preserve editable controls so live traffic updates do not erase operator intent.
+- `POST /api/overlays/control-value`: starts one editable control apply operation. The server validates intent, marks the control `applying`, emits an overlay revision, polls the configured handler, and updates `effective_value` only after the simulated generated config is observed.
 
-Overlay updaters should post a complete `ArchitectureOverlays` snapshot every N minutes, or more frequently for local/demo use. Invalid snapshots are rejected and the previous active overlay remains visible. `npm run demo:live` is the sample implementation: it posts generated stream TPS overlays with `source: "sample-live-tps"` every 2 seconds.
+Overlay updaters should post `ArchitectureOverlays` snapshots every N minutes, or more frequently for local/demo use. Invalid snapshots are rejected and the previous active overlay remains visible. `npm run demo:live` is the sample implementation: it posts generated stream TPS overlays with `source: "sample-live-tps"` every 2 seconds.
 
-Control edits are operator-owned runtime intent, not telemetry. The first API experiment stores them in memory, so edits survive refetches and SSE updates but reset on server restart. The feature is explicitly gated behind `GRAPH_CONTROLS_PREVIEW=1`; when enabled, the dashboard shows a preview badge that states no backend apply handler is wired. A control edit request looks like:
+Control edits are operator-owned runtime intent, not telemetry. The first control-plane stub stores operation state in memory, so edits survive refetches and SSE updates but reset on server restart. Controls are gated with split flags:
+
+- `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status in the dashboard.
+- `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to call the configured handler.
+- `GRAPH_CONTROLS_PREVIEW=1`: compatibility alias for visible-only mode. Apply remains disabled unless `GRAPH_CONTROL_APPLY_ENABLED=1` is also set.
+
+A control edit request looks like:
 
 ```json
 {
@@ -226,6 +238,6 @@ Control edits are operator-owned runtime intent, not telemetry. The first API ex
 }
 ```
 
-The server validates the control ID, target reference, value type, numeric bounds, step alignment, and whether priority is editable before updating the active overlay.
+The server validates the control ID, target reference, handler, value type, numeric bounds, step alignment, and whether priority is editable before starting an apply operation. The included `simulated-throttle-config` handler returns an operation ID immediately, then later marks the control `applied` and updates `effective_value`.
 
-See [Control Plane Extension Plan](docs/control-plane-extension.md) for how this model should grow into a real apply-and-poll control plane that calls external APIs, tracks operation state, and updates `effective_value` only after the downstream system confirms the change.
+See [Control Plane Extension Plan](docs/control-plane-extension.md) for how this model maps to a real SQS/S3 apply-and-poll control plane.

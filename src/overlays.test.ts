@@ -69,6 +69,9 @@ function overlayFixture(): ArchitectureOverlays {
         target: { kind: "edge", id: "edge.a.remote" },
         dimensions: { token: "partner-v3" },
         label: "A token throttle",
+        apply: {
+          handler: "simulated-throttle-config"
+        },
         spec: {
           value_type: "number",
           min: 0,
@@ -85,7 +88,10 @@ function overlayFixture(): ArchitectureOverlays {
         state: {
           desired_value: 500,
           effective_value: 500,
-          priority: 20
+          priority: 20,
+          apply: {
+            phase: "idle"
+          }
         }
       }
     ]
@@ -197,6 +203,19 @@ describe("overlays", () => {
         ]
       })
     ).toThrow(/expected number control value/);
+
+    const legacy = validateArchitectureOverlays({
+      ...overlayFixture(),
+      controls: [
+        {
+          ...overlayFixture().controls[0],
+          apply: undefined,
+          state: { desired_value: 500, effective_value: 500, priority: 20 }
+        }
+      ]
+    });
+    expect(legacy.controls[0].apply.handler).toBe("simulated-throttle-config");
+    expect(legacy.controls[0].state.apply.phase).toBe("idle");
   });
 
   it("resolves node, edge, and route decorators", () => {

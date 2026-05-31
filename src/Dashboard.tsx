@@ -15,10 +15,13 @@ interface DashboardProps {
     overlayGeneratedAt: string;
     overlaySource: string;
     overlayStatus: OverlayRuntimeStatus;
-    graphControlsPreviewEnabled: boolean;
+    graphControlsVisible: boolean;
+    graphControlApplyEnabled: boolean;
+    graphControlsPreviewEnabled?: boolean;
     previewActive?: boolean;
   };
-  controlEditingEnabled?: boolean;
+  controlControlsVisible?: boolean;
+  controlApplyEnabled?: boolean;
   onControlUpdated?: () => void | Promise<void>;
   toolbarSlot?: ReactNode;
 }
@@ -92,7 +95,8 @@ export function Dashboard({
   manifest,
   overlays = EMPTY_OVERLAYS,
   runtimeInfo,
-  controlEditingEnabled = false,
+  controlControlsVisible = false,
+  controlApplyEnabled = false,
   onControlUpdated,
   toolbarSlot
 }: DashboardProps) {
@@ -246,10 +250,16 @@ export function Dashboard({
               <span>Updated</span>
               <b>{formatOverlayTime(runtimeInfo.overlayGeneratedAt)}</b>
             </div>
-            {runtimeInfo.graphControlsPreviewEnabled ? (
+            {runtimeInfo.graphControlsVisible ? (
               <div className="aws-kv aws-kv-wide">
-                <AwsBadge tone="warning">Graph Controls Preview</AwsBadge>
-                <b>Local desired state only; no backend apply handler is wired.</b>
+                <AwsBadge tone={runtimeInfo.graphControlApplyEnabled ? "info" : "warning"}>
+                  Graph Controls {runtimeInfo.graphControlApplyEnabled ? "Apply Enabled" : "Visible Only"}
+                </AwsBadge>
+                <b>
+                  {runtimeInfo.graphControlApplyEnabled
+                    ? "Async apply handler is enabled; effective values update after observation."
+                    : "Control cards are visible, but Apply is disabled until backend integration is enabled."}
+                </b>
               </div>
             ) : null}
           </section>
@@ -260,7 +270,8 @@ export function Dashboard({
             activeView={activeView}
             model={model}
             overlayModel={overlayModel}
-            controlEditingEnabled={controlEditingEnabled && !runtimeInfo?.previewActive}
+            controlControlsVisible={controlControlsVisible && !runtimeInfo?.previewActive}
+            controlApplyEnabled={controlApplyEnabled && !runtimeInfo?.previewActive}
             onControlUpdated={onControlUpdated}
           />
         </main>

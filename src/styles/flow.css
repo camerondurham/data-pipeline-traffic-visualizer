@@ -765,13 +765,15 @@
   overflow-wrap: anywhere;
 }
 
-.selected-edge-annotations {
+.selected-edge-annotations,
+.selected-overlay-section {
   display: grid;
   gap: 10px;
   padding: 0 14px 12px;
 }
 
 .selected-edge-annotations h3,
+.selected-overlay-section h3,
 .selected-edge-controls h3 {
   margin: 0;
   font-family: var(--mono);
@@ -780,6 +782,26 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ash);
+}
+
+.selected-overlay-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.selected-overlay-chip-list b {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border: 1px solid rgba(91, 233, 210, 0.28);
+  border-radius: var(--rad);
+  background: rgba(91, 233, 210, 0.08);
+  color: var(--bone);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
 }
 
 .selected-edge-annotation-list {
@@ -867,6 +889,16 @@
   border-left: 3px solid var(--signal);
   border-radius: var(--rad);
   background: rgba(12, 38, 32, 0.42);
+}
+
+.edge-control-card:has(.phase-applying) {
+  border-left-color: var(--amber);
+  background: rgba(45, 33, 10, 0.44);
+}
+
+.edge-control-card:has(.phase-rejected),
+.edge-control-card:has(.phase-failed) {
+  border-left-color: var(--vermillion);
 }
 
 .edge-control-header {
@@ -986,6 +1018,20 @@
   font-size: 10px;
   color: var(--bone-dim);
   overflow-wrap: anywhere;
+}
+
+.edge-control-status b {
+  color: var(--bone);
+}
+
+.edge-control-status.phase-applying b,
+.edge-control-status.phase-stale b {
+  color: var(--amber);
+}
+
+.edge-control-status.phase-rejected b,
+.edge-control-status.phase-failed b {
+  color: var(--vermillion);
 }
 
 .selected-node-panel dl {

@@ -83,6 +83,8 @@ controls:
       token: partner-v3
     label: Partner route throttle
     description: Runtime throttle for the partner token across the explicit downstream path
+    apply:
+      handler: simulated-throttle-config
     spec:
       value_type: number
       min: 0
@@ -98,3 +100,5 @@ controls:
       desired_value: 500
       effective_value: 500
       priority: 20
+      apply:
+        phase: idle

@@ -5,6 +5,7 @@ const OverlayToneSchema = z.enum(["default", "primary", "secondary", "cross", "r
 const OverlayMetricValueSchema = z.union([z.string().min(1), z.number()]);
 const OverlayControlValueTypeSchema = z.enum(["string", "number", "boolean"]);
 const OverlayControlValueSchema = z.union([z.string().min(1), z.number(), z.boolean()]);
+const OverlayControlApplyPhaseSchema = z.enum(["idle", "applying", "applied", "rejected", "failed", "stale"]);
 export const ArchitectureZoneSchema = z.enum(["pre_aggregate", "aggregate", "hot", "cold", "partner"]);
 
 export const ArchitectureNodeSchema = z
@@ -177,11 +178,29 @@ export const OverlayControlSpecSchema = z
     }
   });
 
+export const OverlayControlApplySchema = z
+  .object({
+    handler: RequiredString
+  })
+  .strict()
+  .default({ handler: "simulated-throttle-config" });
+
+export const OverlayControlApplyStateSchema = z
+  .object({
+    phase: OverlayControlApplyPhaseSchema.default("idle"),
+    operation_id: RequiredString.optional(),
+    requested_at: RequiredString.optional(),
+    observed_at: RequiredString.optional(),
+    message: RequiredString.optional()
+  })
+  .strict();
+
 export const OverlayControlStateSchema = z
   .object({
     desired_value: OverlayControlValueSchema,
     effective_value: OverlayControlValueSchema.optional(),
-    priority: z.number().optional()
+    priority: z.number().optional(),
+    apply: OverlayControlApplyStateSchema.default({ phase: "idle" })
   })
   .strict();
 
@@ -192,6 +211,7 @@ export const OverlayControlSchema = z
     dimensions: OverlayControlDimensionsSchema,
     label: RequiredString,
     description: RequiredString.optional(),
+    apply: OverlayControlApplySchema,
     spec: OverlayControlSpecSchema,
     state: OverlayControlStateSchema
   })
@@ -237,10 +257,13 @@ export type NodeDecorator = z.infer<typeof NodeDecoratorSchema>;
 export type EdgeDecorator = z.infer<typeof EdgeDecoratorSchema>;
 export type RouteDecorator = z.infer<typeof RouteDecoratorSchema>;
 export type OverlayControlValue = z.infer<typeof OverlayControlValueSchema>;
+export type OverlayControlApplyPhase = z.infer<typeof OverlayControlApplyPhaseSchema>;
+export type OverlayControlApply = z.infer<typeof OverlayControlApplySchema>;
 export type OverlayControlTarget = z.infer<typeof OverlayControlTargetSchema>;
 export type OverlayControlDimensions = z.infer<typeof OverlayControlDimensionsSchema>;
 export type OverlayControlPrioritySpec = z.infer<typeof OverlayControlPrioritySpecSchema>;
 export type OverlayControlSpec = z.infer<typeof OverlayControlSpecSchema>;
+export type OverlayControlApplyState = z.infer<typeof OverlayControlApplyStateSchema>;
 export type OverlayControlState = z.infer<typeof OverlayControlStateSchema>;
 export type OverlayControl = z.infer<typeof OverlayControlSchema>;
 export type ArchitectureOverlays = z.infer<typeof ArchitectureOverlaysSchema>;
