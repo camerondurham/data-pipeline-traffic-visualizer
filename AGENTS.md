@@ -12,6 +12,10 @@
 - Run `npm run build` before handing off production-server changes.
 - `npm test` may print a Vitest teardown warning after passing; treat test failures, not that warning, as blocking.
 
+## Compatibility
+
+- Every compatibility shim must name a real consumer, have a removal condition, and have a test proving the consumer still needs it. Otherwise, remove it instead of preserving compatibility by default.
+
 ## Architecture Screenshots
 
 - Run `npm run screenshot:architecture` after changing the workflow diagram, runtime editor, overlay rendering, or screenshot script.

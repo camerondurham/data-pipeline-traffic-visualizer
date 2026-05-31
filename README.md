@@ -74,7 +74,7 @@ The live values are generated sample telemetry from the committed architecture; 
 
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor works in the browser and saves valid drafts to local storage.
+The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
@@ -225,7 +225,6 @@ Control edits are operator-owned runtime intent, not telemetry. The first contro
 
 - `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status in the dashboard.
 - `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to call the configured handler.
-- `GRAPH_CONTROLS_PREVIEW=1`: compatibility alias for visible-only mode. Apply remains disabled unless `GRAPH_CONTROL_APPLY_ENABLED=1` is also set.
 
 A control edit request looks like:
 

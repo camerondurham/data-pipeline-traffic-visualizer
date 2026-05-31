@@ -27,7 +27,6 @@ export interface RuntimeArchitecturePayload {
   editorEnabled: boolean;
   graphControlsVisible: boolean;
   graphControlApplyEnabled: boolean;
-  graphControlsPreviewEnabled?: boolean;
 }
 
 export interface ArchitectureSourcePayload {

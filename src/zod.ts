@@ -199,7 +199,7 @@ export const OverlayControlStateSchema = z
     desired_value: OverlayControlValueSchema,
     effective_value: OverlayControlValueSchema.optional(),
     priority: z.number().optional(),
-    apply: OverlayControlApplyStateSchema.default({ phase: "idle" })
+    apply: OverlayControlApplyStateSchema
   })
   .strict();
 

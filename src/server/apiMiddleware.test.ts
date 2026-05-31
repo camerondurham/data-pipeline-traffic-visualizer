@@ -258,6 +258,8 @@ describe("architecture runtime API", () => {
       expect(payload.overlayStatus.state).toBe("sample");
       expect(payload.graphControlsVisible).toBe(false);
       expect(payload.graphControlApplyEnabled).toBe(false);
+      const removedPreviewFlag = ["graphControls", "PreviewEnabled"].join("");
+      expect(removedPreviewFlag in payload).toBe(false);
     } finally {
       await api.close();
     }

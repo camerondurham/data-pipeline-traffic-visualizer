@@ -186,7 +186,7 @@ describe("overlays", () => {
         controls: [
           {
             ...overlayFixture().controls[0],
-            state: { desired_value: 1200 }
+            state: { desired_value: 1200, apply: { phase: "idle" } }
           }
         ]
       })
@@ -198,7 +198,7 @@ describe("overlays", () => {
         controls: [
           {
             ...overlayFixture().controls[0],
-            state: { desired_value: "500" }
+            state: { desired_value: "500", apply: { phase: "idle" } }
           }
         ]
       })
@@ -217,16 +217,17 @@ describe("overlays", () => {
       })
     ).toThrow(/Required/);
 
-    const legacyState = validateArchitectureOverlays({
-      ...overlayFixture(),
-      controls: [
-        {
-          ...overlayFixture().controls[0],
-          state: { desired_value: 500, effective_value: 500, priority: 20 }
-        }
-      ]
-    });
-    expect(legacyState.controls[0].state.apply.phase).toBe("idle");
+    expect(() =>
+      validateArchitectureOverlays({
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            state: { desired_value: 500, effective_value: 500, priority: 20 }
+          }
+        ]
+      })
+    ).toThrow(/Required/);
   });
 
   it("resolves node, edge, and route decorators", () => {

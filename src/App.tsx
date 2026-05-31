@@ -14,35 +14,15 @@ import {
 } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
 
-const STATIC_ARCHITECTURE_STORAGE_KEY = "architecture-demo:v2:architectureYaml";
-const STATIC_OVERLAYS_STORAGE_KEY = "architecture-demo:v2:overlaysYaml";
-
 function isStaticDemo(): boolean {
   return import.meta.env.VITE_STATIC_DEMO === "1";
 }
 
 function readStaticSource() {
-  if (typeof localStorage === "undefined") {
-    return {
-      architectureYaml,
-      overlaysYaml
-    };
-  }
-
   return {
-    architectureYaml: localStorage.getItem(STATIC_ARCHITECTURE_STORAGE_KEY) ?? architectureYaml,
-    overlaysYaml: localStorage.getItem(STATIC_OVERLAYS_STORAGE_KEY) ?? overlaysYaml
+    architectureYaml,
+    overlaysYaml
   };
-}
-
-function writeStaticSource(source: { architectureYaml: string; overlaysYaml: string }): void {
-  localStorage.setItem(STATIC_ARCHITECTURE_STORAGE_KEY, source.architectureYaml);
-  localStorage.setItem(STATIC_OVERLAYS_STORAGE_KEY, source.overlaysYaml);
-}
-
-function resetStaticSource(): void {
-  localStorage.removeItem(STATIC_ARCHITECTURE_STORAGE_KEY);
-  localStorage.removeItem(STATIC_OVERLAYS_STORAGE_KEY);
 }
 
 function parseStaticArchitectureSource(source: { architectureYaml: string; overlaysYaml: string }): {
@@ -56,29 +36,16 @@ function parseStaticArchitectureSource(source: { architectureYaml: string; overl
 }
 
 async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
-  let source = readStaticSource();
-  let parsed: ReturnType<typeof parseStaticArchitectureSource>;
-
-  try {
-    parsed = parseStaticArchitectureSource(source);
-  } catch {
-    resetStaticSource();
-    source = { architectureYaml, overlaysYaml };
-    parsed = parseStaticArchitectureSource(source);
-  }
-
-  const usingDraft =
-    source.architectureYaml !== architectureYaml ||
-    source.overlaysYaml !== overlaysYaml;
+  const parsed = parseStaticArchitectureSource(readStaticSource());
 
   return {
     manifest: parsed.manifest,
     overlays: parsed.overlays,
     architectureRevision: 1,
-    overlayRevision: usingDraft ? 2 : 1,
+    overlayRevision: 1,
     overlayGeneratedAt: new Date(0).toISOString(),
-    overlaySource: usingDraft ? "browser draft" : "sample static demo",
-    overlayStatus: { state: usingDraft ? "dynamic" : "sample" },
+    overlaySource: "sample static demo",
+    overlayStatus: { state: "sample" },
     editorEnabled: true,
     graphControlsVisible: false,
     graphControlApplyEnabled: false
@@ -107,7 +74,7 @@ async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
     ...payload,
     manifest,
     overlays,
-    graphControlsVisible: Boolean(payload.graphControlsVisible ?? payload.graphControlsPreviewEnabled),
+    graphControlsVisible: Boolean(payload.graphControlsVisible),
     graphControlApplyEnabled: Boolean(payload.graphControlApplyEnabled)
   };
 }
@@ -189,8 +156,6 @@ export default function App() {
           overlays={overlays}
           source={isStaticDemo() ? readStaticSource() : undefined}
           onPreview={setPreview}
-          onBrowserApply={(source) => writeStaticSource(source)}
-          onBrowserReset={resetStaticSource}
           onApplied={() => {
             setPreview(undefined);
             void loadRuntimeArchitecture()

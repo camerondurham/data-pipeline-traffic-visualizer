@@ -36,7 +36,6 @@ export interface ArchitectureStoreOptions {
   watchFiles?: boolean;
   graphControlsVisible?: boolean;
   graphControlApplyEnabled?: boolean;
-  graphControlsPreviewEnabled?: boolean;
   controlHandlers?: Record<string, OverlayControlHandler>;
   controlPollDelayMs?: number;
   controlPollMaxAttempts?: number;
@@ -91,10 +90,7 @@ export class ArchitectureStore {
     this.graphControlApplyEnabled = options.graphControlApplyEnabled ?? isEnabled(process.env.GRAPH_CONTROL_APPLY_ENABLED);
     this.graphControlsVisible =
       options.graphControlsVisible ??
-      options.graphControlsPreviewEnabled ??
-      (isEnabled(process.env.GRAPH_CONTROLS_VISIBLE) ||
-        isEnabled(process.env.GRAPH_CONTROLS_PREVIEW) ||
-        this.graphControlApplyEnabled);
+      (isEnabled(process.env.GRAPH_CONTROLS_VISIBLE) || this.graphControlApplyEnabled);
     this.controlHandlers = options.controlHandlers ?? createDefaultControlHandlers();
     this.controlPollDelayMs = options.controlPollDelayMs ?? 750;
     this.controlPollMaxAttempts = Math.max(1, Math.floor(options.controlPollMaxAttempts ?? DEFAULT_CONTROL_POLL_MAX_ATTEMPTS));
@@ -166,8 +162,7 @@ export class ArchitectureStore {
       overlayStatus: this.getOverlayStatus(),
       editorEnabled: this.editorEnabled,
       graphControlsVisible: this.graphControlsVisible,
-      graphControlApplyEnabled: this.graphControlApplyEnabled,
-      graphControlsPreviewEnabled: this.graphControlsVisible
+      graphControlApplyEnabled: this.graphControlApplyEnabled
     };
   }
 

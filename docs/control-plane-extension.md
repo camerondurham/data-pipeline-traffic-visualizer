@@ -8,7 +8,6 @@ The React control card stays generic. It should not call throttle services, SQS,
 
 - `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status.
 - `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to invoke handlers.
-- `GRAPH_CONTROLS_PREVIEW=1`: compatibility alias for visible-only mode.
 
 The runtime payload exposes `graphControlsVisible` and `graphControlApplyEnabled`. Visible-only mode lets demos show the architecture and future control surface while clearly disabling Apply.
 
