@@ -360,14 +360,7 @@ export class ArchitectureStore {
       return controlUpdateError(`Control handler ${handlerName} is not registered`);
     }
     const requestedAt = normalizeIsoDate(request.generatedAt);
-    const applyResult = await handler.apply({
-      control,
-      desiredValue,
-      priority,
-      requestedAt
-    });
-
-    const overlays = {
+    const pendingOverlays = {
       ...this.overlays,
       controls: this.overlays.controls.map((candidate) =>
         candidate.id === request.controlId
@@ -375,13 +368,42 @@ export class ArchitectureStore {
               ...candidate,
               state: {
                 ...candidate.state,
-                ...(requestedDesiredValue ? { desired_value: request.desiredValue } : {}),
-                ...(requestedPriority ? { priority: request.priority } : {}),
+                ...(requestedDesiredValue ? { desired_value: desiredValue } : {}),
+                ...(requestedPriority ? { priority } : {}),
                 apply: {
                   phase: "applying" as const,
-                  operation_id: applyResult.operationId,
                   requested_at: requestedAt,
-                  message: applyResult.message ?? `Waiting for ${handlerName}`
+                  message: `Waiting for ${handlerName}`
+                }
+              }
+            }
+          : candidate
+      )
+    };
+    const pendingValidation = validateOverlaySnapshot(this.manifest, pendingOverlays);
+    if (!pendingValidation.ok) {
+      return pendingValidation;
+    }
+
+    const pendingControl = pendingValidation.overlays.controls.find((candidate) => candidate.id === request.controlId) ?? control;
+    const applyResult = await handler.apply({
+      control: pendingControl,
+      desiredValue: pendingControl.state.desired_value,
+      priority: pendingControl.state.priority,
+      requestedAt
+    });
+    const overlays = {
+      ...pendingValidation.overlays,
+      controls: pendingValidation.overlays.controls.map((candidate) =>
+        candidate.id === request.controlId
+          ? {
+              ...candidate,
+              state: {
+                ...candidate.state,
+                apply: {
+                  ...candidate.state.apply,
+                  operation_id: applyResult.operationId,
+                  message: applyResult.message ?? candidate.state.apply.message
                 }
               }
             }

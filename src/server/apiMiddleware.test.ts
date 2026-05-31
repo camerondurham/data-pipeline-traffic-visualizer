@@ -1,10 +1,11 @@
 import { createServer, get, request as httpRequest, type Server } from "node:http";
 import type { AddressInfo, Socket } from "node:net";
 import { buildSampleLiveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE } from "../sampleLiveTps";
-import { createArchitectureStore, type ArchitectureStore } from "./architectureStore";
+import { createArchitectureStore, type ArchitectureStore, type ArchitectureStoreOptions } from "./architectureStore";
 import { createArchitectureApiMiddleware } from "./apiMiddleware";
 import type { RuntimeArchitecturePayload } from "../runtime/types";
 import type { ArchitectureOverlays } from "../zod";
+import type { OverlayControlHandler } from "./controlHandlers";
 
 interface TestApi {
   baseUrl: string;
@@ -13,7 +14,7 @@ interface TestApi {
 }
 
 async function startApi(
-  options: { graphControlsVisible?: boolean; graphControlApplyEnabled?: boolean; graphControlsPreviewEnabled?: boolean } = {}
+  options: ArchitectureStoreOptions = {}
 ): Promise<TestApi> {
   const store = await createArchitectureStore(options);
   const middleware = createArchitectureApiMiddleware(store);
@@ -390,6 +391,36 @@ describe("architecture runtime API", () => {
       expect(control?.state.desired_value).toBe(700);
       expect(payload.overlayStatus.state).toBe("error");
       expect(payload.overlayStatus.message).toContain("less than or equal to 2000");
+    } finally {
+      await api.close();
+    }
+  });
+
+  it("validates control edits before invoking apply handlers", async () => {
+    let applyCalls = 0;
+    const handler: OverlayControlHandler = {
+      async apply() {
+        applyCalls += 1;
+        return { operationId: `test-operation-${applyCalls}` };
+      },
+      async poll() {
+        return { phase: "applied" };
+      }
+    };
+    const api = await startApi({
+      graphControlsVisible: true,
+      graphControlApplyEnabled: true,
+      controlHandlers: { "simulated-throttle-config": handler }
+    });
+    try {
+      const response = await postControlValue(api.baseUrl, {
+        controlId: "partner-token-aggregate-throttle",
+        desiredValue: 2050
+      });
+
+      expect(response.status).toBe(422);
+      expect(response.text).toContain("less than or equal to 2000");
+      expect(applyCalls).toBe(0);
     } finally {
       await api.close();
     }
