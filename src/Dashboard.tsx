@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Menu, PanelLeftClose } from "lucide-react";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "./branding";
 import { buildGraphModel } from "./graphBuilder";
 import { buildOverlayModel } from "./overlays";
 import { ErrorPanel } from "./dashboard/flowComponents";
@@ -40,7 +42,16 @@ const EDGE_LEGEND = [
 ] as const;
 
 type BadgeTone = "success" | "info" | "neutral" | "warning" | "error";
-type VisualMode = "dark" | "light";
+type ResolvedVisualMode = "dark" | "light";
+type VisualMode = "system" | ResolvedVisualMode;
+
+function readSystemVisualMode(): ResolvedVisualMode {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return "dark";
+  }
+
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
 
 function formatOverlayTime(value: string): string {
   const date = new Date(value);
@@ -100,8 +111,10 @@ export function Dashboard({
   toolbarSlot
 }: DashboardProps) {
   const [activeViewId, setActiveViewId] = useState(manifest.views[0]?.id ?? "");
-  const [visualMode, setVisualMode] = useState<VisualMode>("dark");
+  const [visualMode, setVisualMode] = useState<VisualMode>("system");
+  const [systemVisualMode, setSystemVisualMode] = useState<ResolvedVisualMode>(() => readSystemVisualMode());
   const [navigationOpen, setNavigationOpen] = useState(true);
+  const resolvedVisualMode = visualMode === "system" ? systemVisualMode : visualMode;
 
   const modelResult = useMemo(() => {
     try {
@@ -120,8 +133,23 @@ export function Dashboard({
   }, [manifest, overlays]);
 
   useEffect(() => {
-    document.body.dataset.visualMode = visualMode;
-  }, [visualMode]);
+    document.body.dataset.visualMode = resolvedVisualMode;
+  }, [resolvedVisualMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: light)");
+    const updateSystemMode = () => {
+      setSystemVisualMode(colorSchemeQuery.matches ? "light" : "dark");
+    };
+
+    updateSystemMode();
+    colorSchemeQuery.addEventListener("change", updateSystemMode);
+    return () => colorSchemeQuery.removeEventListener("change", updateSystemMode);
+  }, []);
 
   if (modelResult.error || !modelResult.model || !modelResult.overlayModel) {
     return <ErrorPanel title="Invalid architecture data" message={modelResult.error ?? "Graph model failed to build"} />;
@@ -133,17 +161,17 @@ export function Dashboard({
   const overlayState = runtimeInfo?.previewActive ? "preview" : runtimeInfo?.overlayStatus.state;
 
   return (
-    <div className={`cloudscape-app-shell ${navigationOpen ? "" : "is-navigation-closed"}`} data-visual-mode={visualMode}>
+    <div className={`cloudscape-app-shell ${navigationOpen ? "" : "is-navigation-closed"}`} data-visual-mode={resolvedVisualMode}>
       <aside className="aws-side-navigation" aria-label="Primary navigation">
         <div className="aws-side-navigation-header">
-          <span className="aws-shell-service">Topology Explorer</span>
+          <span className="aws-shell-service">{PRODUCT_NAME}</span>
           <button
             type="button"
             className="aws-icon-button"
             aria-label="Close navigation"
             onClick={() => setNavigationOpen(false)}
           >
-            <span aria-hidden="true">×</span>
+            <PanelLeftClose size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -191,12 +219,12 @@ export function Dashboard({
             aria-label="Open navigation"
             onClick={() => setNavigationOpen(true)}
           >
-            ☰
+            <Menu size={18} aria-hidden="true" />
           </button>
           <div className="aws-content-heading">
-            <p className="aws-content-breadcrumb">Runtime architecture API / validated overlays</p>
-            <h1 data-testid="dashboard-title">Architecture Topology Explorer</h1>
-            <p>Loaded from the runtime architecture API with validated overlay decorators.</p>
+            <p className="aws-content-breadcrumb">{PRODUCT_TAGLINE}</p>
+            <h1 data-testid="dashboard-title">{PRODUCT_NAME}</h1>
+            <p>{PRODUCT_DESCRIPTION}</p>
           </div>
           <div className="aws-content-actions">
             <label className="cloudscape-native-view-picker">
@@ -210,6 +238,14 @@ export function Dashboard({
               </select>
             </label>
             <div className="aws-segmented-control" role="group" aria-label="Visual mode">
+              <button
+                type="button"
+                className={visualMode === "system" ? "is-selected" : ""}
+                aria-pressed={visualMode === "system"}
+                onClick={() => setVisualMode("system")}
+              >
+                System
+              </button>
               <button
                 type="button"
                 className={visualMode === "dark" ? "is-selected" : ""}
@@ -264,7 +300,7 @@ export function Dashboard({
           </section>
         ) : null}
 
-        <main className="cloudscape-dashboard-content" aria-label={`Topology Manifest ${activeView.id}`}>
+        <main className="cloudscape-dashboard-content" aria-label={`${PRODUCT_NAME} view ${activeView.id}`}>
           <ViewBody
             activeView={activeView}
             model={model}

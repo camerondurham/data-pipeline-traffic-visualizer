@@ -1,6 +1,7 @@
 import { createServer, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, resolve } from "node:path";
+import { PRODUCT_NAME } from "../branding";
 import { createArchitectureStore } from "./architectureStore";
 import { createArchitectureApiMiddleware } from "./apiMiddleware";
 
@@ -78,5 +79,5 @@ const server = createServer((request, response) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`Architecture visualizer listening on http://${host}:${port}`);
+  console.log(`${PRODUCT_NAME} listening on http://${host}:${port}`);
 });

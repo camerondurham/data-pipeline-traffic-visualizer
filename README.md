@@ -1,16 +1,16 @@
-# data-pipeline-traffic-visualizer
+# Runtime Architecture Console
 
-Proof-of-concept topology dashboard for operating broad, multi-account service areas.
+YAML-backed operator console for mapping architecture topology, runtime overlays, and control intent across broad service areas.
 
 ## What
 
-This project explores a dashboard model where a team can define its own architecture graph and overlay live or near-live operational context on top of each service, route, queue, stream, cluster, or dependency.
+Runtime Architecture Console gives a team a reviewable architecture map plus runtime overlays for traffic, health, deployment state, and control intent. It is not a replacement for metric dashboards; it is the system map those dashboards usually assume exists.
 
-The core idea is deliberately simple:
+The model is deliberately simple:
 
-- `architecture.yaml` defines the relatively stable system map.
-- `architecture-overlays.yaml` defines current scaling, traffic rates between systems, throttle configuration, deployment state, queue or stream health, shard counts, and other runtime context.
-- The runtime dashboard renders both as a single view so teams can see each moving part in relation to the rest of the service.
+- `architecture.yaml` defines the stable topology: services, streams, queues, routes, clusters, dependencies, and views.
+- `architecture-overlays.yaml` defines volatile operational context: traffic rates, scaling, throttles, health, deployment state, shard counts, and control state.
+- The console renders both as one operator view so engineers can inspect where runtime facts sit in the broader service.
 
 ## Why
 
@@ -25,19 +25,19 @@ This project is complementary: it focuses on team-specific architecture topology
 - Model the architecture first; telemetry should decorate the map, not define it.
 - Keep topology and volatile metrics separate so slow-moving structure stays reviewable.
 - Prefer an accurate cross-system view over a perfect integration with any single vendor.
-- Make the dashboard easy to update from jobs, scripts, or account-specific collectors.
+- Make the console easy to update from jobs, scripts, or account-specific collectors.
 - Preserve enough context that an engineer can understand what changed and where it sits in the larger service area.
 
 ## Runtime Architecture
 
-At a high level, this is a YAML-backed dashboard with a light runtime API. The architecture and overlays start from disk, the browser reads a validated runtime payload, the editor can lint and apply a draft, and update jobs can push fresh overlay snapshots without changing the topology.
+At a high level, this is a YAML-backed console with a light runtime API. The architecture and overlays start from disk, the browser reads a validated runtime payload, the editor can lint and apply a draft, and update jobs can push fresh overlay snapshots without changing the topology.
 
 ```mermaid
 sequenceDiagram
   participant Files as architecture.yaml and architecture-overlays.yaml
   participant Store as ArchitectureStore
   participant API as Runtime API
-  participant Browser as Dashboard and Runtime YAML editor
+  participant Browser as Console and Runtime YAML editor
   participant Updater as Overlay updater job or local live TPS demo
   participant Operator as Graph control editor
 
@@ -68,13 +68,13 @@ Run the local API-backed demo with:
 npm run demo:live
 ```
 
-The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The dashboard receives the existing SSE revision event, refetches `GET /api/architecture`, and updates stream TPS chips and edge labels without a separate dashboard data channel.
+The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates stream TPS chips and edge labels without a separate dashboard data channel.
 
 The live values are generated sample telemetry from the committed architecture; they are intended to demonstrate how a real collector would push full overlay snapshots.
 
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a static build from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser.
+The GitHub Pages demo is a static build of Runtime Architecture Console from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
@@ -86,7 +86,7 @@ The screenshots below are generated from the committed sample files in `data/sam
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
 
-The runtime editor opens the same architecture and overlay model that is currently rendered, so local edits can be linted and applied against the live dashboard.
+The runtime editor opens the same architecture and overlay model that is currently rendered, so local edits can be linted and applied against the live console.
 
 ![Runtime architecture and overlay editor](docs/architecture-workflow-editor.png)
 
@@ -208,7 +208,7 @@ controls:
 2. Add edges with stable IDs. Do not reuse or rename edge IDs once overlays depend on them.
 3. Add node IDs to regional view `stages` when they should appear in the whiteboard-style sequential flow.
 4. Add cross-region or focus views only when a route needs a dedicated investigation surface.
-5. Keep partner topology in the `partner` zone. The v0 model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
+5. Keep partner topology in the `partner` zone. The initial sample model intentionally excludes partner entry streams, partner route streams, partner router apps, route keys, fanout semantics, message metadata, shard/replica/capacity config, AWS discovery, CDK parsing, overlays, and live metrics.
 
 ## Runtime API
 
@@ -223,7 +223,7 @@ Overlay updaters should post `ArchitectureOverlays` snapshots every N minutes, o
 
 Control edits are operator-owned runtime intent, not telemetry. The first control-plane stub stores operation state in memory, so edits survive refetches and SSE updates but reset on server restart. Controls are gated with split flags:
 
-- `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status in the dashboard.
+- `GRAPH_CONTROLS_VISIBLE=1`: show control cards and control-plane status in the console.
 - `GRAPH_CONTROL_APPLY_ENABLED=1`: allow `POST /api/overlays/control-value` to call the configured handler.
 
 A control edit request looks like:

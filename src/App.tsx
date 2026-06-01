@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { parse } from "yaml";
 import { Dashboard, ErrorPanel } from "./Dashboard";
 import { ArchitectureEditor } from "./ArchitectureEditor";
+import { PRODUCT_NAME } from "./branding";
 import architectureYaml from "../data/sample/architecture.yaml?raw";
 import overlaysYaml from "../data/sample/architecture-overlays.yaml?raw";
 import { validateOverlayReferences } from "./overlays";
@@ -128,7 +129,7 @@ export default function App() {
   if (!runtimePayload) {
     return (
       <main className="load-state">
-        <h1>Loading architecture topology</h1>
+        <h1>Loading {PRODUCT_NAME}</h1>
       </main>
     );
   }
