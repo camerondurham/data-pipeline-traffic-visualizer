@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Menu, PanelLeftClose } from "lucide-react";
+import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "./branding";
 import { buildGraphModel } from "./graphBuilder";
 import { buildOverlayModel } from "./overlays";
 import { ErrorPanel } from "./dashboard/flowComponents";
@@ -136,14 +138,14 @@ export function Dashboard({
     <div className={`cloudscape-app-shell ${navigationOpen ? "" : "is-navigation-closed"}`} data-visual-mode={visualMode}>
       <aside className="aws-side-navigation" aria-label="Primary navigation">
         <div className="aws-side-navigation-header">
-          <span className="aws-shell-service">Topology Explorer</span>
+          <span className="aws-shell-service">{PRODUCT_NAME}</span>
           <button
             type="button"
             className="aws-icon-button"
             aria-label="Close navigation"
             onClick={() => setNavigationOpen(false)}
           >
-            <span aria-hidden="true">×</span>
+            <PanelLeftClose size={16} aria-hidden="true" />
           </button>
         </div>
 
@@ -191,12 +193,12 @@ export function Dashboard({
             aria-label="Open navigation"
             onClick={() => setNavigationOpen(true)}
           >
-            ☰
+            <Menu size={18} aria-hidden="true" />
           </button>
           <div className="aws-content-heading">
-            <p className="aws-content-breadcrumb">Runtime architecture API / validated overlays</p>
-            <h1 data-testid="dashboard-title">Architecture Topology Explorer</h1>
-            <p>Loaded from the runtime architecture API with validated overlay decorators.</p>
+            <p className="aws-content-breadcrumb">{PRODUCT_TAGLINE}</p>
+            <h1 data-testid="dashboard-title">{PRODUCT_NAME}</h1>
+            <p>{PRODUCT_DESCRIPTION}</p>
           </div>
           <div className="aws-content-actions">
             <label className="cloudscape-native-view-picker">
@@ -264,7 +266,7 @@ export function Dashboard({
           </section>
         ) : null}
 
-        <main className="cloudscape-dashboard-content" aria-label={`Topology Manifest ${activeView.id}`}>
+        <main className="cloudscape-dashboard-content" aria-label={`${PRODUCT_NAME} view ${activeView.id}`}>
           <ViewBody
             activeView={activeView}
             model={model}

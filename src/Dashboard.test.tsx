@@ -72,7 +72,7 @@ describe("Dashboard", () => {
   it("renders the regional topology as ordered flow stages from the seed manifest", () => {
     renderSeedDashboard();
 
-    expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Architecture Topology Explorer");
+    expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Runtime Architecture Console");
     expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
     expectInteractiveChrome("flow-diagram");
     expect((screen.getByLabelText("View") as HTMLSelectElement).options).toHaveLength(3);
