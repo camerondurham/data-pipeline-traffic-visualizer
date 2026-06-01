@@ -64,9 +64,52 @@ function expectInteractiveChrome(testId: string) {
   expect(within(graph).getByTestId("rf__minimap")).toBeInTheDocument();
 }
 
+function stubSystemColorScheme(prefersLight: boolean) {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  let matches = prefersLight;
+  const query = "(prefers-color-scheme: light)";
+  const mediaQueryList = {
+    get matches() {
+      return matches;
+    },
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn((_event: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.add(listener);
+    }),
+    removeEventListener: vi.fn((_event: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.delete(listener);
+    }),
+    addListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+      listeners.add(listener);
+    }),
+    removeListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+      listeners.delete(listener);
+    }),
+    dispatchEvent: vi.fn()
+  } as unknown as MediaQueryList;
+
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn((media: string) => {
+      expect(media).toBe(query);
+      return mediaQueryList;
+    })
+  );
+
+  return {
+    setPrefersLight(nextPrefersLight: boolean) {
+      matches = nextPrefersLight;
+      const event = { matches, media: query } as MediaQueryListEvent;
+      listeners.forEach((listener) => listener(event));
+    }
+  };
+}
+
 describe("Dashboard", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    document.body.removeAttribute("data-visual-mode");
   });
 
   it("renders the regional topology as ordered flow stages from the seed manifest", () => {
@@ -121,6 +164,29 @@ describe("Dashboard", () => {
     expect(screen.getByTestId("dashboard-title")).toBeInTheDocument();
     expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
     expect(screen.queryByText("12 shards")).not.toBeInTheDocument();
+  });
+
+  it("defaults visual mode to the system color scheme and allows explicit override", async () => {
+    const user = userEvent.setup();
+    const systemColorScheme = stubSystemColorScheme(true);
+    renderSeedDashboard();
+
+    expect(screen.getByRole("button", { name: "System" })).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(document.body.dataset.visualMode).toBe("light"));
+
+    act(() => {
+      systemColorScheme.setPrefersLight(false);
+    });
+    await waitFor(() => expect(document.body.dataset.visualMode).toBe("dark"));
+
+    await user.click(screen.getByRole("button", { name: "Light" }));
+    expect(screen.getByRole("button", { name: "Light" })).toHaveAttribute("aria-pressed", "true");
+    expect(document.body.dataset.visualMode).toBe("light");
+
+    act(() => {
+      systemColorScheme.setPrefersLight(false);
+    });
+    expect(document.body.dataset.visualMode).toBe("light");
   });
 
   it("renders selected views from manifest IDs instead of fixed canonical IDs", async () => {
