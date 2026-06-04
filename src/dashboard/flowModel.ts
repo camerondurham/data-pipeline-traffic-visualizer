@@ -55,6 +55,7 @@ export interface TopologyEdgeData extends Record<string, unknown> {
   overlay?: EdgeOverlayData;
   resolvedOverlay?: ResolvedEdgeOverlay;
   focusState?: "selected" | "incoming" | "outgoing" | "dimmed";
+  edgeOverlayLabelsExpanded?: boolean;
   routeOffset?: number;
   onSelectEdge?: (edgeId: string) => void;
 }
@@ -219,7 +220,8 @@ export function buildFlowElements(
   overlayModel: OverlayModel,
   selectedEdgeId?: string,
   selectedNodeId?: string,
-  onSelectEdge?: (edgeId: string) => void
+  onSelectEdge?: (edgeId: string) => void,
+  edgeOverlayLabelsExpanded = false
 ): { nodes: TopologyFlowNode[]; edges: TopologyFlowEdge[] } {
   const nodePositions = buildNodePositions(layout.stages, layout.lanes);
   const visibleEdges = layout.edges.filter((edge) => nodePositions.has(edge.from) && nodePositions.has(edge.to));
@@ -260,6 +262,7 @@ export function buildFlowElements(
           overlay: presentationOverlayFromResolved(resolvedOverlay),
           resolvedOverlay,
           focusState,
+          edgeOverlayLabelsExpanded,
           routeOffset: routeOffsets.get(id) ?? 0,
           onSelectEdge
         },
@@ -487,7 +490,8 @@ export function buildCrossRegionRouteMap(
   groups: CrossRegionGroupModel[],
   selectedEdgeId?: string,
   selectedNodeId?: string,
-  onSelectEdge?: (edgeId: string) => void
+  onSelectEdge?: (edgeId: string) => void,
+  edgeOverlayLabelsExpanded = false
 ): CrossRegionRouteMap {
   const sourceX = 40;
   const destinationStartX = 380;
@@ -549,6 +553,7 @@ export function buildCrossRegionRouteMap(
           overlay: mergeEdgeOverlays(crossRegionOverlay(edge, model), presentationOverlayFromResolved(resolvedOverlay)),
           resolvedOverlay,
           focusState,
+          edgeOverlayLabelsExpanded,
           routeOffset: routeOffsets.get(id) ?? 0,
           onSelectEdge
         },

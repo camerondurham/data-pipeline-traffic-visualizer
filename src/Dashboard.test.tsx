@@ -298,11 +298,15 @@ describe("Dashboard", () => {
     expect(toggle).toBeChecked();
     expect(canvas).toHaveClass("edge-overlay-labels-expanded");
     expect(partnerFeedLabel).toHaveClass("has-overlay-chips");
+    expect(partnerFeedLabel).toHaveClass("is-expanded");
 
     await user.click(toggle);
 
+    const collapsedPartnerFeedLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("partner feed"));
     expect(toggle).not.toBeChecked();
     expect(canvas).not.toHaveClass("edge-overlay-labels-expanded");
+    expect(collapsedPartnerFeedLabel).not.toHaveClass("is-expanded");
   });
 
   it("lets operators edit selected edge controls", async () => {

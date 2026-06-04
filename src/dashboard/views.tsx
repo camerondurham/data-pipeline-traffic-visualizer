@@ -61,8 +61,8 @@ function FlowDiagram({
     setSelectedEdgeId(edgeId);
   };
   const { nodes, edges } = useMemo(
-    () => buildFlowElements(layout, overlayModel, selectedEdgeId, selectedNodeId, selectEdge),
-    [layout, overlayModel, selectedEdgeId, selectedNodeId]
+    () => buildFlowElements(layout, overlayModel, selectedEdgeId, selectedNodeId, selectEdge, edgeOverlayLabelsExpanded),
+    [layout, overlayModel, selectedEdgeId, selectedNodeId, edgeOverlayLabelsExpanded]
   );
   const selectedFlowEdge = edges.find((edge) => edge.id === selectedEdgeId);
   const selectedEdge = selectedFlowEdge?.data?.edge;
@@ -229,8 +229,8 @@ function CrossRegionView({
     setSelectedEdgeId(edgeId);
   };
   const routeMap = useMemo(
-    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId, selectedNodeId, selectEdge),
-    [model, overlayModel, groups, selectedEdgeId, selectedNodeId]
+    () => buildCrossRegionRouteMap(model, overlayModel, groups, selectedEdgeId, selectedNodeId, selectEdge, edgeOverlayLabelsExpanded),
+    [model, overlayModel, groups, selectedEdgeId, selectedNodeId, edgeOverlayLabelsExpanded]
   );
   const selectedFlowEdge = routeMap.edges.find((edge) => edge.id === selectedEdgeId);
   const selectedEdge = selectedFlowEdge?.data?.edge;
