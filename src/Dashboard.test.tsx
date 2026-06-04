@@ -286,6 +286,25 @@ describe("Dashboard", () => {
     expect(container.querySelector('[data-testid^="edge-annotation-"]')).not.toBeInTheDocument();
   });
 
+  it("expands overlay edge labels by default and lets operators collapse them", async () => {
+    const user = userEvent.setup();
+    const { container } = renderSeedDashboard();
+
+    const toggle = screen.getByRole("checkbox", { name: "Overlay labels" });
+    const canvas = screen.getByTestId("flow-diagram");
+    const edgeLabels = Array.from(container.querySelectorAll(".edge-label"));
+    const partnerFeedLabel = edgeLabels.find((label) => label.textContent?.includes("partner feed"));
+
+    expect(toggle).toBeChecked();
+    expect(canvas).toHaveClass("edge-overlay-labels-expanded");
+    expect(partnerFeedLabel).toHaveClass("has-overlay-chips");
+
+    await user.click(toggle);
+
+    expect(toggle).not.toBeChecked();
+    expect(canvas).not.toHaveClass("edge-overlay-labels-expanded");
+  });
+
   it("lets operators edit selected edge controls", async () => {
     const user = userEvent.setup();
     const onControlUpdated = vi.fn();

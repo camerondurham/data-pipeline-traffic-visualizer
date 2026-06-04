@@ -336,7 +336,8 @@
 
 /* Expanded state on hover or when this edge is the selected one */
 .edge-label:hover,
-.edge-label.is-selected {
+.edge-label.is-selected,
+.edge-overlay-labels-expanded .edge-label.has-overlay-chips {
   z-index: 30;
   padding: 4px 10px;
   border-radius: var(--rad);
@@ -351,14 +352,16 @@
 }
 
 .edge-label:hover .edge-label-text,
-.edge-label.is-selected .edge-label-text {
+.edge-label.is-selected .edge-label-text,
+.edge-overlay-labels-expanded .edge-label.has-overlay-chips .edge-label-text {
   max-width: 240px;
   opacity: 1;
   text-overflow: ellipsis;
 }
 
 .edge-label:hover .edge-label-overlay-chips,
-.edge-label.is-selected .edge-label-overlay-chips {
+.edge-label.is-selected .edge-label-overlay-chips,
+.edge-overlay-labels-expanded .edge-label.has-overlay-chips .edge-label-overlay-chips {
   max-width: 280px;
   max-height: 80px;
   opacity: 1;
@@ -1087,7 +1090,8 @@ body[data-visual-mode="light"] .edge-label.has-overlay-chips {
 body[data-visual-mode="light"] .edge-label:hover,
 body[data-visual-mode="light"] .edge-label.is-selected,
 body[data-visual-mode="light"] .edge-label.is-outgoing,
-body[data-visual-mode="light"] .edge-label.is-incoming {
+body[data-visual-mode="light"] .edge-label.is-incoming,
+body[data-visual-mode="light"] .edge-overlay-labels-expanded .edge-label.has-overlay-chips {
   box-shadow:
     0 0 0 3px rgba(255, 255, 255, 0.96),
     0 0 0 1px var(--rule-strong),

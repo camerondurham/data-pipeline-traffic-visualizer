@@ -41,6 +41,7 @@ function FlowDiagram({
   overlayModel,
   controlControlsVisible,
   controlApplyEnabled,
+  edgeOverlayLabelsExpanded,
   onControlUpdated
 }: {
   title: string;
@@ -50,6 +51,7 @@ function FlowDiagram({
   overlayModel: OverlayModel;
   controlControlsVisible: boolean;
   controlApplyEnabled: boolean;
+  edgeOverlayLabelsExpanded: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string>();
@@ -102,7 +104,7 @@ function FlowDiagram({
           />
         ) : null}
         <InteractiveFlowCanvas
-          className="flow-canvas"
+          className={`flow-canvas ${edgeOverlayLabelsExpanded ? "edge-overlay-labels-expanded" : ""}`}
           testId="flow-diagram"
           nodes={nodes}
           edges={edges}
@@ -158,6 +160,7 @@ function RegionalView({
   overlayModel,
   controlControlsVisible,
   controlApplyEnabled,
+  edgeOverlayLabelsExpanded,
   onControlUpdated
 }: {
   view: RegionViewManifest;
@@ -165,6 +168,7 @@ function RegionalView({
   overlayModel: OverlayModel;
   controlControlsVisible: boolean;
   controlApplyEnabled: boolean;
+  edgeOverlayLabelsExpanded: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const layout = getFlowLayout(model, view);
@@ -193,6 +197,7 @@ function RegionalView({
         overlayModel={overlayModel}
         controlControlsVisible={controlControlsVisible}
         controlApplyEnabled={controlApplyEnabled}
+        edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
         onControlUpdated={onControlUpdated}
       />
     </section>
@@ -205,6 +210,7 @@ function CrossRegionView({
   overlayModel,
   controlControlsVisible,
   controlApplyEnabled,
+  edgeOverlayLabelsExpanded,
   onControlUpdated
 }: {
   view: CrossRegionViewManifest;
@@ -212,6 +218,7 @@ function CrossRegionView({
   overlayModel: OverlayModel;
   controlControlsVisible: boolean;
   controlApplyEnabled: boolean;
+  edgeOverlayLabelsExpanded: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const groups = useMemo(() => getCrossRegionGroups(model, view), [model, view]);
@@ -271,7 +278,7 @@ function CrossRegionView({
             />
           ) : null}
           <InteractiveFlowCanvas
-            className="cross-region-canvas"
+            className={`cross-region-canvas ${edgeOverlayLabelsExpanded ? "edge-overlay-labels-expanded" : ""}`}
             testId="cross-region-map"
             nodes={routeMap.nodes}
             edges={routeMap.edges}
@@ -330,6 +337,7 @@ function FocusView({
   overlayModel,
   controlControlsVisible,
   controlApplyEnabled,
+  edgeOverlayLabelsExpanded,
   onControlUpdated
 }: {
   view: FocusViewManifest;
@@ -337,6 +345,7 @@ function FocusView({
   overlayModel: OverlayModel;
   controlControlsVisible: boolean;
   controlApplyEnabled: boolean;
+  edgeOverlayLabelsExpanded: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   const focus = getFocusView(model, view);
@@ -351,6 +360,7 @@ function FocusView({
         overlayModel={overlayModel}
         controlControlsVisible={controlControlsVisible}
         controlApplyEnabled={controlApplyEnabled}
+        edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
         onControlUpdated={onControlUpdated}
       />
     </section>
@@ -363,6 +373,7 @@ export function ViewBody({
   overlayModel,
   controlControlsVisible,
   controlApplyEnabled,
+  edgeOverlayLabelsExpanded,
   onControlUpdated
 }: {
   activeView: ArchitectureView;
@@ -370,6 +381,7 @@ export function ViewBody({
   overlayModel: OverlayModel;
   controlControlsVisible: boolean;
   controlApplyEnabled: boolean;
+  edgeOverlayLabelsExpanded: boolean;
   onControlUpdated?: () => void | Promise<void>;
 }) {
   if (activeView.mode === "region") {
@@ -380,6 +392,7 @@ export function ViewBody({
         overlayModel={overlayModel}
         controlControlsVisible={controlControlsVisible}
         controlApplyEnabled={controlApplyEnabled}
+        edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
         onControlUpdated={onControlUpdated}
       />
     );
@@ -392,6 +405,7 @@ export function ViewBody({
         overlayModel={overlayModel}
         controlControlsVisible={controlControlsVisible}
         controlApplyEnabled={controlApplyEnabled}
+        edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
         onControlUpdated={onControlUpdated}
       />
     );
@@ -403,6 +417,7 @@ export function ViewBody({
       overlayModel={overlayModel}
       controlControlsVisible={controlControlsVisible}
       controlApplyEnabled={controlApplyEnabled}
+      edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
       onControlUpdated={onControlUpdated}
     />
   );
