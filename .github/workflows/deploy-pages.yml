@@ -42,6 +42,7 @@ jobs:
         env:
           VITE_STATIC_DEMO: "1"
           VITE_BASE_PATH: /
+          VITE_GOATCOUNTER_COUNT_URL: "https://u64cam.goatcounter.com/count"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

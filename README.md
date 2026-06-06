@@ -78,6 +78,8 @@ The GitHub Pages demo is a static build of Runtime Architecture Console from the
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
+The deployed static demo also sets `VITE_GOATCOUNTER_COUNT_URL=https://u64cam.goatcounter.com/count`, which injects the same GoatCounter page-count script used by `camerondurham.github.io`.
+
 Use the Pages deployment URL from the workflow summary as the team demo link.
 
 ## Sample Workflow
