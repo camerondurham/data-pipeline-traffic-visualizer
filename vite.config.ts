@@ -1,10 +1,17 @@
 import { defineConfig } from "vite";
 import { createArchitectureStore } from "./src/server/architectureStore";
 import { createArchitectureApiMiddleware } from "./src/server/apiMiddleware";
+import { buildGoatCounterHeadTags } from "./src/goatCounter";
 
 export default defineConfig({
   base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [
+    {
+      name: "sample-demo-telemetry",
+      transformIndexHtml() {
+        return buildGoatCounterHeadTags(process.env);
+      }
+    },
     {
       name: "architecture-runtime-api",
       async configureServer(server) {
