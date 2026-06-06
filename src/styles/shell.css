@@ -244,6 +244,27 @@
   color: #ffffff;
 }
 
+.aws-toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--rad);
+  background: var(--char);
+  color: var(--bone);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aws-toggle-control input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--signal);
+}
+
 .aws-status-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(130px, 1fr));

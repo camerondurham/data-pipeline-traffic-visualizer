@@ -114,6 +114,7 @@ export function Dashboard({
   const [visualMode, setVisualMode] = useState<VisualMode>("system");
   const [systemVisualMode, setSystemVisualMode] = useState<ResolvedVisualMode>(() => readSystemVisualMode());
   const [navigationOpen, setNavigationOpen] = useState(true);
+  const [edgeOverlayLabelsExpanded, setEdgeOverlayLabelsExpanded] = useState(true);
   const resolvedVisualMode = visualMode === "system" ? systemVisualMode : visualMode;
 
   const modelResult = useMemo(() => {
@@ -263,6 +264,14 @@ export function Dashboard({
                 Light
               </button>
             </div>
+            <label className="aws-toggle-control">
+              <input
+                type="checkbox"
+                checked={edgeOverlayLabelsExpanded}
+                onChange={(event) => setEdgeOverlayLabelsExpanded(event.target.checked)}
+              />
+              <span>Overlay labels</span>
+            </label>
             {toolbarSlot}
           </div>
         </header>
@@ -307,6 +316,7 @@ export function Dashboard({
             overlayModel={overlayModel}
             controlControlsVisible={controlControlsVisible && !runtimeInfo?.previewActive}
             controlApplyEnabled={controlApplyEnabled && !runtimeInfo?.previewActive}
+            edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
             onControlUpdated={onControlUpdated}
           />
         </main>
