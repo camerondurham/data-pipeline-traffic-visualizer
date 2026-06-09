@@ -35,6 +35,78 @@ node_decorators:
       - label: instance
         value: r7g.large.search
 
+  - id: hot-products-cluster-b
+    node_id: use1.hot.cluster.products_b
+    title: Products hot OpenSearch B
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: hot-products-cluster-c
+    node_id: use1.hot.cluster.products_c
+    title: Products hot OpenSearch C
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: hot-orders-cluster-b
+    node_id: use1.hot.cluster.orders_b
+    title: Orders hot OpenSearch B
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: hot-orders-cluster-c
+    node_id: use1.hot.cluster.orders_c
+    title: Orders hot OpenSearch C
+    metrics:
+      - label: nodes
+        value: 6
+      - label: instance
+        value: r7g.large.search
+
+  - id: cold-products-cluster-b
+    node_id: use1.cold.cluster.products_b
+    title: Products cold OpenSearch B
+    metrics:
+      - label: nodes
+        value: 4
+      - label: instance
+        value: r7g.large.search
+
+  - id: cold-products-cluster-c
+    node_id: use1.cold.cluster.products_c
+    title: Products cold OpenSearch C
+    metrics:
+      - label: nodes
+        value: 4
+      - label: instance
+        value: r7g.large.search
+
+  - id: cold-orders-cluster-b
+    node_id: use1.cold.cluster.orders_b
+    title: Orders cold OpenSearch B
+    metrics:
+      - label: nodes
+        value: 4
+      - label: instance
+        value: r7g.large.search
+
+  - id: cold-orders-cluster-c
+    node_id: use1.cold.cluster.orders_c
+    title: Orders cold OpenSearch C
+    metrics:
+      - label: nodes
+        value: 4
+      - label: instance
+        value: r7g.large.search
+
   - id: usw2-partner-cluster-a
     node_id: usw2.partner.cluster.a
     title: USW2 partner cluster A

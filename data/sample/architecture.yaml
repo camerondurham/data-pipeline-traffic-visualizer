@@ -148,8 +148,32 @@ nodes:
     region: use1
     zone: hot
     parent: use1.hot
+  - id: use1.hot.cluster.products_b
+    label: Products Hot Cluster B
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.cluster.products_c
+    label: Products Hot Cluster C
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
   - id: use1.hot.cluster.orders
     label: Orders Hot Cluster
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.cluster.orders_b
+    label: Orders Hot Cluster B
+    type: cluster
+    region: use1
+    zone: hot
+    parent: use1.hot
+  - id: use1.hot.cluster.orders_c
+    label: Orders Hot Cluster C
     type: cluster
     region: use1
     zone: hot
@@ -208,8 +232,32 @@ nodes:
     region: use1
     zone: cold
     parent: use1.cold
+  - id: use1.cold.cluster.products_b
+    label: Products Cold Cluster B
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.cluster.products_c
+    label: Products Cold Cluster C
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
   - id: use1.cold.cluster.orders
     label: Orders Cold Cluster
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.cluster.orders_b
+    label: Orders Cold Cluster B
+    type: cluster
+    region: use1
+    zone: cold
+    parent: use1.cold
+  - id: use1.cold.cluster.orders_c
+    label: Orders Cold Cluster C
     type: cluster
     region: use1
     zone: cold
@@ -499,9 +547,29 @@ edges:
     to: use1.hot.cluster.products
     type: index
     label: index
+  - id: edge.use1.hot.indexers.to.products.cluster_b
+    from: use1.hot.indexers
+    to: use1.hot.cluster.products_b
+    type: index
+    label: index
+  - id: edge.use1.hot.indexers.to.products.cluster_c
+    from: use1.hot.indexers
+    to: use1.hot.cluster.products_c
+    type: index
+    label: index
   - id: edge.use1.hot.indexers.to.orders.cluster
     from: use1.hot.indexers
     to: use1.hot.cluster.orders
+    type: index
+    label: index
+  - id: edge.use1.hot.indexers.to.orders.cluster_b
+    from: use1.hot.indexers
+    to: use1.hot.cluster.orders_b
+    type: index
+    label: index
+  - id: edge.use1.hot.indexers.to.orders.cluster_c
+    from: use1.hot.indexers
+    to: use1.hot.cluster.orders_c
     type: index
     label: index
   - id: edge.use1.hot.products.cluster.to.api
@@ -509,8 +577,28 @@ edges:
     to: use1.hot.api
     type: serve
     label: read
+  - id: edge.use1.hot.products.cluster_b.to.api
+    from: use1.hot.cluster.products_b
+    to: use1.hot.api
+    type: serve
+    label: read
+  - id: edge.use1.hot.products.cluster_c.to.api
+    from: use1.hot.cluster.products_c
+    to: use1.hot.api
+    type: serve
+    label: read
   - id: edge.use1.hot.orders.cluster.to.api
     from: use1.hot.cluster.orders
+    to: use1.hot.api
+    type: serve
+    label: read
+  - id: edge.use1.hot.orders.cluster_b.to.api
+    from: use1.hot.cluster.orders_b
+    to: use1.hot.api
+    type: serve
+    label: read
+  - id: edge.use1.hot.orders.cluster_c.to.api
+    from: use1.hot.cluster.orders_c
     to: use1.hot.api
     type: serve
     label: read
@@ -565,9 +653,29 @@ edges:
     to: use1.cold.cluster.products
     type: index
     label: index
+  - id: edge.use1.cold.indexers.to.products.cluster_b
+    from: use1.cold.indexers
+    to: use1.cold.cluster.products_b
+    type: index
+    label: index
+  - id: edge.use1.cold.indexers.to.products.cluster_c
+    from: use1.cold.indexers
+    to: use1.cold.cluster.products_c
+    type: index
+    label: index
   - id: edge.use1.cold.indexers.to.orders.cluster
     from: use1.cold.indexers
     to: use1.cold.cluster.orders
+    type: index
+    label: index
+  - id: edge.use1.cold.indexers.to.orders.cluster_b
+    from: use1.cold.indexers
+    to: use1.cold.cluster.orders_b
+    type: index
+    label: index
+  - id: edge.use1.cold.indexers.to.orders.cluster_c
+    from: use1.cold.indexers
+    to: use1.cold.cluster.orders_c
     type: index
     label: index
   - id: edge.use1.cold.products.cluster.to.api
@@ -575,8 +683,28 @@ edges:
     to: use1.cold.api
     type: serve
     label: read
+  - id: edge.use1.cold.products.cluster_b.to.api
+    from: use1.cold.cluster.products_b
+    to: use1.cold.api
+    type: serve
+    label: read
+  - id: edge.use1.cold.products.cluster_c.to.api
+    from: use1.cold.cluster.products_c
+    to: use1.cold.api
+    type: serve
+    label: read
   - id: edge.use1.cold.orders.cluster.to.api
     from: use1.cold.cluster.orders
+    to: use1.cold.api
+    type: serve
+    label: read
+  - id: edge.use1.cold.orders.cluster_b.to.api
+    from: use1.cold.cluster.orders_b
+    to: use1.cold.api
+    type: serve
+    label: read
+  - id: edge.use1.cold.orders.cluster_c.to.api
+    from: use1.cold.cluster.orders_c
     to: use1.cold.api
     type: serve
     label: read
@@ -778,6 +906,10 @@ views:
         node_ids:
           - use1.cold.cluster.products
           - use1.cold.cluster.orders
+          - use1.cold.cluster.products_b
+          - use1.cold.cluster.products_c
+          - use1.cold.cluster.orders_b
+          - use1.cold.cluster.orders_c
       - id: cold_api
         label: Cold API read surface
         lane: cold
@@ -805,6 +937,10 @@ views:
         node_ids:
           - use1.hot.cluster.products
           - use1.hot.cluster.orders
+          - use1.hot.cluster.products_b
+          - use1.hot.cluster.products_c
+          - use1.hot.cluster.orders_b
+          - use1.hot.cluster.orders_c
       - id: hot_api
         label: Hot API read surface
         lane: hot
