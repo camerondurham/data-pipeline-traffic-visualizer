@@ -80,6 +80,14 @@ To publish it, enable GitHub Pages in the repository settings with **Source: Git
 
 The deployed static demo also sets `VITE_GOATCOUNTER_COUNT_URL=https://u64cam.goatcounter.com/count`, which injects the same GoatCounter page-count script used by `camerondurham.github.io`.
 
+The static demo also supports browser-only architecture replacement links:
+
+```text
+https://traffic-demo.u64.cam/#architecture=<base64url-utf8-architecture-yaml>
+```
+
+The fragment value is a base64url-encoded `architecture.yaml`. It replaces the sample topology and uses empty overlays, so the shared view stays focused on the architecture graph. Keep the payload in the hash fragment, not the query string: fragments are not sent to GitHub Pages, the Node runtime server, CDNs, or normal access logs. Anyone with the full URL can still read the encoded architecture, so do not share sensitive topology details in public links.
+
 Use the Pages deployment URL from the workflow summary as the team demo link.
 
 ## Sample Workflow
