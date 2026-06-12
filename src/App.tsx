@@ -3,6 +3,7 @@ import { parse } from "yaml";
 import { Dashboard, ErrorPanel } from "./Dashboard";
 import { ArchitectureEditor } from "./ArchitectureEditor";
 import { PRODUCT_NAME } from "./branding";
+import { hasArchitectureDeepLink, loadArchitectureDeepLink } from "./deepLinkArchitecture";
 import architectureYaml from "../data/sample/architecture.yaml?raw";
 import overlaysYaml from "../data/sample/architecture-overlays.yaml?raw";
 import { validateOverlayReferences } from "./overlays";
@@ -13,7 +14,27 @@ import {
   type ArchitectureManifest,
   type ArchitectureOverlays
 } from "./zod";
-import type { RuntimeArchitecturePayload } from "./runtime/types";
+import type { ArchitectureSourcePayload, RuntimeArchitecturePayload } from "./runtime/types";
+
+type EditorBackend = "server" | "browser";
+
+interface ArchitectureLoadResult {
+  payload: RuntimeArchitecturePayload;
+  editorBackend: EditorBackend;
+  source?: ArchitectureSourcePayload;
+}
+
+interface AppError {
+  title: string;
+  message: string;
+}
+
+function loadErrorFor(error: unknown): AppError {
+  return {
+    title: hasArchitectureDeepLink() ? "Unable to load deep-link architecture" : "Unable to load runtime architecture",
+    message: formatValidationError(error)
+  };
+}
 
 function isStaticDemo(): boolean {
   return import.meta.env.VITE_STATIC_DEMO === "1";
@@ -53,9 +74,23 @@ async function loadStaticArchitecture(): Promise<RuntimeArchitecturePayload> {
   };
 }
 
-async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
+async function loadArchitecture(): Promise<ArchitectureLoadResult> {
+  const deepLinkArchitecture = loadArchitectureDeepLink();
+
+  if (deepLinkArchitecture) {
+    return {
+      payload: deepLinkArchitecture.payload,
+      source: deepLinkArchitecture.source,
+      editorBackend: "browser"
+    };
+  }
+
   if (isStaticDemo()) {
-    return loadStaticArchitecture();
+    return {
+      payload: await loadStaticArchitecture(),
+      source: readStaticSource(),
+      editorBackend: "browser"
+    };
   }
 
   const response = await fetch(`/api/architecture?refresh=${Date.now()}`, {
@@ -72,58 +107,85 @@ async function loadRuntimeArchitecture(): Promise<RuntimeArchitecturePayload> {
   validateOverlayReferences(manifest, overlays);
 
   return {
-    ...payload,
-    manifest,
-    overlays,
-    graphControlsVisible: Boolean(payload.graphControlsVisible),
-    graphControlApplyEnabled: Boolean(payload.graphControlApplyEnabled)
+    payload: {
+      ...payload,
+      manifest,
+      overlays,
+      graphControlsVisible: Boolean(payload.graphControlsVisible),
+      graphControlApplyEnabled: Boolean(payload.graphControlApplyEnabled)
+    },
+    editorBackend: "server"
   };
 }
 
 export default function App() {
   const [runtimePayload, setRuntimePayload] = useState<RuntimeArchitecturePayload>();
+  const [editorBackend, setEditorBackend] = useState<EditorBackend>("server");
+  const [source, setSource] = useState<ArchitectureSourcePayload>();
   const [preview, setPreview] = useState<{ manifest: ArchitectureManifest; overlays: ArchitectureOverlays }>();
-  const [error, setError] = useState<string>();
+  const [error, setError] = useState<AppError>();
+
+  function applyLoadResult(result: ArchitectureLoadResult): void {
+    setRuntimePayload(result.payload);
+    setEditorBackend(result.editorBackend);
+    setSource(result.source);
+    setError(undefined);
+  }
 
   useEffect(() => {
     let cancelled = false;
+    let events: EventSource | undefined;
 
     const refresh = () =>
-      loadRuntimeArchitecture()
-        .then((payload) => {
+      loadArchitecture()
+        .then((result) => {
           if (!cancelled) {
-            setRuntimePayload(payload);
-            setError(undefined);
+            applyLoadResult(result);
           }
         })
         .catch((loadError: unknown) => {
           if (!cancelled) {
-            setError(formatValidationError(loadError));
+            setError(loadErrorFor(loadError));
             setRuntimePayload(undefined);
+            setSource(undefined);
             setPreview(undefined);
           }
         });
 
-    void refresh();
-
-    let events: EventSource | undefined;
-    if (!isStaticDemo() && typeof EventSource !== "undefined") {
-      events = new EventSource("/api/architecture/events");
-      events.addEventListener("revision", () => {
-        if (!cancelled) {
-          void refresh();
-        }
-      });
+    function closeEvents(): void {
+      events?.close();
+      events = undefined;
     }
+
+    function syncEvents(): void {
+      closeEvents();
+      if (!isStaticDemo() && !hasArchitectureDeepLink() && typeof EventSource !== "undefined") {
+        events = new EventSource("/api/architecture/events");
+        events.addEventListener("revision", () => {
+          if (!cancelled) {
+            void refresh();
+          }
+        });
+      }
+    }
+
+    function syncLocation(): void {
+      void refresh();
+      syncEvents();
+    }
+
+    syncLocation();
+    window.addEventListener("hashchange", syncLocation);
 
     return () => {
       cancelled = true;
-      events?.close();
+      window.removeEventListener("hashchange", syncLocation);
+      closeEvents();
     };
   }, []);
 
   if (error) {
-    return <ErrorPanel title="Unable to load runtime architecture" message={error} />;
+    return <ErrorPanel title={error.title} message={error.message} />;
   }
 
   if (!runtimePayload) {
@@ -142,26 +204,26 @@ export default function App() {
       manifest={manifest}
       overlays={overlays}
       runtimeInfo={{ ...runtimePayload, previewActive: Boolean(preview) }}
-      controlControlsVisible={runtimePayload.graphControlsVisible && !isStaticDemo() && !preview}
-      controlApplyEnabled={runtimePayload.graphControlApplyEnabled && !isStaticDemo() && !preview}
+      controlControlsVisible={runtimePayload.graphControlsVisible && editorBackend === "server" && !preview}
+      controlApplyEnabled={runtimePayload.graphControlApplyEnabled && editorBackend === "server" && !preview}
       onControlUpdated={() =>
-        loadRuntimeArchitecture()
-          .then(setRuntimePayload)
-          .catch((loadError: unknown) => setError(formatValidationError(loadError)))
+        loadArchitecture()
+          .then(applyLoadResult)
+          .catch((loadError: unknown) => setError(loadErrorFor(loadError)))
       }
       toolbarSlot={
         <ArchitectureEditor
           enabled={runtimePayload.editorEnabled}
-          backend={isStaticDemo() ? "browser" : "server"}
+          backend={editorBackend}
           manifest={manifest}
           overlays={overlays}
-          source={isStaticDemo() ? readStaticSource() : undefined}
+          source={source}
           onPreview={setPreview}
           onApplied={() => {
             setPreview(undefined);
-            void loadRuntimeArchitecture()
-              .then(setRuntimePayload)
-              .catch((loadError: unknown) => setError(formatValidationError(loadError)));
+            void loadArchitecture()
+              .then(applyLoadResult)
+              .catch((loadError: unknown) => setError(loadErrorFor(loadError)));
           }}
         />
       }
