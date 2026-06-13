@@ -92,6 +92,24 @@ Use the Pages deployment URL from the workflow summary as the team demo link.
 
 ## Sample Workflow
 
+## Control identity for live config edits
+
+If you use this console as a live control surface, controls are tied to graph identity via:
+
+- `target.kind` + `target.id` to attach intent to a node, edge, or route decorator.
+- `dimensions` to scope by tenant/token/route class.
+- `apply.handler` to choose the backend operation that applies config.
+
+Control flow:
+
+1. Operator updates `desired_value` in the UI.
+2. Browser posts `POST /api/overlays/control-value`.
+3. Store validates the control and marks it `applying`.
+4. Handler returns an operation ID.
+5. Store polls handler state until a terminal phase and then updates `effective_value`.
+
+This model scales by keeping topology stable and using control metadata as the identity map for backend systems.
+
 The screenshots below are generated from the committed sample files in `data/sample/` by `npm run screenshot:architecture`.
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
