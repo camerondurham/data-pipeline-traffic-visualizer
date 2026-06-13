@@ -26,6 +26,70 @@ Controls live in `architecture-overlays.yaml` and attach to a graph target:
 
 The key boundary is desired versus effective. The UI edits desired state; backend integrations prove whether the system converged.
 
+### Control Identity (source-of-truth mapping)
+
+Use this identity model to map a control click in the graph to a real service config object:
+
+- `target.kind`: which object is controlled (`node`, `edge`, or `route`).
+- `target.id`: stable identifier in the manifest (`node_id`, `edge_id`, or `route_decorator_id`).
+- `dimensions`: optional qualifiers used as routing keys (`token`, `tenant`, `region`, `priorityClass`, etc.).
+- `apply.handler`: backend handler key that knows how to apply that control intent.
+
+Think of it as:
+
+`edge ID + dimensions + handler` → `service config target`.
+
+Example (edge throttle control):
+
+```yaml
+controls:
+  - id: edge-hot-products-route-throttle
+    target:
+      kind: edge
+      id: edge.use1.hot.router.to.products.stream
+    dimensions:
+      token: partner-v3
+      tenant: premium
+    label: Hot products partner throttle
+    apply:
+      handler: throttle-config-handler
+    spec:
+      value_type: number
+      min: 0
+      max: 2000
+      step: 25
+      unit: /s
+    state:
+      desired_value: 500
+      apply:
+        phase: idle
+```
+
+Attach one control to a route by setting `target.kind: route` and `target.id` to the route decorator ID when the intent applies to multiple edges.
+
+Sequence (high-level):
+
+1. Operator opens edge detail and clicks Apply.
+2. UI posts to `POST /api/overlays/control-value`.
+3. `apiMiddleware` validates and passes to `ArchitectureStore`.
+4. Store validates control state, marks apply phase `applying`, calls handler `apply`, writes operation ID.
+5. Store polls handler `poll` until phase becomes terminal (`applied`, `rejected`, `failed`, or `stale`).
+6. `effective_value` updates only when terminal success is observed.
+7. Store emits SSE revision; UI refetches and reflects real/observed state.
+
+### Scalability model
+
+For a live service-config editor, this model scales if you treat controls as a policy index rather than hardcoding every target in code:
+
+- Keep throttle controls per logical edge for high-specificity tuning.
+- Use route-level controls when one control intentionally spans multiple edges.
+- Use `dimensions` to represent matrixes (tenant/token/route class) so you avoid thousands of flat control IDs.
+- Keep manifests stable; treat identity fields (`id`, edge IDs, dimensions) as immutable API keys.
+- Move large mappings to an external registry/config service the handler reads at apply time.
+- Keep control appends non-blocking: one in-flight apply per control is enforced (`controlId` level), but the handler can fan out to many downstream systems.
+
+This keeps the UI constant even as edge and policy count grow.
+
 ## Server Extension Point
 
 The control-plane integration seam is:
