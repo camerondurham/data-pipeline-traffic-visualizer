@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "demo:live": "node scripts/live-tps-demo.mjs",
+    "collect:aws-overlays": "node scripts/aws-overlay-collector.mjs",
     "build": "tsc -b && vite build && vite build --config vite.server.config.ts",
     "preview": "npm run start",
     "start": "node dist-server/startServer.js",
@@ -13,6 +14,7 @@
     "test": "vitest run --environment jsdom --globals"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.1068.0",
     "@xyflow/react": "^12.10.2",
     "lucide-react": "^0.468.0",
     "react": "^19.1.0",

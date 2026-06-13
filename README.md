@@ -38,11 +38,14 @@ sequenceDiagram
   participant Store as ArchitectureStore
   participant API as Runtime API
   participant Browser as Console and Runtime YAML editor
-  participant Updater as Overlay updater job or local live TPS demo
+  participant Metrics as CloudWatch metrics
+  participant Updater as AWS collector, overlay updater job, or local live TPS demo
   participant Operator as Graph control editor
 
   Files->>Store: load on startup and optional file watch
   Store->>Store: validate topology, overlays, and references
+  Updater->>Metrics: GetMetricData batches by account and Region
+  Metrics-->>Updater: latest datapoints, missing data, or partial errors
   Browser->>API: GET /api/architecture
   API->>Store: read current payload
   Store-->>Browser: manifest, overlays, revisions, status
@@ -71,6 +74,64 @@ npm run demo:live
 The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates stream TPS chips and edge labels without a separate dashboard data channel.
 
 The live values are generated sample telemetry from the committed architecture; they are intended to demonstrate how a real collector would push full overlay snapshots.
+
+## AWS CloudWatch Overlay Collector
+
+Run the production-shaped CloudWatch pull collector with:
+
+```bash
+npm run collect:aws-overlays -- --once
+```
+
+Without `--once`, the collector keeps running and posts every 5 minutes by default. It reads `architecture.yaml`, `architecture-overlays.yaml`, and `metric-bindings.yaml`, queries CloudWatch, converts the latest datapoints into overlay decorators, then posts a merge snapshot to `POST /api/overlays/snapshot`.
+
+For local UI verification without AWS credentials, run the same collector in stub mode:
+
+```bash
+npm run dev
+AWS_OVERLAY_API_URL=http://127.0.0.1:5173/api/overlays/snapshot npm run collect:aws-overlays -- --stub --once
+```
+
+In PowerShell, set `$env:AWS_OVERLAY_API_URL="http://127.0.0.1:5173/api/overlays/snapshot"` before the collector command. `--stub` returns deterministic dummy datapoints through the same `GetMetricData` mapping path. `--stub-partial` simulates stale and error datapoints so the dashboard can be checked against partial CloudWatch responses.
+
+The sample metric registry lives at `data/sample/metric-bindings.yaml`. Deployments should keep their real registry outside the public static build and point the collector at it with:
+
+- `ARCHITECTURE_DATA_DIR`: directory containing `architecture.yaml` and `architecture-overlays.yaml`.
+- `ARCHITECTURE_METRIC_BINDINGS_PATH`: path to the metric binding registry.
+- `AWS_OVERLAY_API_URL` or `OVERLAY_API_URL`: runtime API snapshot endpoint.
+- `AWS_OVERLAY_INTERVAL_MS`: schedule interval, default `300000`.
+- `AWS_OVERLAY_LOOKBACK_SECONDS`: CloudWatch query window, default `900`.
+- `AWS_OVERLAY_MAX_QUERIES_PER_REQUEST`: batch size, capped at CloudWatch `GetMetricData`'s 500 query request limit.
+- `AWS_OVERLAY_MAX_CONCURRENT_REQUESTS`: concurrent CloudWatch requests, default `4`.
+- `AWS_OVERLAY_STUB_MODE`: `ok` or `partial` to simulate CloudWatch without AWS credentials; equivalent CLI flags are `--stub` and `--stub-partial`.
+
+Each metric binding attaches a predefined CloudWatch metric to a stable graph target:
+
+```yaml
+metric_bindings:
+  - id: use1-orders-ingestion-incoming-records
+    target:
+      kind: node
+      id: use1.ingestion.orders_stream
+    cloudwatch:
+      account_id: "111122223333"
+      region: us-east-1
+      namespace: AWS/Kinesis
+      metric_name: IncomingRecords
+      dimensions:
+        StreamName: orders-ingestion
+      statistic: Sum
+      period_seconds: 300
+    overlay:
+      label: records
+      unit: /5m
+      warning:
+        gte: 1000000
+```
+
+Run the collector in a monitoring account with CloudWatch cross-account observability configured for source accounts. The binding `account_id` is passed through to CloudWatch `GetMetricData`, and the collector groups requests by account and Region so one account or Region failure becomes error badges for only those bindings. Missing datapoints become stale badges; successful bindings still update in the same snapshot.
+
+Use this pull model for five-minute overlays and bounded metric counts. If the binding registry grows into high-cardinality or near-real-time telemetry, move hot metrics to CloudWatch Metric Streams and have the stream processor materialize the same `ArchitectureOverlays` snapshot shape.
 
 ## GitHub Pages Demo
 
