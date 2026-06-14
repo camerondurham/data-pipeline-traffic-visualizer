@@ -1,0 +1,106 @@
+metric_bindings:
+  - id: use1-orders-ingestion-incoming-records
+    target:
+      kind: node
+      id: use1.ingestion.orders_stream
+    cloudwatch:
+      account_id: "111122223333"
+      region: us-east-1
+      namespace: AWS/Kinesis
+      metric_name: IncomingRecords
+      dimensions:
+        StreamName: orders-ingestion
+      statistic: Sum
+      period_seconds: 300
+    overlay:
+      decorator_id: aws-use1-orders-ingestion-incoming-records
+      title: Orders ingestion stream traffic
+      label: records
+      unit: /5m
+      precision: 0
+      badges:
+        - aws
+        - cloudwatch
+      warning:
+        gte: 1000000
+
+  - id: use1-hot-products-index-latency
+    target:
+      kind: edge
+      id: edge.use1.hot.indexers.to.products.cluster_b
+    cloudwatch:
+      account_id: "111122223333"
+      region: us-east-1
+      namespace: RuntimeArchitecture/Sample
+      metric_name: IndexLatency
+      dimensions:
+        Service: hot-products-indexer
+        Cluster: products-b
+      statistic: p95
+      period_seconds: 300
+      unit: Milliseconds
+    overlay:
+      decorator_id: aws-use1-hot-products-index-latency
+      title: Products B indexing p95 latency
+      label: p95
+      unit: ms
+      precision: 0
+      badges:
+        - aws
+      tone: primary
+      thickness: 4
+      warning:
+        gte: 250
+
+  - id: use1-partner-route-publish-rate
+    target:
+      kind: route
+      id: partner-source-downstream-throttle
+    cloudwatch:
+      account_id: "444455556666"
+      region: us-east-1
+      namespace: RuntimeArchitecture/Sample
+      metric_name: PartnerRouteMessages
+      dimensions:
+        Route: partner-v3
+      statistic: Sum
+      period_seconds: 300
+    overlay:
+      decorator_id: aws-use1-partner-route-publish-rate
+      title: Partner route publish volume
+      label: messages
+      unit: /5m
+      precision: 0
+      badges:
+        - aws
+        - partner
+      tone: secondary
+      warning:
+        gte: 150000
+
+  - id: usw2-partner-index-latency
+    target:
+      kind: edge
+      id: edge.usw2.partner.indexer.to.cluster.a
+    cloudwatch:
+      account_id: "444455556666"
+      region: us-west-2
+      namespace: RuntimeArchitecture/Sample
+      metric_name: IndexLatency
+      dimensions:
+        Service: usw2-partner-indexer
+        Cluster: partner-a
+      statistic: p95
+      period_seconds: 300
+      unit: Milliseconds
+    overlay:
+      decorator_id: aws-usw2-partner-index-latency
+      title: USW2 partner indexing p95 latency
+      label: p95
+      unit: ms
+      precision: 0
+      badges:
+        - aws
+      tone: cross
+      warning:
+        gte: 300
