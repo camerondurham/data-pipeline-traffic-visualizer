@@ -63,8 +63,23 @@ async function assertCompactOverlayLabelsDoNotOverlap(page) {
     chips
       .filter((chip) => {
         const rect = chip.getBoundingClientRect();
-        const style = window.getComputedStyle(chip);
-        return rect.width <= 0 || rect.height <= 0 || style.display === "none" || style.visibility === "hidden";
+        if (rect.width <= 0 || rect.height <= 0) {
+          return true;
+        }
+        let current = chip;
+        while (current instanceof HTMLElement) {
+          const style = window.getComputedStyle(current);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            style.visibility === "collapse" ||
+            Number.parseFloat(style.opacity) <= 0
+          ) {
+            return true;
+          }
+          current = current.parentElement;
+        }
+        return false;
       })
       .map((chip) => chip.closest(".edge-label")?.getAttribute("aria-label") ?? "unknown edge")
   );
@@ -110,8 +125,23 @@ async function assertExpandedOverlayDetailsWrap(page) {
     flexWrap: window.getComputedStyle(container).flexWrap,
     visibleChipCount: Array.from(container.querySelectorAll("b")).filter((chip) => {
       const rect = chip.getBoundingClientRect();
-      const style = window.getComputedStyle(chip);
-      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      if (rect.width <= 0 || rect.height <= 0) {
+        return false;
+      }
+      let current = chip;
+      while (current instanceof HTMLElement) {
+        const style = window.getComputedStyle(current);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.visibility === "collapse" ||
+          Number.parseFloat(style.opacity) <= 0
+        ) {
+          return false;
+        }
+        current = current.parentElement;
+      }
+      return true;
     }).length
   }));
 
