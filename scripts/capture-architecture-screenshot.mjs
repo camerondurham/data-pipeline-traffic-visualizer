@@ -7,6 +7,7 @@ import { chromium } from "playwright";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const screenshotPath = resolve(repoRoot, "docs", "architecture-workflow.png");
 const editorScreenshotPath = resolve(repoRoot, "docs", "architecture-workflow-editor.png");
+const representativeEdgeCount = 22;
 const port = process.env.SCREENSHOT_PORT ?? "4174";
 const url = `http://127.0.0.1:${port}/`;
 const serverBin = resolve(repoRoot, "dist-server", "startServer.js");
@@ -50,7 +51,15 @@ async function waitForRepresentativePipeline(page) {
 }
 
 async function assertCompactOverlayLabelsDoNotOverlap(page) {
-  const overlaps = await page.locator(".edge-label.is-overlay-visible").evaluateAll((labels) => {
+  const compactLabels = page.locator(".edge-label.is-overlay-visible");
+  const renderedLabelCount = await compactLabels.count();
+  if (renderedLabelCount !== representativeEdgeCount) {
+    throw new Error(
+      `Expected ${representativeEdgeCount} compact overlay labels, rendered ${renderedLabelCount}`
+    );
+  }
+
+  const overlaps = await compactLabels.evaluateAll((labels) => {
     const entries = labels
       .map((label) => ({
         name: label.getAttribute("aria-label") ?? "unknown edge",

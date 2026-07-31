@@ -148,7 +148,7 @@ Region views can also define presentation metadata:
 - `lanes`: named horizontal bands such as `cold`, `normal`, `hot`, `slow_lane`, and `partner`.
 - `stages`: left-to-right columns. Each stage has `id`, `label`, `lane`, and `node_ids`; optional integer `column` aligns stages from different lanes without changing manifest order.
 
-Stage `node_ids` must reference existing nodes. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
+Stage `node_ids` must reference existing nodes, and each effective `(lane, column)` position must be unique. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
 
 ## Overlay Contract
 

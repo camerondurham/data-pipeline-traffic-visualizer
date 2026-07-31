@@ -157,7 +157,16 @@ export function buildEdgeAnnotations(resolved?: ResolvedEdgeOverlay): EdgeAnnota
 }
 
 export function edgeOverlayLabelChips(resolved?: ResolvedEdgeOverlay): string[] {
-  return uniqueStrings(buildEdgeAnnotations(resolved).flatMap((annotation) => annotation.chips)).slice(0, 3);
+  if (!resolved) {
+    return [];
+  }
+
+  const metricChips = [
+    ...(resolved.metricLabel ? [resolved.metricLabel] : []),
+    ...resolved.metrics.map(formatMetricChip)
+  ];
+  const annotationChips = buildEdgeAnnotations(resolved).flatMap((annotation) => annotation.chips);
+  return uniqueStrings([...metricChips, ...annotationChips]).slice(0, 3);
 }
 
 export function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOverlayData | undefined {

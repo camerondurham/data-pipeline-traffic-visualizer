@@ -140,11 +140,18 @@ export function validateGraphReferences(manifest: ArchitectureManifest): void {
       const laneIds = new Set((view.lanes ?? DEFAULT_FLOW_LANES).map((lane) => lane.id));
       assertUniqueIds(view.stages ?? [], `${view.id} stage`);
       assertUniqueIds(view.lanes ?? [], `${view.id} lane`);
+      const occupiedStageColumns = new Set<string>();
 
-      for (const stage of view.stages ?? []) {
+      for (const [stageIndex, stage] of (view.stages ?? []).entries()) {
         if (!laneIds.has(stage.lane)) {
           throw new Error(`View ${view.id} stage ${stage.id} references missing lane: ${stage.lane}`);
         }
+        const effectiveColumn = stage.column ?? stageIndex;
+        const stagePositionKey = `${stage.lane}:${effectiveColumn}`;
+        if (occupiedStageColumns.has(stagePositionKey)) {
+          throw new Error(`View ${view.id} has duplicate stage column in lane ${stage.lane}: ${effectiveColumn}`);
+        }
+        occupiedStageColumns.add(stagePositionKey);
         for (const nodeId of stage.node_ids) {
           if (!nodeIds.has(nodeId)) {
             throw new Error(`View ${view.id} stage ${stage.id} references missing node: ${nodeId}`);

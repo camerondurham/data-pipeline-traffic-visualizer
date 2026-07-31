@@ -318,6 +318,24 @@ describe("Dashboard", () => {
     expect(collapsedOrdersPublishLabel).not.toHaveClass("is-overlay-visible");
   });
 
+  it("uses a formatted metric as the compact label when metric_label is omitted", () => {
+    const { overlays } = loadSeedData();
+    const overlaysWithoutExplicitMetric = structuredClone(overlays);
+    const ordersDecorator = overlaysWithoutExplicitMetric.edge_decorators.find(
+      (decorator) => decorator.id === "live-tps-edge-web-orders-ingestion"
+    );
+    if (!ordersDecorator) {
+      throw new Error("Missing orders edge decorator");
+    }
+    delete ordersDecorator.metric_label;
+
+    const { container } = renderSeedDashboard({ overlays: overlaysWithoutExplicitMetric });
+    const ordersPublishLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("publish orders"));
+
+    expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1250 TPS");
+  });
+
   it("lets operators edit selected edge controls", async () => {
     const user = userEvent.setup();
     const onControlUpdated = vi.fn();
