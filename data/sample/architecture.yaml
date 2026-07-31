@@ -89,13 +89,13 @@ nodes:
     zone: pre_aggregate
     parent: use1.processing.apps
   - id: use1.pre_agg.slow_queues
-    label: Pre-Aggregate SQS Slow Queues
+    label: Pre-Aggregate SQS Slow Queue
     type: queue
     region: use1
     zone: pre_aggregate
     parent: use1.pre_aggregate
   - id: use1.pre_agg.slow_processor
-    label: Pre-Aggregate Slow Processor
+    label: Pre-Aggregate Replay Service
     type: processor
     region: use1
     zone: pre_aggregate
@@ -185,13 +185,13 @@ nodes:
     zone: hot
     parent: use1.hot
   - id: use1.hot.slow_queues
-    label: Hot Slow Queues
+    label: Hot-Tier SQS Slow Queue
     type: queue
     region: use1
     zone: hot
     parent: use1.hot
   - id: use1.hot.slow_processor
-    label: Hot Slow Processor
+    label: Hot-Tier Replay Service
     type: processor
     region: use1
     zone: hot
@@ -440,7 +440,7 @@ edges:
     from: use1.sources.mobile_app
     to: use1.pre_agg.slow_queues
     type: sideline
-    label: sideline
+    label: sideline malformed events
   - id: edge.use1.ingestion.to.processing
     from: use1.ingestion.streams
     to: use1.processing.apps
@@ -505,12 +505,12 @@ edges:
     from: use1.pre_agg.slow_queues
     to: use1.pre_agg.slow_processor
     type: drain
-    label: drain
+    label: drain retry queue
   - id: edge.use1.preagg.processor.to.aggregate
     from: use1.pre_agg.slow_processor
     to: use1.aggregate.stream
     type: replay
-    label: replay
+    label: replay enriched events
   - id: edge.use1.aggregate.to.hot.router
     from: use1.aggregate.stream
     to: use1.hot.router
@@ -606,27 +606,27 @@ edges:
     from: use1.hot.router
     to: use1.hot.slow_queues
     type: sideline
-    label: throttled
+    label: sideline throttled events
   - id: edge.use1.hot.indexers.to.slow
     from: use1.hot.indexers
     to: use1.hot.slow_queues
     type: sideline
-    label: throttled
+    label: sideline failed writes
   - id: edge.use1.hot.slow.to.processor
     from: use1.hot.slow_queues
     to: use1.hot.slow_processor
     type: drain
-    label: drain
+    label: drain retry queue
   - id: edge.use1.hot.processor.to.products.stream
     from: use1.hot.slow_processor
     to: use1.hot.stream.products
     type: replay
-    label: replay
+    label: replay product updates
   - id: edge.use1.hot.processor.to.orders.stream
     from: use1.hot.slow_processor
     to: use1.hot.stream.orders
     type: replay
-    label: replay
+    label: replay order updates
 
   - id: edge.use1.cold.router.to.products.stream
     from: use1.cold.router
@@ -834,56 +834,91 @@ views:
     lanes:
       - id: normal
         label: Main data path
+      - id: slow_lane
+        label: Exception and replay path
     stages:
       - id: producer_services
         label: Producer services
         lane: normal
+        column: 0
         node_ids:
           - use1.sources.web_storefront
           - use1.sources.mobile_app
       - id: ingestion_kinesis
         label: Kinesis ingestion
         lane: normal
+        column: 1
         node_ids:
           - use1.ingestion.orders_stream
           - use1.ingestion.mobile_events_stream
       - id: consumer_services
         label: Consumer services
         lane: normal
+        column: 2
         node_ids:
           - use1.processing.orders_app
       - id: enriched_kinesis
         label: Enriched Kinesis
         lane: normal
+        column: 3
         node_ids:
           - use1.aggregate.stream
       - id: fanout_service
         label: Fanout service
         lane: normal
+        column: 4
         node_ids:
           - use1.hot.router
       - id: index_kinesis
         label: Index Kinesis streams
         lane: normal
+        column: 5
         node_ids:
           - use1.hot.stream.products
           - use1.hot.stream.orders
       - id: indexer_service
         label: Consumer / indexer
         lane: normal
+        column: 6
         node_ids:
           - use1.hot.indexers
       - id: opensearch_clusters
         label: OpenSearch clusters
         lane: normal
+        column: 7
         node_ids:
           - use1.hot.cluster.products
           - use1.hot.cluster.orders
       - id: query_service
         label: Query service
         lane: normal
+        column: 8
         node_ids:
           - use1.hot.api
+      - id: preagg_slow_queues
+        label: Pre-aggregate slow queue
+        lane: slow_lane
+        column: 1
+        node_ids:
+          - use1.pre_agg.slow_queues
+      - id: preagg_slow_processor
+        label: Pre-aggregate replay service
+        lane: slow_lane
+        column: 2
+        node_ids:
+          - use1.pre_agg.slow_processor
+      - id: hot_slow_queues
+        label: Hot-tier slow queue
+        lane: slow_lane
+        column: 7
+        node_ids:
+          - use1.hot.slow_queues
+      - id: hot_slow_processor
+        label: Hot-tier replay service
+        lane: slow_lane
+        column: 8
+        node_ids:
+          - use1.hot.slow_processor
   - id: regional_end_to_end
     label: Regional End-to-End
     mode: region
