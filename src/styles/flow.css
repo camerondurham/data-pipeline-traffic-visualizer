@@ -386,6 +386,7 @@
   flex-wrap: wrap;
   max-width: 280px;
   max-height: 80px;
+  overflow: visible;
   opacity: 1;
 }
 

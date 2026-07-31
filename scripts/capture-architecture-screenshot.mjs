@@ -66,6 +66,10 @@ async function assertCompactOverlayLabelsDoNotOverlap(page) {
         if (rect.width <= 0 || rect.height <= 0) {
           return true;
         }
+        let visibleLeft = rect.left;
+        let visibleRight = rect.right;
+        let visibleTop = rect.top;
+        let visibleBottom = rect.bottom;
         let current = chip;
         while (current instanceof HTMLElement) {
           const style = window.getComputedStyle(current);
@@ -75,6 +79,18 @@ async function assertCompactOverlayLabelsDoNotOverlap(page) {
             style.visibility === "collapse" ||
             Number.parseFloat(style.opacity) <= 0
           ) {
+            return true;
+          }
+          const ancestorRect = current.getBoundingClientRect();
+          if (["auto", "clip", "hidden", "scroll"].includes(style.overflowX)) {
+            visibleLeft = Math.max(visibleLeft, ancestorRect.left);
+            visibleRight = Math.min(visibleRight, ancestorRect.right);
+          }
+          if (["auto", "clip", "hidden", "scroll"].includes(style.overflowY)) {
+            visibleTop = Math.max(visibleTop, ancestorRect.top);
+            visibleBottom = Math.min(visibleBottom, ancestorRect.bottom);
+          }
+          if (visibleRight <= visibleLeft || visibleBottom <= visibleTop) {
             return true;
           }
           current = current.parentElement;
@@ -128,6 +144,10 @@ async function assertExpandedOverlayDetailsWrap(page) {
       if (rect.width <= 0 || rect.height <= 0) {
         return false;
       }
+      let visibleLeft = rect.left;
+      let visibleRight = rect.right;
+      let visibleTop = rect.top;
+      let visibleBottom = rect.bottom;
       let current = chip;
       while (current instanceof HTMLElement) {
         const style = window.getComputedStyle(current);
@@ -137,6 +157,18 @@ async function assertExpandedOverlayDetailsWrap(page) {
           style.visibility === "collapse" ||
           Number.parseFloat(style.opacity) <= 0
         ) {
+          return false;
+        }
+        const ancestorRect = current.getBoundingClientRect();
+        if (["auto", "clip", "hidden", "scroll"].includes(style.overflowX)) {
+          visibleLeft = Math.max(visibleLeft, ancestorRect.left);
+          visibleRight = Math.min(visibleRight, ancestorRect.right);
+        }
+        if (["auto", "clip", "hidden", "scroll"].includes(style.overflowY)) {
+          visibleTop = Math.max(visibleTop, ancestorRect.top);
+          visibleBottom = Math.min(visibleBottom, ancestorRect.bottom);
+        }
+        if (visibleRight <= visibleLeft || visibleBottom <= visibleTop) {
           return false;
         }
         current = current.parentElement;
