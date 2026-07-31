@@ -68,7 +68,7 @@ Run the local API-backed demo with:
 npm run demo:live
 ```
 
-The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates stream TPS chips and edge labels without a separate dashboard data channel.
+The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates node TPS chips plus every edge in the representative producer → Kinesis → consumer → Kinesis → indexer → OpenSearch → query path without a separate dashboard data channel.
 
 The live values are generated sample telemetry from the committed architecture; they are intended to demonstrate how a real collector would push full overlay snapshots.
 
@@ -110,6 +110,8 @@ Control flow:
 
 This model scales by keeping topology stable and using control metadata as the identity map for backend systems.
 
+The default sample is a focused service-to-resource pipeline. It shows producer services publishing to Kinesis, consumer services reading and republishing enriched events, an indexing service writing to OpenSearch, and a query service reading the indexed data. Every edge in the view has a TPS overlay; the broader regional, cross-region, replay, and partner paths remain available as secondary views.
+
 The screenshots below are generated from the committed sample files in `data/sample/` by `npm run screenshot:architecture`.
 
 ![Seed architecture workflow](docs/architecture-workflow.png)
@@ -139,7 +141,7 @@ Every edge requires:
 - `type`: edge classification such as `publish`, `feed`, `route`, `consume`, `index`, `serve`, `sideline`, `drain`, or `replay`.
 - `label`: optional display text.
 
-Views are explicit. The default sample view is a broad end-to-end path: it keeps the USE1 local workflow visible while staging summary destination streams for USW2 and EUW1 so cross-region publish behavior is visible without switching views. Per-region views retain deeper destination-region detail. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs, but those should be used sparingly for targeted investigations rather than as default navigation.
+Views are explicit. The default sample view is the focused `representative_data_pipeline` service-to-resource path so the TPS overlays remain readable at a glance. The broader `regional_end_to_end` view keeps the USE1 workflow visible while staging summary destination streams for USW2 and EUW1, and per-region views retain deeper destination-region detail. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs.
 
 Region views can also define presentation metadata:
 
@@ -173,13 +175,17 @@ node_decorators:
         value: 24h
 
 edge_decorators:
-  - id: partner-feed-throttle
-    edge_id: edge.use1.sources.partner.to.partner.ingestion
-    title: Partner feed throttle
+  - id: live-tps-edge-web-orders-ingestion
+    edge_id: edge.use1.sources.web.to.orders.ingestion
+    title: Checkout API to Orders Kinesis
+    metric_label: 1,250 TPS
     badges:
-      - throttle 500/s
-      - schema partner-v3
-    warning: true
+      - Kinesis publish
+    metrics:
+      - label: TPS
+        value: 1250
+    tone: primary
+    thickness: 4.4
 
 route_decorators:
   - id: partner-source-downstream-throttle

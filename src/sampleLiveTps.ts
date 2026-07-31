@@ -28,7 +28,7 @@ const STREAM_TPS_SERIES: StreamTpsSeries[] = [
   {
     id: "live-tps-orders-ingestion-stream",
     nodeId: "use1.ingestion.orders_stream",
-    title: "Live TPS - Orders ingestion",
+    title: "Live TPS - Orders Kinesis",
     baseTps: 1250,
     swing: 180,
     phase: 0,
@@ -37,7 +37,7 @@ const STREAM_TPS_SERIES: StreamTpsSeries[] = [
   {
     id: "live-tps-mobile-events-stream",
     nodeId: "use1.ingestion.mobile_events_stream",
-    title: "Live TPS - Mobile events",
+    title: "Live TPS - Mobile Events Kinesis",
     baseTps: 940,
     swing: 150,
     phase: 2,
@@ -64,7 +64,7 @@ const STREAM_TPS_SERIES: StreamTpsSeries[] = [
   {
     id: "live-tps-aggregate-stream",
     nodeId: "use1.aggregate.stream",
-    title: "Live TPS - Aggregate stream",
+    title: "Live TPS - Enriched Events Kinesis",
     baseTps: 2760,
     swing: 360,
     phase: 3,
@@ -73,7 +73,7 @@ const STREAM_TPS_SERIES: StreamTpsSeries[] = [
   {
     id: "live-tps-hot-products-stream",
     nodeId: "use1.hot.stream.products",
-    title: "Live TPS - Products hot stream",
+    title: "Live TPS - Products Index Kinesis",
     baseTps: 1530,
     swing: 220,
     phase: 5,
@@ -82,7 +82,7 @@ const STREAM_TPS_SERIES: StreamTpsSeries[] = [
   {
     id: "live-tps-hot-orders-stream",
     nodeId: "use1.hot.stream.orders",
-    title: "Live TPS - Orders hot stream",
+    title: "Live TPS - Orders Index Kinesis",
     baseTps: 1180,
     swing: 190,
     phase: 2,
@@ -111,12 +111,32 @@ const EDGE_TPS_SERIES: EdgeTpsSeries[] = [
     tone: "primary"
   },
   {
+    id: "live-tps-edge-orders-consume",
+    edgeId: "edge.use1.orders.ingestion.to.orders.processor",
+    title: "Live TPS - Orders Kinesis consume",
+    baseTps: 1210,
+    swing: 170,
+    phase: 1,
+    period: 7,
+    tone: "primary"
+  },
+  {
     id: "live-tps-edge-mobile-ingestion",
     edgeId: "edge.use1.sources.mobile.to.mobile.ingestion",
     title: "Live TPS - Mobile events publish",
     baseTps: 940,
     swing: 150,
     phase: 2,
+    period: 8,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-mobile-context-consume",
+    edgeId: "edge.use1.mobile.ingestion.to.orders.processor",
+    title: "Live TPS - Mobile context consume",
+    baseTps: 880,
+    swing: 140,
+    phase: 3,
     period: 8,
     tone: "primary"
   },
@@ -137,6 +157,16 @@ const EDGE_TPS_SERIES: EdgeTpsSeries[] = [
     baseTps: 610,
     swing: 110,
     phase: 1,
+    period: 9,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-orders-aggregate-publish",
+    edgeId: "edge.use1.orders.processor.to.aggregate",
+    title: "Live TPS - Enriched orders publish",
+    baseTps: 1180,
+    swing: 165,
+    phase: 2,
     period: 9,
     tone: "primary"
   },
@@ -169,6 +199,66 @@ const EDGE_TPS_SERIES: EdgeTpsSeries[] = [
     phase: 2,
     period: 7,
     tone: "primary"
+  },
+  {
+    id: "live-tps-edge-products-index-consume",
+    edgeId: "edge.use1.hot.products.stream.to.indexers",
+    title: "Live TPS - Products index consume",
+    baseTps: 1490,
+    swing: 210,
+    phase: 6,
+    period: 8,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-orders-index-consume",
+    edgeId: "edge.use1.hot.orders.stream.to.indexers",
+    title: "Live TPS - Orders index consume",
+    baseTps: 1140,
+    swing: 180,
+    phase: 3,
+    period: 7,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-products-opensearch-index",
+    edgeId: "edge.use1.hot.indexers.to.products.cluster",
+    title: "Live TPS - Products OpenSearch index",
+    baseTps: 1470,
+    swing: 205,
+    phase: 7,
+    period: 8,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-orders-opensearch-index",
+    edgeId: "edge.use1.hot.indexers.to.orders.cluster",
+    title: "Live TPS - Orders OpenSearch index",
+    baseTps: 1120,
+    swing: 175,
+    phase: 4,
+    period: 7,
+    tone: "primary"
+  },
+  {
+    id: "live-tps-edge-products-query",
+    edgeId: "edge.use1.hot.products.cluster.to.api",
+    title: "Live TPS - Products search reads",
+    baseTps: 820,
+    swing: 130,
+    phase: 1,
+    period: 6,
+    tone: "read"
+  },
+  {
+    id: "live-tps-edge-orders-query",
+    edgeId: "edge.use1.hot.orders.cluster.to.api",
+    title: "Live TPS - Orders search reads",
+    baseTps: 680,
+    swing: 105,
+    phase: 5,
+    period: 6,
+    tone: "read"
   },
   {
     id: "live-tps-edge-partner-local-route",

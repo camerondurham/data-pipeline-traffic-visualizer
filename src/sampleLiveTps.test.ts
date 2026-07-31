@@ -25,6 +25,7 @@ describe("sample live TPS overlays", () => {
 
   it("changes TPS values between ticks without mutating the seed overlays", () => {
     const seedOverlays = loadSeedOverlays();
+    const originalSeedOverlays = structuredClone(seedOverlays);
     const firstSnapshot = buildSampleLiveTpsOverlays(seedOverlays, { tick: 0 });
     const nextSnapshot = buildSampleLiveTpsOverlays(seedOverlays, { tick: 1 });
 
@@ -46,6 +47,10 @@ describe("sample live TPS overlays", () => {
     expect(firstWebEdge?.metric_label).toMatch(/ TPS$/);
     expect(firstWebEdge?.metric_label).not.toBe(nextWebEdge?.metric_label);
     expect(seedOverlays.node_decorators.some((decorator) => decorator.id.startsWith("live-tps-"))).toBe(false);
-    expect(seedOverlays.edge_decorators.some((decorator) => decorator.id.startsWith("live-tps-"))).toBe(false);
+    expect(seedOverlays).toEqual(originalSeedOverlays);
+    expect(
+      seedOverlays.edge_decorators.find((decorator) => decorator.id === "live-tps-edge-web-orders-ingestion")
+        ?.metric_label
+    ).toBe("1,250 TPS");
   });
 });

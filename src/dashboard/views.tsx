@@ -182,11 +182,7 @@ function RegionalView({
   return (
     <section className="topology-view" aria-label="Regional end-to-end topology">
       <FlowDiagram
-        title={
-          spansRegions
-            ? `${regions.join(" + ")} end-to-end architecture flow`
-            : `${view.region} sequential architecture flow`
-        }
+        title={view.label}
         subtitle={
           spansRegions
             ? "Source-region workflow with remote destination stream summary nodes"

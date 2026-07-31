@@ -58,6 +58,10 @@ function renderSeedDashboard(options: RenderSeedDashboardOptions = {}) {
   );
 }
 
+function switchToRegionalEndToEnd() {
+  fireEvent.change(screen.getByLabelText("View"), { target: { value: "regional_end_to_end" } });
+}
+
 function expectInteractiveChrome(testId: string) {
   const graph = screen.getByTestId(testId);
   expect(within(graph).getByTestId("rf__controls")).toBeInTheDocument();
@@ -112,38 +116,33 @@ describe("Dashboard", () => {
     document.body.removeAttribute("data-visual-mode");
   });
 
-  it("renders the regional topology as ordered flow stages from the seed manifest", () => {
+  it("renders the representative service-to-resource pipeline by default", () => {
     renderSeedDashboard();
 
     expect(screen.getByTestId("dashboard-title")).toHaveTextContent("Runtime Architecture Console");
     expect(screen.getByTestId("flow-diagram")).toBeInTheDocument();
     expectInteractiveChrome("flow-diagram");
-    expect((screen.getByLabelText("View") as HTMLSelectElement).options).toHaveLength(3);
+    expect((screen.getByLabelText("View") as HTMLSelectElement).options).toHaveLength(4);
     expect(screen.queryByText("Cross-Region Detail")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Ingestion streams" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data processing applications" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Aggregate streams" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cold-tier router" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cold OpenSearch clusters" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Cold API read surface" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Hot-tier router" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Hot OpenSearch clusters" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Hot API read surface" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Partner streams and remote destinations" })).toBeInTheDocument();
-    expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Mobile App").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Partner Webhook").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Retail POS").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Mobile Events Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Hot Router").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("USW2 Partner Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("EUW1 Partner Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Partner Slow Streams").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "Producer services" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Kinesis ingestion" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Consumer services" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Enriched Kinesis" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fanout service" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Index Kinesis streams" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Consumer / indexer" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "OpenSearch clusters" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Query service" })).toBeInTheDocument();
+    expect(screen.getAllByText("Checkout API Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mobile Events Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Kinesis Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Mobile Events Kinesis Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Order Enrichment Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Enriched Events Kinesis Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Search Fanout Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("OpenSearch Indexer Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders OpenSearch Cluster").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Search Query API Service").length).toBeGreaterThan(0);
   });
 
   it("renders node metric chips from architecture overlays", () => {
@@ -197,7 +196,7 @@ describe("Dashboard", () => {
 
     render(<Dashboard manifest={manifest} />);
 
-    expect(screen.getByRole("heading", { name: "Sourcing apps" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Producer services" })).toBeInTheDocument();
 
     await user.selectOptions(screen.getByLabelText("View"), "custom_regional_usw2");
     expect(screen.getByTestId("flow-stage-usw2_partner_clusters")).toBeInTheDocument();
@@ -210,6 +209,7 @@ describe("Dashboard", () => {
 
   it("keeps the core sequential path and slow-lane replay edges visible in the regional diagram details", () => {
     renderSeedDashboard();
+    switchToRegionalEndToEnd();
 
     expect(screen.getByText("edge.use1.sources.web.to.orders.ingestion")).toBeInTheDocument();
     expect(screen.getByText("edge.use1.sources.mobile.to.mobile.ingestion")).toBeInTheDocument();
@@ -248,6 +248,7 @@ describe("Dashboard", () => {
   it("shows edge and route decorator annotations in the selected edge detail panel", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
     const edge = await waitFor(() => {
       const element = container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"]');
       expect(element).toBeInTheDocument();
@@ -293,20 +294,22 @@ describe("Dashboard", () => {
     const toggle = screen.getByRole("checkbox", { name: "Overlay labels" });
     const canvas = screen.getByTestId("flow-diagram");
     const edgeLabels = Array.from(container.querySelectorAll(".edge-label"));
-    const partnerFeedLabel = edgeLabels.find((label) => label.textContent?.includes("partner feed"));
+    const ordersPublishLabel = edgeLabels.find((label) => label.textContent?.includes("publish orders"));
 
     expect(toggle).toBeChecked();
     expect(canvas).toHaveClass("edge-overlay-labels-expanded");
-    expect(partnerFeedLabel).toHaveClass("has-overlay-chips");
-    expect(partnerFeedLabel).toHaveClass("is-expanded");
+    expect(ordersPublishLabel).toHaveClass("has-overlay-chips");
+    expect(ordersPublishLabel).toHaveClass("is-expanded");
+    expect(ordersPublishLabel).toHaveTextContent("1,250 TPS");
+    expect(ordersPublishLabel).toHaveTextContent("Kinesis publish");
 
     await user.click(toggle);
 
-    const collapsedPartnerFeedLabel = Array.from(container.querySelectorAll(".edge-label"))
-      .find((label) => label.textContent?.includes("partner feed"));
+    const collapsedOrdersPublishLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("publish orders"));
     expect(toggle).not.toBeChecked();
     expect(canvas).not.toHaveClass("edge-overlay-labels-expanded");
-    expect(collapsedPartnerFeedLabel).not.toHaveClass("is-expanded");
+    expect(collapsedOrdersPublishLabel).not.toHaveClass("is-expanded");
   });
 
   it("lets operators edit selected edge controls", async () => {
@@ -319,7 +322,7 @@ describe("Dashboard", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: true, onControlUpdated });
     const edgeLabel = await waitFor(() => {
-      const element = container.querySelector('[aria-label="Select edge hot feed"]');
+      const element = container.querySelector('[aria-label="Select edge consume enriched events"]');
       expect(element).toBeInTheDocument();
       return element;
     });
@@ -368,7 +371,7 @@ describe("Dashboard", () => {
   it("shows controls in visible-only mode but disables apply", async () => {
     const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: false });
     const edgeLabel = await waitFor(() => {
-      const element = container.querySelector('[aria-label="Select edge hot feed"]');
+      const element = container.querySelector('[aria-label="Select edge consume enriched events"]');
       expect(element).toBeInTheDocument();
       return element;
     });
@@ -476,7 +479,9 @@ describe("Dashboard", () => {
   });
 
   it("selects an edge when its visible label is clicked", async () => {
+    const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
     const label = await waitFor(() => {
       const element = container.querySelector('[aria-label="Select edge partner aggregate"]');
       expect(element).toBeInTheDocument();
@@ -494,17 +499,19 @@ describe("Dashboard", () => {
 
   it("keeps group children visible without collapse controls", async () => {
     renderSeedDashboard();
+    switchToRegionalEndToEnd();
 
     expect(screen.queryByRole("button", { name: /Collapse/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText("Web Storefront").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Orders Ingestion Stream").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Orders Processing App").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Checkout API Service").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Orders Kinesis Stream").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Order Enrichment Service").length).toBeGreaterThan(0);
     expect(screen.getByText(/edge\.use1\.sources\.web\.to\.orders\.ingestion/)).toBeInTheDocument();
   });
 
   it("emphasizes the selected route through busy graph sections", async () => {
     const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
     const edge = await waitFor(() => {
       const element = container.querySelector('[data-id="edge.use1.hot.processor.to.products.stream"]');
       expect(element).toBeInTheDocument();
@@ -521,7 +528,9 @@ describe("Dashboard", () => {
   });
 
   it("highlights incoming and outgoing edges when selecting a node", async () => {
+    const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
     const node = await waitFor(() => {
       const element = container.querySelector('[data-id="use1.hot.router"]');
       expect(element).toBeInTheDocument();
@@ -555,7 +564,9 @@ describe("Dashboard", () => {
   });
 
   it("routes stacked slow-lane edges through separate visual lanes", async () => {
+    const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
 
     await waitFor(() => {
       expect(container.querySelector('[data-id="edge.use1.hot.router.to.slow"] .topology-edge')).toBeInTheDocument();
@@ -575,7 +586,9 @@ describe("Dashboard", () => {
   });
 
   it("separates API read surfaces from OpenSearch cluster write stages", async () => {
+    const user = userEvent.setup();
     const { container } = renderSeedDashboard();
+    await user.selectOptions(screen.getByLabelText("View"), "regional_end_to_end");
 
     expect(screen.getByTestId("flow-stage-cold_clusters")).toBeInTheDocument();
     expect(screen.getByTestId("flow-stage-cold_api")).toBeInTheDocument();
@@ -617,7 +630,7 @@ describe("Dashboard", () => {
     renderSeedDashboard();
 
     await user.selectOptions(screen.getByLabelText("View"), "regional_usw2");
-    expect(screen.getByRole("heading", { name: "usw2 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "USW2 Regional Topology" })).toBeInTheDocument();
     expect(screen.getByTestId("flow-stage-usw2_aggregate_stream")).toBeInTheDocument();
     expect(screen.getByTestId("flow-stage-usw2_partner_clusters")).toBeInTheDocument();
     expect(screen.getAllByText("USW2 Aggregate Stream").length).toBeGreaterThan(0);
@@ -625,7 +638,7 @@ describe("Dashboard", () => {
     expect(screen.getAllByText("USW2 Partner Cluster C").length).toBeGreaterThan(0);
 
     await user.selectOptions(screen.getByLabelText("View"), "regional_euw1");
-    expect(screen.getByRole("heading", { name: "euw1 sequential architecture flow" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "EUW1 Regional Topology" })).toBeInTheDocument();
     expect(screen.getByTestId("flow-stage-euw1_aggregate_stream")).toBeInTheDocument();
     expect(screen.getByTestId("flow-stage-euw1_partner_clusters")).toBeInTheDocument();
     expect(screen.getAllByText("EUW1 Aggregate Stream").length).toBeGreaterThan(0);
@@ -670,7 +683,7 @@ describe("Dashboard", () => {
     expectInteractiveChrome("flow-diagram");
 
     const edgeLabel = await waitFor(() => {
-      const element = container.querySelector('[aria-label="Select edge hot feed"]');
+      const element = container.querySelector('[aria-label="Select edge consume enriched events"]');
       expect(element).toBeInTheDocument();
       return element;
     });

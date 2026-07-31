@@ -48,11 +48,15 @@ async function main() {
   try {
     await waitForPreview();
     browser = await chromium.launch();
-    const page = await browser.newPage({ viewport: { width: 4600, height: 1300 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width: 2800, height: 1100 }, deviceScaleFactor: 1 });
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.getByTestId("flow-diagram").waitFor();
-    await page.locator('[data-id="edge.use1.aggregate.to.hot.router"]').waitFor();
+    await page.locator('[data-id="edge.use1.sources.web.to.orders.ingestion"]').waitFor({ state: "attached" });
+    await page.locator('[data-id="edge.use1.hot.indexers.to.orders.cluster"]').waitFor({ state: "attached" });
+    await page.locator('[aria-label="Select edge publish orders"]').waitFor();
+    await page.locator('[aria-label="Select edge bulk index orders"]').waitFor();
+    await page.waitForTimeout(600);
     await page.locator(".flow-panel").first().screenshot({ path: screenshotPath });
     await page.getByRole("button", { name: /Runtime YAML/i }).click();
     await page.getByLabel("architecture.yaml").waitFor();
