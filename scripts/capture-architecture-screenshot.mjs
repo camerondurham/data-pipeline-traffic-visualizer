@@ -52,11 +52,24 @@ async function waitForRepresentativePipeline(page) {
 
 async function assertCompactOverlayLabelsDoNotOverlap(page) {
   const compactLabels = page.locator(".edge-label.is-overlay-visible");
-  const renderedLabelCount = await compactLabels.count();
-  if (renderedLabelCount !== representativeEdgeCount) {
+  const primaryMetricChips = compactLabels.locator(".edge-label-primary-chip");
+  const renderedMetricCount = await primaryMetricChips.count();
+  if (renderedMetricCount !== representativeEdgeCount) {
     throw new Error(
-      `Expected ${representativeEdgeCount} compact overlay labels, rendered ${renderedLabelCount}`
+      `Expected ${representativeEdgeCount} compact primary metrics, rendered ${renderedMetricCount}`
     );
+  }
+  const hiddenMetricLabels = await primaryMetricChips.evaluateAll((chips) =>
+    chips
+      .filter((chip) => {
+        const rect = chip.getBoundingClientRect();
+        const style = window.getComputedStyle(chip);
+        return rect.width <= 0 || rect.height <= 0 || style.display === "none" || style.visibility === "hidden";
+      })
+      .map((chip) => chip.closest(".edge-label")?.getAttribute("aria-label") ?? "unknown edge")
+  );
+  if (hiddenMetricLabels.length > 0) {
+    throw new Error(`Compact primary metrics are not visible:\n${hiddenMetricLabels.join("\n")}`);
   }
 
   const overlaps = await compactLabels.evaluateAll((labels) => {
@@ -89,6 +102,26 @@ async function assertCompactOverlayLabelsDoNotOverlap(page) {
   }
 }
 
+async function assertExpandedOverlayDetailsWrap(page) {
+  const edgeLabel = page.locator('[aria-label="Select edge publish orders"]');
+  await edgeLabel.hover();
+  const overlayChips = edgeLabel.locator(".edge-label-overlay-chips");
+  const chipState = await overlayChips.evaluate((container) => ({
+    flexWrap: window.getComputedStyle(container).flexWrap,
+    visibleChipCount: Array.from(container.querySelectorAll("b")).filter((chip) => {
+      const rect = chip.getBoundingClientRect();
+      const style = window.getComputedStyle(chip);
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+    }).length
+  }));
+
+  if (chipState.flexWrap !== "wrap" || chipState.visibleChipCount !== 3) {
+    throw new Error(
+      `Expected expanded overlay details to wrap with 3 visible chips, got ${chipState.flexWrap} and ${chipState.visibleChipCount}`
+    );
+  }
+}
+
 async function main() {
   await mkdir(dirname(screenshotPath), { recursive: true });
 
@@ -117,6 +150,7 @@ async function main() {
     await laptopPage.getByRole("button", { name: "Dark", exact: true }).click();
     await waitForRepresentativePipeline(laptopPage);
     await assertCompactOverlayLabelsDoNotOverlap(laptopPage);
+    await assertExpandedOverlayDetailsWrap(laptopPage);
     await laptopPage.close();
 
     console.log(`Captured ${screenshotPath}`);

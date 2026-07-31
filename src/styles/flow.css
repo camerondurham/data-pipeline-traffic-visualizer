@@ -383,6 +383,7 @@
 
 .edge-label:hover .edge-label-overlay-chips,
 .edge-label.is-selected .edge-label-overlay-chips {
+  flex-wrap: wrap;
   max-width: 280px;
   max-height: 80px;
   opacity: 1;

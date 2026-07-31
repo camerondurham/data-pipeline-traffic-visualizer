@@ -161,12 +161,13 @@ export function edgeOverlayLabelChips(resolved?: ResolvedEdgeOverlay): string[] 
     return [];
   }
 
-  const metricChips = [
-    ...(resolved.metricLabel ? [resolved.metricLabel] : []),
-    ...resolved.metrics.map(formatMetricChip)
-  ];
+  const firstMetric = resolved.metrics[0];
+  const primaryMetricChip = resolved.metricLabel ?? (firstMetric ? formatMetricChip(firstMetric) : undefined);
   const annotationChips = buildEdgeAnnotations(resolved).flatMap((annotation) => annotation.chips);
-  return uniqueStrings([...metricChips, ...annotationChips]).slice(0, 3);
+  return uniqueStrings([
+    ...(primaryMetricChip ? [primaryMetricChip] : []),
+    ...annotationChips
+  ]).slice(0, 3);
 }
 
 export function presentationOverlayFromResolved(resolved?: ResolvedEdgeOverlay): EdgeOverlayData | undefined {

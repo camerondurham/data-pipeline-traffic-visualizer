@@ -336,6 +336,28 @@ describe("Dashboard", () => {
     expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1250 TPS");
   });
 
+  it("keeps diagnostic badges available when an edge has several metrics", () => {
+    const { overlays } = loadSeedData();
+    const overlaysWithSeveralMetrics = structuredClone(overlays);
+    const ordersDecorator = overlaysWithSeveralMetrics.edge_decorators.find(
+      (decorator) => decorator.id === "live-tps-edge-web-orders-ingestion"
+    );
+    if (!ordersDecorator) {
+      throw new Error("Missing orders edge decorator");
+    }
+    ordersDecorator.metrics.push(
+      { label: "errors", value: 2 },
+      { label: "p99", value: "84ms" }
+    );
+
+    const { container } = renderSeedDashboard({ overlays: overlaysWithSeveralMetrics });
+    const ordersPublishLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("publish orders"));
+
+    expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1,250 TPS");
+    expect(ordersPublishLabel).toHaveTextContent("Kinesis publish");
+  });
+
   it("lets operators edit selected edge controls", async () => {
     const user = userEvent.setup();
     const onControlUpdated = vi.fn();
