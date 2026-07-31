@@ -200,7 +200,7 @@ function buildNodePositions(stages: FlowStageModel[], lanes: { id: string }[]): 
   const positions = new Map<string, FlowPoint>();
 
   stages.forEach((stage, stageIndex) => {
-    const { left, top } = getStagePosition(stageIndex, stage.lane, lanes);
+    const { left, top } = getStagePosition(stage.column ?? stageIndex, stage.lane, lanes);
     stage.nodes.forEach((node, nodeIndex) => {
       if (positions.has(node.id)) {
         return;
@@ -297,7 +297,7 @@ function buildRouteOffsets(edges: VisualEdge[]): Map<string, number> {
     }
     const sortedEdges = [...groupedEdges].sort((left, right) => flowEdgeId(left).localeCompare(flowEdgeId(right)));
     sortedEdges.forEach((edge, index) => {
-      offsets.set(flowEdgeId(edge), (index - (sortedEdges.length - 1) / 2) * 38);
+      offsets.set(flowEdgeId(edge), (index - (sortedEdges.length - 1) / 2) * 80);
     });
   }
   return offsets;

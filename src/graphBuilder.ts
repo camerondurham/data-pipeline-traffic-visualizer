@@ -55,6 +55,7 @@ export interface FlowStageModel {
   id: string;
   label: string;
   lane: string;
+  column?: number;
   nodes: GraphNode[];
 }
 
@@ -281,6 +282,7 @@ export function getFlowLayout(model: GraphModel, view: RegionView): FlowLayoutMo
     id: stage.id,
     label: stage.label,
     lane: stage.lane,
+    column: stage.column,
     nodes: uniqueNodesById(stage.node_ids, model.nodeById)
   }));
   const nodeIds = new Set(stages.flatMap((stage) => stage.nodes.map((node) => node.id)));

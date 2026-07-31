@@ -41,6 +41,7 @@ export const FlowStageSchema = z
     id: RequiredString,
     label: RequiredString,
     lane: RequiredString,
+    column: z.number().int().nonnegative().optional(),
     node_ids: z.array(RequiredString).min(1)
   })
   .strict();

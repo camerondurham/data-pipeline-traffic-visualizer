@@ -39,6 +39,47 @@ async function waitForPreview() {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
+async function waitForRepresentativePipeline(page) {
+  await page.getByTestId("flow-diagram").waitFor();
+  await page.locator('[data-id="edge.use1.sources.web.to.orders.ingestion"]').waitFor({ state: "attached" });
+  await page.locator('[data-id="edge.use1.hot.indexers.to.orders.cluster"]').waitFor({ state: "attached" });
+  await page.locator('[aria-label="Select edge publish orders"]').waitFor();
+  await page.locator('[aria-label="Select edge bulk index orders"]').waitFor();
+  await page.locator('[aria-label="Select edge replay enriched events"]').waitFor();
+  await page.waitForTimeout(600);
+}
+
+async function assertCompactOverlayLabelsDoNotOverlap(page) {
+  const overlaps = await page.locator(".edge-label.is-overlay-visible").evaluateAll((labels) => {
+    const entries = labels
+      .map((label) => ({
+        name: label.getAttribute("aria-label") ?? "unknown edge",
+        rect: label.getBoundingClientRect()
+      }))
+      .filter(({ rect }) => rect.width > 0 && rect.height > 0);
+    const collisions = [];
+
+    for (let leftIndex = 0; leftIndex < entries.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < entries.length; rightIndex += 1) {
+        const left = entries[leftIndex];
+        const right = entries[rightIndex];
+        const overlapWidth = Math.min(left.rect.right, right.rect.right) - Math.max(left.rect.left, right.rect.left);
+        const overlapHeight = Math.min(left.rect.bottom, right.rect.bottom) - Math.max(left.rect.top, right.rect.top);
+
+        if (overlapWidth > 1 && overlapHeight > 1) {
+          collisions.push(`${left.name} overlaps ${right.name}`);
+        }
+      }
+    }
+
+    return collisions;
+  });
+
+  if (overlaps.length > 0) {
+    throw new Error(`Compact overlay labels overlap at laptop width:\n${overlaps.join("\n")}`);
+  }
+}
+
 async function main() {
   await mkdir(dirname(screenshotPath), { recursive: true });
 
@@ -48,15 +89,11 @@ async function main() {
   try {
     await waitForPreview();
     browser = await chromium.launch();
-    const page = await browser.newPage({ viewport: { width: 2800, height: 1100 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width: 2800, height: 1400 }, deviceScaleFactor: 1 });
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
-    await page.getByTestId("flow-diagram").waitFor();
-    await page.locator('[data-id="edge.use1.sources.web.to.orders.ingestion"]').waitFor({ state: "attached" });
-    await page.locator('[data-id="edge.use1.hot.indexers.to.orders.cluster"]').waitFor({ state: "attached" });
-    await page.locator('[aria-label="Select edge publish orders"]').waitFor();
-    await page.locator('[aria-label="Select edge bulk index orders"]').waitFor();
-    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Dark", exact: true }).click();
+    await waitForRepresentativePipeline(page);
     await page.locator(".flow-panel").first().screenshot({ path: screenshotPath });
     await page.getByRole("button", { name: /Runtime YAML/i }).click();
     await page.getByLabel("architecture.yaml").waitFor();
@@ -65,6 +102,13 @@ async function main() {
       return editor instanceof HTMLTextAreaElement && editor.value.includes("nodes:");
     });
     await page.locator(".cloudscape-app-shell").screenshot({ path: editorScreenshotPath });
+
+    const laptopPage = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
+    await laptopPage.goto(url, { waitUntil: "domcontentloaded" });
+    await laptopPage.getByRole("button", { name: "Dark", exact: true }).click();
+    await waitForRepresentativePipeline(laptopPage);
+    await assertCompactOverlayLabelsDoNotOverlap(laptopPage);
+    await laptopPage.close();
 
     console.log(`Captured ${screenshotPath}`);
     console.log(`Captured ${editorScreenshotPath}`);

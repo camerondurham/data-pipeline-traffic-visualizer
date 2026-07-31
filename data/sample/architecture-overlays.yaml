@@ -161,6 +161,42 @@ node_decorators:
       - label: instance
         value: r7g.large.search
 
+  - id: preagg-slow-queue
+    node_id: use1.pre_agg.slow_queues
+    title: Pre-aggregate SQS slow queue
+    metrics:
+      - label: depth
+        value: 840
+      - label: oldest
+        value: 38s
+
+  - id: preagg-replay-service
+    node_id: use1.pre_agg.slow_processor
+    title: Pre-aggregate replay service
+    metrics:
+      - label: tasks
+        value: 4
+      - label: p99
+        value: 210ms
+
+  - id: hot-slow-queue
+    node_id: use1.hot.slow_queues
+    title: Hot-tier SQS slow queue
+    metrics:
+      - label: depth
+        value: 1420
+      - label: oldest
+        value: 52s
+
+  - id: hot-replay-service
+    node_id: use1.hot.slow_processor
+    title: Hot-tier replay service
+    metrics:
+      - label: tasks
+        value: 6
+      - label: replay batch
+        value: 200
+
 edge_decorators:
   - id: live-tps-edge-web-orders-ingestion
     edge_id: edge.use1.sources.web.to.orders.ingestion
@@ -329,6 +365,102 @@ edge_decorators:
         value: 680
     tone: read
     thickness: 3.4
+
+  - id: live-tps-edge-mobile-preagg-sideline
+    edge_id: edge.use1.sources.mobile.to.preagg.slow
+    title: Mobile Events Service to pre-aggregate slow queue
+    metric_label: 18 TPS
+    badges:
+      - sideline
+    metrics:
+      - label: TPS
+        value: 18
+    tone: secondary
+    thickness: 2.2
+
+  - id: live-tps-edge-preagg-slow-drain
+    edge_id: edge.use1.preagg.slow.to.processor
+    title: Pre-aggregate slow queue to replay service
+    metric_label: 16 TPS
+    badges:
+      - SQS drain
+    metrics:
+      - label: TPS
+        value: 16
+    tone: secondary
+    thickness: 2.1
+
+  - id: live-tps-edge-preagg-replay
+    edge_id: edge.use1.preagg.processor.to.aggregate
+    title: Pre-aggregate replay service to enriched events
+    metric_label: 15 TPS
+    badges:
+      - replay
+    metrics:
+      - label: TPS
+        value: 15
+    tone: secondary
+    thickness: 2.1
+
+  - id: live-tps-edge-hot-router-sideline
+    edge_id: edge.use1.hot.router.to.slow
+    title: Search fanout service to hot-tier slow queue
+    metric_label: 42 TPS
+    badges:
+      - throttled
+    metrics:
+      - label: TPS
+        value: 42
+    tone: secondary
+    thickness: 2.5
+
+  - id: live-tps-edge-indexer-sideline
+    edge_id: edge.use1.hot.indexers.to.slow
+    title: OpenSearch indexer service to hot-tier slow queue
+    metric_label: 27 TPS
+    badges:
+      - failed writes
+    metrics:
+      - label: TPS
+        value: 27
+    tone: secondary
+    thickness: 2.3
+
+  - id: live-tps-edge-hot-slow-drain
+    edge_id: edge.use1.hot.slow.to.processor
+    title: Hot-tier slow queue to replay service
+    metric_label: 58 TPS
+    badges:
+      - SQS drain
+    metrics:
+      - label: TPS
+        value: 58
+    tone: secondary
+    thickness: 2.7
+
+  - id: live-tps-edge-products-replay
+    edge_id: edge.use1.hot.processor.to.products.stream
+    title: Hot-tier replay service to products index Kinesis
+    metric_label: 32 TPS
+    badges:
+      - replay
+    metrics:
+      - label: TPS
+        value: 32
+    tone: secondary
+    thickness: 2.4
+
+  - id: live-tps-edge-orders-replay
+    edge_id: edge.use1.hot.processor.to.orders.stream
+    title: Hot-tier replay service to orders index Kinesis
+    metric_label: 26 TPS
+    badges:
+      - replay
+    metrics:
+      - label: TPS
+        value: 26
+    tone: secondary
+    thickness: 2.3
 
   - id: partner-feed-throttle
     edge_id: edge.use1.sources.partner.to.partner.ingestion

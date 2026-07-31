@@ -18,6 +18,8 @@ describe("sample live TPS overlays", () => {
     expect(SAMPLE_LIVE_TPS_SOURCE).toBe("sample-live-tps");
     expect(snapshot.node_decorators.map((decorator) => decorator.id)).toContain("live-tps-orders-ingestion-stream");
     expect(snapshot.edge_decorators.map((decorator) => decorator.id)).toContain("live-tps-edge-web-orders-ingestion");
+    expect(snapshot.edge_decorators.map((decorator) => decorator.id)).toContain("live-tps-edge-preagg-replay");
+    expect(snapshot.edge_decorators.map((decorator) => decorator.id)).toContain("live-tps-edge-hot-slow-drain");
     expect(snapshot.node_decorators.find((decorator) => decorator.id === "orders-stream-capacity")).toBeDefined();
     expect(snapshot.route_decorators).toEqual(seedOverlays.route_decorators);
     expect(snapshot.controls).toEqual(seedOverlays.controls);
