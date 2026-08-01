@@ -217,7 +217,7 @@
 .topology-edge.is-incoming     { stroke: var(--indigo); stroke-width: 3.8; filter: drop-shadow(0 0 5px rgba(140, 140, 255, 0.48)); }
 .topology-edge.is-dimmed       { opacity: 0.14; }
 
-/* ----- Edge labels — dot by default, expand on hover/selection */
+/* ----- Edge labels — dot by default, compact TPS when overlays are visible */
 .edge-label {
   position: absolute;
   z-index: 8;
@@ -319,6 +319,30 @@
   white-space: nowrap;
 }
 
+/* The global overlay toggle reveals only the primary metric. Edge action and
+   diagnostic badges remain available on hover or selection. */
+.edge-label.is-overlay-visible {
+  z-index: 12;
+  gap: 4px;
+  padding: 3px 6px;
+  border-radius: var(--rad);
+}
+
+.edge-label.is-overlay-visible .edge-label-overlay-chips {
+  flex-wrap: nowrap;
+  max-width: 90px;
+  max-height: 20px;
+  opacity: 1;
+}
+
+.edge-label.is-overlay-visible .edge-label-overlay-chips b {
+  display: none;
+}
+
+.edge-label.is-overlay-visible .edge-label-overlay-chips .edge-label-primary-chip {
+  display: inline-flex;
+}
+
 /* Tone color drives both the dot and the expanded text */
 .edge-label.tone-primary   { color: var(--signal); }
 .edge-label.tone-secondary { color: var(--amber); }
@@ -336,8 +360,7 @@
 
 /* Expanded state on hover or when this edge is the selected one */
 .edge-label:hover,
-.edge-label.is-selected,
-.edge-label.is-expanded {
+.edge-label.is-selected {
   z-index: 30;
   padding: 4px 10px;
   border-radius: var(--rad);
@@ -352,19 +375,24 @@
 }
 
 .edge-label:hover .edge-label-text,
-.edge-label.is-selected .edge-label-text,
-.edge-label.is-expanded .edge-label-text {
+.edge-label.is-selected .edge-label-text {
   max-width: 240px;
   opacity: 1;
   text-overflow: ellipsis;
 }
 
 .edge-label:hover .edge-label-overlay-chips,
-.edge-label.is-selected .edge-label-overlay-chips,
-.edge-label.is-expanded .edge-label-overlay-chips {
+.edge-label.is-selected .edge-label-overlay-chips {
+  flex-wrap: wrap;
   max-width: 280px;
   max-height: 80px;
+  overflow: visible;
   opacity: 1;
+}
+
+.edge-label:hover .edge-label-overlay-chips b,
+.edge-label.is-selected .edge-label-overlay-chips b {
+  display: inline-flex;
 }
 
 .edge-label.is-selected {
@@ -387,34 +415,6 @@
 }
 
 .edge-label.is-incoming {
-  border-color: var(--indigo);
-  color: var(--indigo);
-  box-shadow:
-    0 0 0 3px rgba(13, 17, 23, 0.95),
-    0 0 0 1px rgba(140, 140, 255, 0.55),
-    0 8px 18px rgba(0, 0, 0, 0.62);
-}
-
-.edge-label.is-expanded.is-selected {
-  border-color: var(--vermillion);
-  background: rgba(48, 14, 14, 0.96);
-  color: #ffd2d2;
-  box-shadow:
-    0 0 0 3px rgba(13, 17, 23, 0.95),
-    0 0 0 1px rgba(255, 90, 78, 0.55),
-    0 10px 24px rgba(0, 0, 0, 0.7);
-}
-
-.edge-label.is-expanded.is-outgoing {
-  border-color: var(--signal);
-  color: var(--signal);
-  box-shadow:
-    0 0 0 3px rgba(13, 17, 23, 0.95),
-    0 0 0 1px rgba(91, 233, 210, 0.55),
-    0 8px 18px rgba(0, 0, 0, 0.62);
-}
-
-.edge-label.is-expanded.is-incoming {
   border-color: var(--indigo);
   color: var(--indigo);
   box-shadow:
@@ -1118,8 +1118,7 @@ body[data-visual-mode="light"] .edge-label.has-overlay-chips {
 body[data-visual-mode="light"] .edge-label:hover,
 body[data-visual-mode="light"] .edge-label.is-selected,
 body[data-visual-mode="light"] .edge-label.is-outgoing,
-body[data-visual-mode="light"] .edge-label.is-incoming,
-body[data-visual-mode="light"] .edge-label.is-expanded {
+body[data-visual-mode="light"] .edge-label.is-incoming {
   box-shadow:
     0 0 0 3px rgba(255, 255, 255, 0.96),
     0 0 0 1px var(--rule-strong),
@@ -1127,12 +1126,6 @@ body[data-visual-mode="light"] .edge-label.is-expanded {
 }
 
 body[data-visual-mode="light"] .edge-label.is-selected {
-  border-color: var(--vermillion);
-  background: #fff7f7;
-  color: var(--vermillion);
-}
-
-body[data-visual-mode="light"] .edge-label.is-expanded.is-selected {
   border-color: var(--vermillion);
   background: #fff7f7;
   color: var(--vermillion);

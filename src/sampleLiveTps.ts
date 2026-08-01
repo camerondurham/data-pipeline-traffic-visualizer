@@ -269,6 +269,86 @@ const EDGE_TPS_SERIES: EdgeTpsSeries[] = [
     phase: 6,
     period: 9,
     tone: "cross"
+  },
+  {
+    id: "live-tps-edge-mobile-preagg-sideline",
+    edgeId: "edge.use1.sources.mobile.to.preagg.slow",
+    title: "Live TPS - Malformed events sidelined",
+    baseTps: 18,
+    swing: 6,
+    phase: 1,
+    period: 8,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-preagg-slow-drain",
+    edgeId: "edge.use1.preagg.slow.to.processor",
+    title: "Live TPS - Pre-aggregate SQS drain",
+    baseTps: 16,
+    swing: 5,
+    phase: 3,
+    period: 9,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-preagg-replay",
+    edgeId: "edge.use1.preagg.processor.to.aggregate",
+    title: "Live TPS - Enriched event replay",
+    baseTps: 15,
+    swing: 5,
+    phase: 5,
+    period: 9,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-hot-router-sideline",
+    edgeId: "edge.use1.hot.router.to.slow",
+    title: "Live TPS - Fanout throttles sidelined",
+    baseTps: 42,
+    swing: 12,
+    phase: 2,
+    period: 7,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-indexer-sideline",
+    edgeId: "edge.use1.hot.indexers.to.slow",
+    title: "Live TPS - Failed index writes sidelined",
+    baseTps: 27,
+    swing: 9,
+    phase: 4,
+    period: 8,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-hot-slow-drain",
+    edgeId: "edge.use1.hot.slow.to.processor",
+    title: "Live TPS - Hot-tier SQS drain",
+    baseTps: 58,
+    swing: 16,
+    phase: 6,
+    period: 7,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-products-replay",
+    edgeId: "edge.use1.hot.processor.to.products.stream",
+    title: "Live TPS - Products replay",
+    baseTps: 32,
+    swing: 10,
+    phase: 1,
+    period: 6,
+    tone: "secondary"
+  },
+  {
+    id: "live-tps-edge-orders-replay",
+    edgeId: "edge.use1.hot.processor.to.orders.stream",
+    title: "Live TPS - Orders replay",
+    baseTps: 26,
+    swing: 8,
+    phase: 3,
+    period: 6,
+    tone: "secondary"
   }
 ];
 

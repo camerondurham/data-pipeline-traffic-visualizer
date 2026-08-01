@@ -81,6 +81,23 @@ describe("graphBuilder", () => {
     ).toThrow(/Parent cycle detected/);
   });
 
+  it("rejects stages that occupy the same column in one lane", () => {
+    const manifest = smallManifest();
+    manifest.views[0] = {
+      id: "regional_end_to_end",
+      label: "Regional",
+      mode: "region",
+      region: "use1",
+      lanes: [{ id: "normal", label: "Main" }],
+      stages: [
+        { id: "first", label: "First", lane: "normal", column: 0, node_ids: ["use1.a"] },
+        { id: "second", label: "Second", lane: "normal", column: 0, node_ids: ["use1.b"] }
+      ]
+    };
+
+    expect(() => buildGraphModel(manifest)).toThrow(/duplicate stage column.*normal.*0/i);
+  });
+
   it("derives crossRegion from direct endpoints and keeps all nodes visible", () => {
     const model = buildGraphModel(smallManifest());
     const edge = model.visualEdges.find((candidate) => candidate.id === "edge.a.to.remote.a");

@@ -133,6 +133,10 @@ describe("Dashboard", () => {
     expect(screen.getByRole("heading", { name: "Consumer / indexer" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "OpenSearch clusters" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Query service" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pre-aggregate slow queue" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pre-aggregate replay service" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hot-tier slow queue" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Hot-tier replay service" })).toBeInTheDocument();
     expect(screen.getAllByText("Checkout API Service").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Mobile Events Service").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Orders Kinesis Stream").length).toBeGreaterThan(0);
@@ -299,9 +303,11 @@ describe("Dashboard", () => {
     expect(toggle).toBeChecked();
     expect(canvas).toHaveClass("edge-overlay-labels-expanded");
     expect(ordersPublishLabel).toHaveClass("has-overlay-chips");
-    expect(ordersPublishLabel).toHaveClass("is-expanded");
+    expect(ordersPublishLabel).toHaveClass("is-overlay-visible");
+    expect(ordersPublishLabel).not.toHaveClass("is-expanded");
     expect(ordersPublishLabel).toHaveTextContent("1,250 TPS");
     expect(ordersPublishLabel).toHaveTextContent("Kinesis publish");
+    expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1,250 TPS");
 
     await user.click(toggle);
 
@@ -309,7 +315,47 @@ describe("Dashboard", () => {
       .find((label) => label.textContent?.includes("publish orders"));
     expect(toggle).not.toBeChecked();
     expect(canvas).not.toHaveClass("edge-overlay-labels-expanded");
-    expect(collapsedOrdersPublishLabel).not.toHaveClass("is-expanded");
+    expect(collapsedOrdersPublishLabel).not.toHaveClass("is-overlay-visible");
+  });
+
+  it("uses a formatted metric as the compact label when metric_label is omitted", () => {
+    const { overlays } = loadSeedData();
+    const overlaysWithoutExplicitMetric = structuredClone(overlays);
+    const ordersDecorator = overlaysWithoutExplicitMetric.edge_decorators.find(
+      (decorator) => decorator.id === "live-tps-edge-web-orders-ingestion"
+    );
+    if (!ordersDecorator) {
+      throw new Error("Missing orders edge decorator");
+    }
+    delete ordersDecorator.metric_label;
+
+    const { container } = renderSeedDashboard({ overlays: overlaysWithoutExplicitMetric });
+    const ordersPublishLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("publish orders"));
+
+    expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1250 TPS");
+  });
+
+  it("keeps diagnostic badges available when an edge has several metrics", () => {
+    const { overlays } = loadSeedData();
+    const overlaysWithSeveralMetrics = structuredClone(overlays);
+    const ordersDecorator = overlaysWithSeveralMetrics.edge_decorators.find(
+      (decorator) => decorator.id === "live-tps-edge-web-orders-ingestion"
+    );
+    if (!ordersDecorator) {
+      throw new Error("Missing orders edge decorator");
+    }
+    ordersDecorator.metrics.push(
+      { label: "errors", value: 2 },
+      { label: "p99", value: "84ms" }
+    );
+
+    const { container } = renderSeedDashboard({ overlays: overlaysWithSeveralMetrics });
+    const ordersPublishLabel = Array.from(container.querySelectorAll(".edge-label"))
+      .find((label) => label.textContent?.includes("publish orders"));
+
+    expect(ordersPublishLabel?.querySelector(".edge-label-primary-chip")).toHaveTextContent("1,250 TPS");
+    expect(ordersPublishLabel).toHaveTextContent("Kinesis publish");
   });
 
   it("lets operators edit selected edge controls", async () => {

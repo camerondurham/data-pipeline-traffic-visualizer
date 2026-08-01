@@ -68,7 +68,7 @@ Run the local API-backed demo with:
 npm run demo:live
 ```
 
-The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates node TPS chips plus every edge in the representative producer → Kinesis → consumer → Kinesis → indexer → OpenSearch → query path without a separate dashboard data channel.
+The command starts the Vite dev server, opens the existing runtime API middleware, and posts a complete sample overlay snapshot to `POST /api/overlays/snapshot` every 2 seconds. The console receives the existing SSE revision event, refetches `GET /api/architecture`, and updates node TPS chips plus every edge in the representative producer → Kinesis → consumer → Kinesis → indexer → OpenSearch → query path, including exception queue, drain, and replay traffic, without a separate dashboard data channel.
 
 The live values are generated sample telemetry from the committed architecture; they are intended to demonstrate how a real collector would push full overlay snapshots.
 
@@ -110,7 +110,7 @@ Control flow:
 
 This model scales by keeping topology stable and using control metadata as the identity map for backend systems.
 
-The default sample is a focused service-to-resource pipeline. It shows producer services publishing to Kinesis, consumer services reading and republishing enriched events, an indexing service writing to OpenSearch, and a query service reading the indexed data. Every edge in the view has a TPS overlay; the broader regional, cross-region, replay, and partner paths remain available as secondary views.
+The default sample is a focused service-to-resource pipeline with 22 visible edges across a main data path and an aligned exception/replay lane. It shows producer services publishing to Kinesis, consumers reading and republishing enriched events, an indexing service writing to OpenSearch, a query service reading the indexed data, plus SQS sideline, drain, and replay paths at both the pre-aggregate and hot tiers. Every edge in the view has a TPS overlay; the broader regional, cross-region, and partner paths remain available as secondary views.
 
 The screenshots below are generated from the committed sample files in `data/sample/` by `npm run screenshot:architecture`.
 
@@ -141,14 +141,14 @@ Every edge requires:
 - `type`: edge classification such as `publish`, `feed`, `route`, `consume`, `index`, `serve`, `sideline`, `drain`, or `replay`.
 - `label`: optional display text.
 
-Views are explicit. The default sample view is the focused `representative_data_pipeline` service-to-resource path so the TPS overlays remain readable at a glance. The broader `regional_end_to_end` view keeps the USE1 workflow visible while staging summary destination streams for USW2 and EUW1, and per-region views retain deeper destination-region detail. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs.
+Views are explicit. The default sample view is the focused `representative_data_pipeline` service-to-resource path with a separate exception/replay lane so the TPS overlays remain readable at a glance. The broader `regional_end_to_end` view keeps the USE1 workflow visible while staging summary destination streams for USW2 and EUW1, and per-region views retain deeper destination-region detail. The model also supports destination-region cross-region views and focus views with `focus_edges`, `primary_edges`, and `secondary_edges` lists of edge IDs.
 
 Region views can also define presentation metadata:
 
 - `lanes`: named horizontal bands such as `cold`, `normal`, `hot`, `slow_lane`, and `partner`.
-- `stages`: ordered left-to-right columns. Each stage has `id`, `label`, `lane`, and `node_ids`.
+- `stages`: left-to-right columns. Each stage has `id`, `label`, `lane`, and `node_ids`; optional integer `column` aligns stages from different lanes without changing manifest order.
 
-Stage `node_ids` must reference existing nodes. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
+Stage `node_ids` must reference existing nodes, and each effective `(lane, column)` position must be unique. Layout metadata does not create topology and must not introduce synthetic nodes or edges.
 
 ## Overlay Contract
 

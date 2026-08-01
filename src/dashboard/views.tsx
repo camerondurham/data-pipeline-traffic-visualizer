@@ -132,7 +132,7 @@ function FlowDiagram({
             ))}
           </div>
           {layout.stages.map((stage, stageIndex) => {
-            const { left, top } = getStagePosition(stageIndex, stage.lane, layout.lanes);
+            const { left, top } = getStagePosition(stage.column ?? stageIndex, stage.lane, layout.lanes);
             return (
               <section
                 key={stage.id}
@@ -178,6 +178,9 @@ function RegionalView({
       .filter((region) => region !== view.region)
   ];
   const spansRegions = regions.length > 1;
+  const hasExceptionLane =
+    layout.lanes.some((lane) => lane.id === "slow_lane") &&
+    layout.stages.some((stage) => stage.lane === "slow_lane");
 
   return (
     <section className="topology-view" aria-label="Regional end-to-end topology">
@@ -186,7 +189,9 @@ function RegionalView({
         subtitle={
           spansRegions
             ? "Source-region workflow with remote destination stream summary nodes"
-            : "Whiteboard-style stages grouped by application/system type"
+            : hasExceptionLane
+              ? "Primary data flow with explicit exception, drain, and replay paths"
+              : "Whiteboard-style stages grouped by application/system type"
         }
         layout={layout}
         model={model}

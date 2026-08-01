@@ -7,6 +7,7 @@ import { chromium } from "playwright";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const screenshotPath = resolve(repoRoot, "docs", "architecture-workflow.png");
 const editorScreenshotPath = resolve(repoRoot, "docs", "architecture-workflow-editor.png");
+const representativeEdgeCount = 22;
 const port = process.env.SCREENSHOT_PORT ?? "4174";
 const url = `http://127.0.0.1:${port}/`;
 const serverBin = resolve(repoRoot, "dist-server", "startServer.js");
@@ -39,6 +40,150 @@ async function waitForPreview() {
   throw new Error(`Timed out waiting for ${url}`);
 }
 
+async function waitForRepresentativePipeline(page) {
+  await page.getByTestId("flow-diagram").waitFor();
+  await page.locator('[data-id="edge.use1.sources.web.to.orders.ingestion"]').waitFor({ state: "attached" });
+  await page.locator('[data-id="edge.use1.hot.indexers.to.orders.cluster"]').waitFor({ state: "attached" });
+  await page.locator('[aria-label="Select edge publish orders"]').waitFor();
+  await page.locator('[aria-label="Select edge bulk index orders"]').waitFor();
+  await page.locator('[aria-label="Select edge replay enriched events"]').waitFor();
+  await page.waitForTimeout(600);
+}
+
+async function assertCompactOverlayLabelsDoNotOverlap(page) {
+  const compactLabels = page.locator(".edge-label.is-overlay-visible");
+  const primaryMetricChips = compactLabels.locator(".edge-label-primary-chip");
+  const renderedMetricCount = await primaryMetricChips.count();
+  if (renderedMetricCount !== representativeEdgeCount) {
+    throw new Error(
+      `Expected ${representativeEdgeCount} compact primary metrics, rendered ${renderedMetricCount}`
+    );
+  }
+  const hiddenMetricLabels = await primaryMetricChips.evaluateAll((chips) =>
+    chips
+      .filter((chip) => {
+        const rect = chip.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          return true;
+        }
+        let visibleLeft = rect.left;
+        let visibleRight = rect.right;
+        let visibleTop = rect.top;
+        let visibleBottom = rect.bottom;
+        let current = chip;
+        while (current instanceof HTMLElement) {
+          const style = window.getComputedStyle(current);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            style.visibility === "collapse" ||
+            Number.parseFloat(style.opacity) <= 0
+          ) {
+            return true;
+          }
+          const ancestorRect = current.getBoundingClientRect();
+          if (["auto", "clip", "hidden", "scroll"].includes(style.overflowX)) {
+            visibleLeft = Math.max(visibleLeft, ancestorRect.left);
+            visibleRight = Math.min(visibleRight, ancestorRect.right);
+          }
+          if (["auto", "clip", "hidden", "scroll"].includes(style.overflowY)) {
+            visibleTop = Math.max(visibleTop, ancestorRect.top);
+            visibleBottom = Math.min(visibleBottom, ancestorRect.bottom);
+          }
+          if (visibleRight <= visibleLeft || visibleBottom <= visibleTop) {
+            return true;
+          }
+          current = current.parentElement;
+        }
+        return false;
+      })
+      .map((chip) => chip.closest(".edge-label")?.getAttribute("aria-label") ?? "unknown edge")
+  );
+  if (hiddenMetricLabels.length > 0) {
+    throw new Error(`Compact primary metrics are not visible:\n${hiddenMetricLabels.join("\n")}`);
+  }
+
+  const overlaps = await compactLabels.evaluateAll((labels) => {
+    const entries = labels
+      .map((label) => ({
+        name: label.getAttribute("aria-label") ?? "unknown edge",
+        rect: label.getBoundingClientRect()
+      }))
+      .filter(({ rect }) => rect.width > 0 && rect.height > 0);
+    const collisions = [];
+
+    for (let leftIndex = 0; leftIndex < entries.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < entries.length; rightIndex += 1) {
+        const left = entries[leftIndex];
+        const right = entries[rightIndex];
+        const overlapWidth = Math.min(left.rect.right, right.rect.right) - Math.max(left.rect.left, right.rect.left);
+        const overlapHeight = Math.min(left.rect.bottom, right.rect.bottom) - Math.max(left.rect.top, right.rect.top);
+
+        if (overlapWidth > 1 && overlapHeight > 1) {
+          collisions.push(`${left.name} overlaps ${right.name}`);
+        }
+      }
+    }
+
+    return collisions;
+  });
+
+  if (overlaps.length > 0) {
+    throw new Error(`Compact overlay labels overlap at laptop width:\n${overlaps.join("\n")}`);
+  }
+}
+
+async function assertExpandedOverlayDetailsWrap(page) {
+  const edgeLabel = page.locator('[aria-label="Select edge publish orders"]');
+  await edgeLabel.hover();
+  const overlayChips = edgeLabel.locator(".edge-label-overlay-chips");
+  const chipState = await overlayChips.evaluate((container) => ({
+    flexWrap: window.getComputedStyle(container).flexWrap,
+    visibleChipCount: Array.from(container.querySelectorAll("b")).filter((chip) => {
+      const rect = chip.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return false;
+      }
+      let visibleLeft = rect.left;
+      let visibleRight = rect.right;
+      let visibleTop = rect.top;
+      let visibleBottom = rect.bottom;
+      let current = chip;
+      while (current instanceof HTMLElement) {
+        const style = window.getComputedStyle(current);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.visibility === "collapse" ||
+          Number.parseFloat(style.opacity) <= 0
+        ) {
+          return false;
+        }
+        const ancestorRect = current.getBoundingClientRect();
+        if (["auto", "clip", "hidden", "scroll"].includes(style.overflowX)) {
+          visibleLeft = Math.max(visibleLeft, ancestorRect.left);
+          visibleRight = Math.min(visibleRight, ancestorRect.right);
+        }
+        if (["auto", "clip", "hidden", "scroll"].includes(style.overflowY)) {
+          visibleTop = Math.max(visibleTop, ancestorRect.top);
+          visibleBottom = Math.min(visibleBottom, ancestorRect.bottom);
+        }
+        if (visibleRight <= visibleLeft || visibleBottom <= visibleTop) {
+          return false;
+        }
+        current = current.parentElement;
+      }
+      return true;
+    }).length
+  }));
+
+  if (chipState.flexWrap !== "wrap" || chipState.visibleChipCount !== 3) {
+    throw new Error(
+      `Expected expanded overlay details to wrap with 3 visible chips, got ${chipState.flexWrap} and ${chipState.visibleChipCount}`
+    );
+  }
+}
+
 async function main() {
   await mkdir(dirname(screenshotPath), { recursive: true });
 
@@ -48,15 +193,11 @@ async function main() {
   try {
     await waitForPreview();
     browser = await chromium.launch();
-    const page = await browser.newPage({ viewport: { width: 2800, height: 1100 }, deviceScaleFactor: 1 });
+    const page = await browser.newPage({ viewport: { width: 2800, height: 1400 }, deviceScaleFactor: 1 });
 
     await page.goto(url, { waitUntil: "domcontentloaded" });
-    await page.getByTestId("flow-diagram").waitFor();
-    await page.locator('[data-id="edge.use1.sources.web.to.orders.ingestion"]').waitFor({ state: "attached" });
-    await page.locator('[data-id="edge.use1.hot.indexers.to.orders.cluster"]').waitFor({ state: "attached" });
-    await page.locator('[aria-label="Select edge publish orders"]').waitFor();
-    await page.locator('[aria-label="Select edge bulk index orders"]').waitFor();
-    await page.waitForTimeout(600);
+    await page.getByRole("button", { name: "Dark", exact: true }).click();
+    await waitForRepresentativePipeline(page);
     await page.locator(".flow-panel").first().screenshot({ path: screenshotPath });
     await page.getByRole("button", { name: /Runtime YAML/i }).click();
     await page.getByLabel("architecture.yaml").waitFor();
@@ -65,6 +206,14 @@ async function main() {
       return editor instanceof HTMLTextAreaElement && editor.value.includes("nodes:");
     });
     await page.locator(".cloudscape-app-shell").screenshot({ path: editorScreenshotPath });
+
+    const laptopPage = await browser.newPage({ viewport: { width: 1440, height: 960 }, deviceScaleFactor: 1 });
+    await laptopPage.goto(url, { waitUntil: "domcontentloaded" });
+    await laptopPage.getByRole("button", { name: "Dark", exact: true }).click();
+    await waitForRepresentativePipeline(laptopPage);
+    await assertCompactOverlayLabelsDoNotOverlap(laptopPage);
+    await assertExpandedOverlayDetailsWrap(laptopPage);
+    await laptopPage.close();
 
     console.log(`Captured ${screenshotPath}`);
     console.log(`Captured ${editorScreenshotPath}`);

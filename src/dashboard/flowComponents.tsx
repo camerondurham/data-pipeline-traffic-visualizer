@@ -118,7 +118,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
   const label = edge.label ?? edge.type;
   const tone = edgeTone(edge, overlay);
   const overlayLabelChips = edgeOverlayLabelChips(resolvedOverlay);
-  const expanded = Boolean(props.data?.edgeOverlayLabelsExpanded && overlayLabelChips.length);
+  const overlayVisible = Boolean(props.data?.edgeOverlayLabelsExpanded && overlayLabelChips.length);
 
   return (
     <>
@@ -133,7 +133,7 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
       />
       <EdgeLabelRenderer>
         <div
-          className={`edge-label tone-${tone} ${overlayLabelChips.length ? "has-overlay-chips" : ""} ${expanded ? "is-expanded" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
+          className={`edge-label tone-${tone} ${overlayLabelChips.length ? "has-overlay-chips" : ""} ${overlayVisible ? "is-overlay-visible" : ""} ${props.selected ? "is-selected" : ""} ${focusState ? `is-${focusState}` : ""}`}
           style={{ transform: `translate(-50%, -50%) translate(${route.labelX}px, ${route.labelY}px)` }}
           title={overlay?.tooltip ?? edgeTooltip(edge)}
           role="button"
@@ -155,8 +155,10 @@ function TopologyEdge(props: EdgeProps<TopologyFlowEdge>) {
           <span className="edge-label-text">{label}</span>
           {overlayLabelChips.length ? (
             <span className="edge-label-overlay-chips" aria-label={`${label} overlay labels`}>
-              {overlayLabelChips.map((chip) => (
-                <b key={chip}>{chip}</b>
+              {overlayLabelChips.map((chip, index) => (
+                <b key={chip} className={index === 0 ? "edge-label-primary-chip" : undefined}>
+                  {chip}
+                </b>
               ))}
             </span>
           ) : null}
