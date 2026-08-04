@@ -101,9 +101,8 @@ async function postOverlay(
 async function postControlValue(
   baseUrl: string,
   body: { controlId: string; desiredValue?: unknown; priority?: unknown; source?: string } = {
-    controlId: "partner-token-aggregate-throttle",
+    controlId: "orders-processor-outflow-throttle",
     desiredValue: 750,
-    priority: 30,
     source: "graph-control"
   }
 ) {
@@ -301,7 +300,7 @@ describe("architecture runtime API", () => {
         label: "lag",
         value: "42"
       });
-      expect(payload.overlays.controls).toHaveLength(1);
+      expect(payload.overlays.controls).toHaveLength(11);
     } finally {
       await api.close();
     }
@@ -334,27 +333,25 @@ describe("architecture runtime API", () => {
     const api = await startApi({ graphControlsVisible: true, graphControlApplyEnabled: true });
     try {
       const seed = await readArchitecture(api.baseUrl);
-      const seedControl = seed.overlays.controls.find((control) => control.id === "partner-token-aggregate-throttle");
+      const seedControl = seed.overlays.controls.find((control) => control.id === "orders-processor-outflow-throttle");
       expect(seedControl?.state.desired_value).toBe(500);
-      expect(seedControl?.state.priority).toBe(20);
 
       const response = await postControlValue(api.baseUrl);
       expect(response.status).toBe(200);
 
       const payload = await readArchitecture(api.baseUrl);
-      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(payload.overlayRevision).toBe(seed.overlayRevision + 1);
       expect(payload.overlaySource).toBe("graph-control");
       expect(payload.overlayStatus.state).toBe("dynamic");
       expect(control?.state.desired_value).toBe(750);
       expect(control?.state.effective_value).toBe(500);
-      expect(control?.state.priority).toBe(30);
       expect(control?.state.apply.phase).toBe("applying");
       expect(control?.state.apply.operation_id).toMatch(/^sim-throttle-/);
       expect(control?.state.apply.requested_at).toBeTruthy();
 
-      const observedPayload = await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "applied");
-      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const observedPayload = await waitForControlPhase(api.baseUrl, "orders-processor-outflow-throttle", "applied");
+      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(observedPayload.overlayRevision).toBe(seed.overlayRevision + 2);
       expect(observedPayload.overlaySource).toBe("control-observed");
       expect(observedControl?.state.effective_value).toBe(750);
@@ -387,13 +384,13 @@ describe("architecture runtime API", () => {
     try {
       expect(
         (await postControlValue(api.baseUrl, {
-          controlId: "partner-token-aggregate-throttle",
+          controlId: "orders-processor-outflow-throttle",
           desiredValue: 900
         })).status
       ).toBe(200);
 
-      const observedPayload = await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "applied");
-      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const observedPayload = await waitForControlPhase(api.baseUrl, "orders-processor-outflow-throttle", "applied");
+      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(pollCalls).toBe(3);
       expect(observedControl?.state.effective_value).toBe(900);
       expect(observedControl?.state.apply.message).toBe("observed requested value");
@@ -421,10 +418,10 @@ describe("architecture runtime API", () => {
       controlPollMaxAttempts: 2
     });
     try {
-      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 950 })).status).toBe(200);
+      expect((await postControlValue(api.baseUrl, { controlId: "orders-processor-outflow-throttle", desiredValue: 950 })).status).toBe(200);
 
-      const observedPayload = await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "stale");
-      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const observedPayload = await waitForControlPhase(api.baseUrl, "orders-processor-outflow-throttle", "stale");
+      const observedControl = observedPayload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(pollCalls).toBe(2);
       expect(observedControl?.state.effective_value).toBe(500);
       expect(observedControl?.state.apply.message).toContain("polling budget exhausted");
@@ -443,7 +440,7 @@ describe("architecture runtime API", () => {
       expect(response.json).toEqual({ error: "Graph control apply is disabled" });
 
       const payload = await readArchitecture(api.baseUrl);
-      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(payload.overlayRevision).toBe(seed.overlayRevision);
       expect(control?.state.desired_value).toBe(500);
     } finally {
@@ -454,17 +451,17 @@ describe("architecture runtime API", () => {
   it("rejects invalid control edits and preserves the previous active overlay", async () => {
     const api = await startApi({ graphControlsVisible: true, graphControlApplyEnabled: true });
     try {
-      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 700 })).status).toBe(200);
-      await waitForControlPhase(api.baseUrl, "partner-token-aggregate-throttle", "applied");
+      expect((await postControlValue(api.baseUrl, { controlId: "orders-processor-outflow-throttle", desiredValue: 700 })).status).toBe(200);
+      await waitForControlPhase(api.baseUrl, "orders-processor-outflow-throttle", "applied");
 
       const response = await postControlValue(api.baseUrl, {
-        controlId: "partner-token-aggregate-throttle",
+        controlId: "orders-processor-outflow-throttle",
         desiredValue: 2050
       });
       expect(response.status).toBe(422);
 
       const payload = await readArchitecture(api.baseUrl);
-      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(control?.state.desired_value).toBe(700);
       expect(payload.overlayStatus.state).toBe("error");
       expect(payload.overlayStatus.message).toContain("less than or equal to 2000");
@@ -489,9 +486,9 @@ describe("architecture runtime API", () => {
       controlPollDelayMs: 5
     });
     try {
-      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 750 })).status).toBe(200);
+      expect((await postControlValue(api.baseUrl, { controlId: "orders-processor-outflow-throttle", desiredValue: 750 })).status).toBe(200);
       const applyingPayload = await readArchitecture(api.baseUrl);
-      const applyingControl = applyingPayload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const applyingControl = applyingPayload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
 
       const observedBackendOverlay: ArchitectureOverlays = {
         ...applyingPayload.overlays,
@@ -510,7 +507,7 @@ describe("architecture runtime API", () => {
 
       await new Promise((resolve) => setTimeout(resolve, 30));
       const payload = await readArchitecture(api.baseUrl);
-      const control = payload.overlays.controls.find((candidate) => candidate.id === "partner-token-aggregate-throttle");
+      const control = payload.overlays.controls.find((candidate) => candidate.id === "orders-processor-outflow-throttle");
       expect(control?.state.apply.phase).toBe("applied");
       expect(control?.state.apply.message).not.toBe("stale poll result");
       expect(payload.overlaySource).toBe("control-backend");
@@ -537,7 +534,7 @@ describe("architecture runtime API", () => {
     });
     try {
       const response = await postControlValue(api.baseUrl, {
-        controlId: "partner-token-aggregate-throttle",
+        controlId: "orders-processor-outflow-throttle",
         desiredValue: 2050
       });
 
@@ -586,8 +583,8 @@ describe("architecture runtime API", () => {
   it("rejects concurrent apply attempts for the same control", async () => {
     const api = await startApi({ graphControlsVisible: true, graphControlApplyEnabled: true });
     try {
-      expect((await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 800 })).status).toBe(200);
-      const response = await postControlValue(api.baseUrl, { controlId: "partner-token-aggregate-throttle", desiredValue: 850 });
+      expect((await postControlValue(api.baseUrl, { controlId: "orders-processor-outflow-throttle", desiredValue: 800 })).status).toBe(200);
+      const response = await postControlValue(api.baseUrl, { controlId: "orders-processor-outflow-throttle", desiredValue: 850 });
 
       expect(response.status).toBe(409);
       expect(response.text).toContain("already has an apply operation in flight");
@@ -623,13 +620,13 @@ describe("architecture runtime API", () => {
     });
     try {
       const firstApply = postControlValue(api.baseUrl, {
-        controlId: "partner-token-aggregate-throttle",
+        controlId: "orders-processor-outflow-throttle",
         desiredValue: 800
       });
       await applyStarted;
 
       const secondApply = await postControlValue(api.baseUrl, {
-        controlId: "partner-token-aggregate-throttle",
+        controlId: "orders-processor-outflow-throttle",
         desiredValue: 850
       });
       expect(secondApply.status).toBe(409);

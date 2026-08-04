@@ -1,10 +1,11 @@
 import "./test/setup";
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { parse } from "yaml";
 import App from "./App";
 import { encodeBase64UrlUtf8 } from "./deepLinkArchitecture";
+import { DEMO_THROTTLE_STORAGE_KEY } from "./demoControls";
 import { buildSampleLiveTpsOverlays, SAMPLE_LIVE_TPS_SOURCE } from "./sampleLiveTps";
 import { validateArchitectureManifest, validateArchitectureOverlays } from "./zod";
 import type { RuntimeArchitecturePayload } from "./runtime/types";
@@ -99,6 +100,7 @@ describe("App", () => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     FakeEventSource.instance = undefined;
+    localStorage.clear();
     window.history.replaceState(null, "", "/");
   });
 
@@ -211,11 +213,100 @@ describe("App", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("lets static demo users simulate a processor-outflow throttle without runtime API calls", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubEnv("VITE_STATIC_DEMO", "1");
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const firstRender = render(<App />);
+    const { container } = firstRender;
+
+    expect(await screen.findByText("Simulated controls")).toBeInTheDocument();
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[aria-label="Select edge publish enriched orders"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+    await user.click(edge as Element);
+
+    const control = await screen.findByTestId("edge-control-orders-processor-outflow-throttle");
+    expect(control).toHaveTextContent("Order Enrichment Service outflow throttle");
+    const desiredInput = within(control).getByLabelText("Order Enrichment Service outflow throttle desired value");
+    await user.clear(desiredInput);
+    await user.type(desiredInput, "750");
+    await user.click(within(control).getByRole("button", { name: /^Apply$/i }));
+
+    expect(await within(control).findByText("Applying")).toBeInTheDocument();
+    await waitFor(() => expect(within(control).getByRole("status")).toHaveTextContent("Applied"));
+    expect(within(control).getAllByText("750/s").length).toBeGreaterThanOrEqual(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    expect(JSON.parse(localStorage.getItem(DEMO_THROTTLE_STORAGE_KEY) ?? "{}")).toEqual({
+      version: 1,
+      values: { "orders-processor-outflow-throttle": 750 }
+    });
+
+    firstRender.unmount();
+    const secondRender = render(<App />);
+    const restoredEdge = await waitFor(() => {
+      const element = secondRender.container.querySelector('[aria-label="Select edge publish enriched orders"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+    await user.click(restoredEdge as Element);
+    const restoredControl = await screen.findByTestId("edge-control-orders-processor-outflow-throttle");
+    expect(within(restoredControl).getAllByText("750/s").length).toBeGreaterThanOrEqual(2);
+
+    await user.click(screen.getByRole("button", { name: "Reset demo throttles" }));
+    await waitFor(() => expect(within(restoredControl).getAllByText("500/s").length).toBeGreaterThanOrEqual(2));
+    expect(localStorage.getItem(DEMO_THROTTLE_STORAGE_KEY)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("cancels a pending demo throttle when the architecture hash changes", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn();
+    vi.stubEnv("VITE_STATIC_DEMO", "1");
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("EventSource", FakeEventSource);
+
+    const { container } = render(<App />);
+
+    expect(await screen.findByText("Simulated controls")).toBeInTheDocument();
+    const edge = await waitFor(() => {
+      const element = container.querySelector('[aria-label="Select edge publish enriched orders"]');
+      expect(element).toBeInTheDocument();
+      return element;
+    });
+    await user.click(edge as Element);
+
+    const control = await screen.findByTestId("edge-control-orders-processor-outflow-throttle");
+    const desiredInput = within(control).getByLabelText("Order Enrichment Service outflow throttle desired value");
+    await user.clear(desiredInput);
+    await user.type(desiredInput, "750");
+    await user.click(within(control).getByRole("button", { name: /^Apply$/i }));
+    expect(await within(control).findByText("Applying")).toBeInTheDocument();
+
+    window.history.replaceState(null, "", `/#architecture=${encodeBase64UrlUtf8(LINKED_ARCHITECTURE_YAML)}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    expect(await screen.findAllByText("Linked Source")).not.toHaveLength(0);
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 400)));
+    expect(localStorage.getItem(DEMO_THROTTLE_STORAGE_KEY)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("loads a hash-fragment architecture deep link without runtime API calls", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("EventSource", FakeEventSource);
+    localStorage.setItem(
+      DEMO_THROTTLE_STORAGE_KEY,
+      JSON.stringify({ version: 1, values: { "orders-processor-outflow-throttle": 750 } })
+    );
     window.history.replaceState(null, "", `/#architecture=${encodeBase64UrlUtf8(LINKED_ARCHITECTURE_YAML)}`);
 
     render(<App />);
@@ -223,6 +314,7 @@ describe("App", () => {
     expect(await screen.findAllByText("Linked Source")).not.toHaveLength(0);
     expect(screen.getAllByText("Linked Sink")).not.toHaveLength(0);
     expect(screen.getByText("deep-link")).toBeInTheDocument();
+    expect(screen.queryByText("Simulated controls")).not.toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(FakeEventSource.instance).toBeUndefined();
 

@@ -4,6 +4,7 @@ import { PRODUCT_DESCRIPTION, PRODUCT_NAME, PRODUCT_TAGLINE } from "./branding";
 import { buildGraphModel } from "./graphBuilder";
 import { buildOverlayModel } from "./overlays";
 import { ErrorPanel } from "./dashboard/flowComponents";
+import { OverlayControlApplyProvider, type OverlayControlApplyCallback } from "./dashboard/controlApply";
 import { ViewBody } from "./dashboard/views";
 import type { OverlayRuntimeStatus } from "./runtime/types";
 import type { ArchitectureManifest, ArchitectureOverlays, ArchitectureView } from "./zod";
@@ -23,7 +24,10 @@ interface DashboardProps {
   };
   controlControlsVisible?: boolean;
   controlApplyEnabled?: boolean;
+  controlSimulation?: boolean;
+  onControlApply?: OverlayControlApplyCallback;
   onControlUpdated?: () => void | Promise<void>;
+  onResetControls?: () => void | Promise<void>;
   toolbarSlot?: ReactNode;
 }
 
@@ -107,7 +111,10 @@ export function Dashboard({
   runtimeInfo,
   controlControlsVisible = false,
   controlApplyEnabled = false,
+  controlSimulation = false,
+  onControlApply,
   onControlUpdated,
+  onResetControls,
   toolbarSlot
 }: DashboardProps) {
   const [activeViewId, setActiveViewId] = useState(manifest.views[0]?.id ?? "");
@@ -297,28 +304,39 @@ export function Dashboard({
             {runtimeInfo.graphControlsVisible ? (
               <div className="aws-kv aws-kv-wide">
                 <AwsBadge tone={runtimeInfo.graphControlApplyEnabled ? "info" : "warning"}>
-                  Graph Controls {runtimeInfo.graphControlApplyEnabled ? "Apply Enabled" : "Visible Only"}
+                  {controlSimulation
+                    ? "Simulated controls"
+                    : `Graph Controls ${runtimeInfo.graphControlApplyEnabled ? "Apply Enabled" : "Visible Only"}`}
                 </AwsBadge>
                 <b>
-                  {runtimeInfo.graphControlApplyEnabled
+                  {controlSimulation
+                    ? "Browser-local demo only; no infrastructure or shared state is changed."
+                    : runtimeInfo.graphControlApplyEnabled
                     ? "Async apply handler is enabled; effective values update after observation."
                     : "Control cards are visible, but Apply is disabled until backend integration is enabled."}
                 </b>
+                {controlSimulation && onResetControls ? (
+                  <button type="button" className="aws-button aws-button-normal" onClick={() => void onResetControls()}>
+                    Reset demo throttles
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </section>
         ) : null}
 
         <main className="cloudscape-dashboard-content" aria-label={`${PRODUCT_NAME} view ${activeView.id}`}>
-          <ViewBody
-            activeView={activeView}
-            model={model}
-            overlayModel={overlayModel}
-            controlControlsVisible={controlControlsVisible && !runtimeInfo?.previewActive}
-            controlApplyEnabled={controlApplyEnabled && !runtimeInfo?.previewActive}
-            edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
-            onControlUpdated={onControlUpdated}
-          />
+          <OverlayControlApplyProvider apply={runtimeInfo?.previewActive ? undefined : onControlApply}>
+            <ViewBody
+              activeView={activeView}
+              model={model}
+              overlayModel={overlayModel}
+              controlControlsVisible={controlControlsVisible && !runtimeInfo?.previewActive}
+              controlApplyEnabled={controlApplyEnabled && !runtimeInfo?.previewActive}
+              edgeOverlayLabelsExpanded={edgeOverlayLabelsExpanded}
+              onControlUpdated={onControlUpdated}
+            />
+          </OverlayControlApplyProvider>
         </main>
       </section>
     </div>

@@ -462,20 +462,17 @@ edge_decorators:
     tone: secondary
     thickness: 2.3
 
-  - id: partner-feed-throttle
+  - id: partner-feed-schema
     edge_id: edge.use1.sources.partner.to.partner.ingestion
-    title: Partner feed throttle
+    title: Partner feed schema
     badges:
-      - throttle 500/s
       - schema partner-v3
-    warning: true
 
 route_decorators:
-  - id: partner-source-downstream-throttle
+  - id: partner-source-schema-path
     source_node_id: use1.sources.partner_webhook
-    title: Partner webhook throttle path
+    title: Partner webhook schema path
     badges:
-      - throttle 500/s
       - schema partner-v3
     edge_ids:
       - edge.use1.sources.partner.to.partner.ingestion
@@ -485,14 +482,14 @@ route_decorators:
       - edge.use1.hot.router.to.partner.stream
 
 controls:
-  - id: partner-token-aggregate-throttle
+  - id: orders-processor-outflow-throttle
+    control_type: throttle
     target:
-      kind: route
-      id: partner-source-downstream-throttle
-    dimensions:
-      token: partner-v3
-    label: Partner route throttle
-    description: Runtime throttle for the partner token across the explicit downstream path
+      kind: edge
+      id: edge.use1.orders.processor.to.aggregate
+    dimensions: {}
+    label: Order Enrichment Service outflow throttle
+    description: Simulated outflow throttle from the order enrichment processor
     apply:
       handler: simulated-throttle-config
     spec:
@@ -501,14 +498,147 @@ controls:
       max: 2000
       step: 50
       unit: /s
-      priority:
-        editable: true
-        min: 0
-        max: 100
-        step: 1
     state:
       desired_value: 500
       effective_value: 500
-      priority: 20
       apply:
         phase: idle
+
+  - id: partner-processor-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.partner.processor.to.aggregate
+    dimensions: {}
+    label: Partner Normalization Service outflow throttle
+    description: Simulated outflow throttle from the partner normalization processor
+    apply:
+      handler: simulated-throttle-config
+    spec: &processor-outflow-throttle-spec
+      value_type: number
+      min: 0
+      max: 2000
+      step: 50
+      unit: /s
+    state: &processor-outflow-throttle-state
+      desired_value: 500
+      effective_value: 500
+      apply:
+        phase: idle
+
+  - id: inventory-processor-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.inventory.processor.to.aggregate
+    dimensions: {}
+    label: Inventory Projection Service outflow throttle
+    description: Simulated outflow throttle from the inventory projection processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: preagg-replay-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.preagg.processor.to.aggregate
+    dimensions: {}
+    label: Pre-Aggregate Replay Service outflow throttle
+    description: Simulated replay outflow throttle from the pre-aggregate processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: hot-replay-products-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.hot.processor.to.products.stream
+    dimensions: {}
+    label: Hot-Tier Replay Service products outflow throttle
+    description: Simulated products replay outflow throttle from the hot-tier processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: hot-replay-orders-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.hot.processor.to.orders.stream
+    dimensions: {}
+    label: Hot-Tier Replay Service orders outflow throttle
+    description: Simulated orders replay outflow throttle from the hot-tier processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: cold-replay-products-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.cold.processor.to.products.stream
+    dimensions: {}
+    label: Cold Slow Processor products outflow throttle
+    description: Simulated products replay outflow throttle from the cold processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: cold-replay-orders-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.cold.processor.to.orders.stream
+    dimensions: {}
+    label: Cold Slow Processor orders outflow throttle
+    description: Simulated orders replay outflow throttle from the cold processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: partner-replay-local-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.partner.slow_processor.to.partner.stream
+    dimensions: {}
+    label: Partner Slow Processor local outflow throttle
+    description: Simulated local replay outflow throttle from the partner processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: partner-replay-usw2-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.partner.slow_processor.to.usw2.partner.stream
+    dimensions: {}
+    label: Partner Slow Processor USW2 outflow throttle
+    description: Simulated USW2 replay outflow throttle from the partner processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state
+
+  - id: partner-replay-euw1-outflow-throttle
+    control_type: throttle
+    target:
+      kind: edge
+      id: edge.use1.partner.slow_processor.to.euw1.partner.stream
+    dimensions: {}
+    label: Partner Slow Processor EUW1 outflow throttle
+    description: Simulated EUW1 replay outflow throttle from the partner processor
+    apply:
+      handler: simulated-throttle-config
+    spec: *processor-outflow-throttle-spec
+    state: *processor-outflow-throttle-state

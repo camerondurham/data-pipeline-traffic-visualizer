@@ -66,6 +66,7 @@ function overlayFixture(): ArchitectureOverlays {
     controls: [
       {
         id: "edge-a-token-throttle",
+        control_type: "throttle",
         target: { kind: "edge", id: "edge.a.remote" },
         dimensions: { token: "partner-v3" },
         label: "A token throttle",
@@ -102,7 +103,7 @@ function smallManifest(): ArchitectureManifest {
   return {
     nodes: [
       { id: "use1.group", label: "Use1 Group", type: "group", region: "use1", zone: "hot" },
-      { id: "use1.child.a", label: "Use1 A", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
+      { id: "use1.child.a", label: "Use1 A", type: "processor", region: "use1", zone: "hot", parent: "use1.group" },
       { id: "use1.child.b", label: "Use1 B", type: "app", region: "use1", zone: "hot", parent: "use1.group" },
       { id: "usw2.group", label: "Usw2 Group", type: "group", region: "usw2", zone: "partner" },
       { id: "usw2.child.a", label: "Usw2 A", type: "stream", region: "usw2", zone: "partner", parent: "usw2.group" },
@@ -181,6 +182,18 @@ describe("overlays", () => {
     ).toThrow(/missing edge/);
 
     expect(() =>
+      validateOverlayReferences(manifest, {
+        ...overlayFixture(),
+        controls: [
+          {
+            ...overlayFixture().controls[0],
+            target: { kind: "edge", id: "edge.b.remote" }
+          }
+        ]
+      })
+    ).toThrow(/processor/);
+
+    expect(() =>
       validateArchitectureOverlays({
         ...overlayFixture(),
         controls: [
@@ -236,6 +249,7 @@ describe("overlays", () => {
     const nodeControl = {
       ...overlayFixture().controls[0],
       id: "node-b-token-throttle",
+      control_type: "generic" as const,
       target: { kind: "node" as const, id: "use1.child.b" },
       label: "B node throttle"
     };

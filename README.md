@@ -38,26 +38,33 @@ sequenceDiagram
   participant Store as ArchitectureStore
   participant API as Runtime API
   participant Browser as Console and Runtime YAML editor
+  participant Local as Browser local storage
   participant Updater as Overlay updater job or local live TPS demo
   participant Operator as Graph control editor
 
   Files->>Store: load on startup and optional file watch
   Store->>Store: validate topology, overlays, and references
-  Browser->>API: GET /api/architecture
-  API->>Store: read current payload
-  Store-->>Browser: manifest, overlays, revisions, status
-  Browser->>API: GET /api/architecture/events
-  Store-->>Browser: revision event after accepted changes
-  Browser->>API: GET /api/architecture/source
-  Browser->>API: POST /api/architecture/lint
-  Browser->>API: POST /api/architecture/draft
-  API->>Store: apply validated architecture and overlays draft
-  Updater->>API: POST /api/overlays/snapshot
-  API->>Store: merge observed overlay metrics after validation
-  Operator->>API: POST /api/overlays/control-value
-  API->>Store: validate intent and mark control applying
-  Store->>Store: poll handler until terminal phase
-  Store-->>Browser: revision event after observed apply result
+  alt API-backed runtime
+    Browser->>API: GET /api/architecture
+    API->>Store: read current payload
+    Store-->>Browser: manifest, overlays, revisions, status
+    Browser->>API: GET /api/architecture/events
+    Store-->>Browser: revision event after accepted changes
+    Browser->>API: GET /api/architecture/source
+    Browser->>API: POST /api/architecture/lint
+    Browser->>API: POST /api/architecture/draft
+    API->>Store: apply validated architecture and overlays draft
+    Updater->>API: POST /api/overlays/snapshot
+    API->>Store: merge observed overlay metrics after validation
+    Operator->>API: POST /api/overlays/control-value
+    API->>Store: validate intent and mark control applying
+    Store->>Store: poll handler until terminal phase
+    Store-->>Browser: revision event after observed apply result
+  else Static GitHub Pages demo
+    Browser->>Browser: validate bundled sample YAML
+    Operator->>Browser: simulate processor-outflow throttle apply
+    Browser->>Local: persist terminal demo value
+  end
 ```
 
 ## Local Live TPS Demo
@@ -74,7 +81,7 @@ The live values are generated sample telemetry from the committed architecture; 
 
 ## GitHub Pages Demo
 
-The GitHub Pages demo is a static build of Runtime Architecture Console from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser.
+The GitHub Pages demo is a static build of Runtime Architecture Console from the sample YAML in `data/sample/`. It does not expose the runtime API or the local live TPS updater, but the Runtime YAML editor can lint and preview changes in the browser. Selecting a direct processor-outflow edge exposes a simulated throttle editor. Apply transitions locally from `applying` to `applied`, persists the terminal value in that browser, and never changes infrastructure or shared state. Use **Reset demo throttles** to restore the committed sample values.
 
 To publish it, enable GitHub Pages in the repository settings with **Source: GitHub Actions** and custom domain `traffic-demo.u64.cam`, then run the `Deploy Pages Demo` workflow or push to `main`. The workflow runs `npm ci`, `npm test`, and `npm run build` with `VITE_STATIC_DEMO=1` and `VITE_BASE_PATH=/`, then deploys `dist/`.
 
@@ -97,6 +104,7 @@ Use the Pages deployment URL from the workflow summary as the team demo link.
 If you use this console as a live control surface, controls are tied to graph identity via:
 
 - `target.kind` + `target.id` to attach intent to a node, edge, or route decorator.
+- `control_type` to distinguish throttle invariants from other generic control semantics.
 - `dimensions` to scope by tenant/token/route class.
 - `apply.handler` to choose the backend operation that applies config.
 
@@ -158,8 +166,8 @@ Overlay files can define:
 
 - `node_decorators`: reference `node_id` and render compact node chips such as shard count, retention, OpenSearch node count, and instance type.
 - `edge_decorators`: reference `edge_id` and render edge badges, warning state, metric labels, tone, or thickness.
-- `route_decorators`: reference a `source_node_id` plus an ordered `edge_ids` path. Route decorators apply only to those explicit edges, which is the intended way to show source-app throttle/schema config downstream.
-- `controls`: reference a node, edge, or route decorator and expose editable operator intent such as a per-token throttle. A control separates `spec` edit constraints from mutable `state`, so a throttle value is not confused with its min, max, step, unit, or priority policy.
+- `route_decorators`: reference a `source_node_id` plus an ordered `edge_ids` path. Route decorators apply only to those explicit edges and can show non-editable context such as a schema path.
+- `controls`: expose editable operator intent. `control_type: throttle` must target a direct edge whose source node is a `processor`; generic controls may use other target kinds. A control separates `spec` edit constraints from mutable `state`.
 
 Example:
 
@@ -188,11 +196,10 @@ edge_decorators:
     thickness: 4.4
 
 route_decorators:
-  - id: partner-source-downstream-throttle
+  - id: partner-source-schema-path
     source_node_id: use1.sources.partner_webhook
-    title: Partner webhook throttle path
+    title: Partner webhook schema path
     badges:
-      - throttle 500/s
       - schema partner-v3
     edge_ids:
       - edge.use1.sources.partner.to.partner.ingestion
@@ -200,13 +207,13 @@ route_decorators:
       - edge.use1.partner.processor.to.aggregate
 
 controls:
-  - id: partner-token-aggregate-throttle
+  - id: orders-processor-outflow-throttle
+    control_type: throttle
     target:
-      kind: route
-      id: partner-source-downstream-throttle
-    dimensions:
-      token: partner-v3
-    label: Partner route throttle
+      kind: edge
+      id: edge.use1.orders.processor.to.aggregate
+    dimensions: {}
+    label: Order Enrichment Service outflow throttle
     apply:
       handler: simulated-throttle-config
     spec:
@@ -215,15 +222,9 @@ controls:
       max: 2000
       step: 50
       unit: /s
-      priority:
-        editable: true
-        min: 0
-        max: 100
-        step: 1
     state:
       desired_value: 500
       effective_value: 500
-      priority: 20
       apply:
         phase: idle
 ```
@@ -264,13 +265,12 @@ A control edit request looks like:
 
 ```json
 {
-  "controlId": "partner-token-aggregate-throttle",
+  "controlId": "orders-processor-outflow-throttle",
   "desiredValue": 750,
-  "priority": 30,
   "source": "graph-control"
 }
 ```
 
-The server validates the control ID, target reference, explicit handler, value type, numeric bounds, step alignment, and whether priority is editable before starting an apply operation. The included `simulated-throttle-config` handler returns an operation ID immediately. The store polls until the handler reports a terminal phase or the poll budget expires, and `effective_value` updates only after observation.
+The server validates the control ID, target reference, control type, processor-outflow throttle invariant, explicit handler, value type, numeric bounds, step alignment, and whether priority is editable before starting an apply operation. The included `simulated-throttle-config` handler returns an operation ID immediately. The store polls until the handler reports a terminal phase or the poll budget expires, and `effective_value` updates only after observation.
 
 See [Control Plane Extension Plan](docs/control-plane-extension.md) for how this model maps to a real SQS/S3 apply-and-poll control plane.

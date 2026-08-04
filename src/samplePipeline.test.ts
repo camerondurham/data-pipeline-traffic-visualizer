@@ -65,4 +65,22 @@ describe("representative sample pipeline", () => {
       ).toBe(true);
     }
   });
+
+  it("defines throttle controls for every processor outflow and no other edge", () => {
+    const manifest = validateArchitectureManifest(parse(readFileSync("data/sample/architecture.yaml", "utf8")));
+    const overlays = validateArchitectureOverlays(
+      parse(readFileSync("data/sample/architecture-overlays.yaml", "utf8"))
+    );
+    const processorNodeIds = new Set(
+      manifest.nodes.filter((node) => node.type === "processor").map((node) => node.id)
+    );
+    const processorOutflowEdgeIds = manifest.edges
+      .filter((edge) => processorNodeIds.has(edge.from))
+      .map((edge) => edge.id)
+      .sort();
+
+    expect(processorOutflowEdgeIds).toHaveLength(11);
+    expect(overlays.controls.every((control) => control.target.kind === "edge")).toBe(true);
+    expect(overlays.controls.map((control) => control.target.id).sort()).toEqual(processorOutflowEdgeIds);
+  });
 });

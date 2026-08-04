@@ -60,7 +60,8 @@ function assertUniqueDecoratorIds(overlays: ArchitectureOverlays): void {
 export function validateOverlayReferences(manifest: ArchitectureManifest, overlays: ArchitectureOverlays): void {
   assertUniqueDecoratorIds(overlays);
 
-  const nodeIds = new Set(manifest.nodes.map((node) => node.id));
+  const nodeById = new Map(manifest.nodes.map((node) => [node.id, node]));
+  const nodeIds = new Set(nodeById.keys());
   const edgeById = new Map(manifest.edges.map((edge) => [edge.id, edge]));
   const routeDecoratorIds = new Set(overlays.route_decorators.map((decorator) => decorator.id));
 
@@ -105,6 +106,18 @@ export function validateOverlayReferences(manifest: ArchitectureManifest, overla
     }
     if (control.target.kind === "route" && !routeDecoratorIds.has(control.target.id)) {
       throw new Error(`Control ${control.id} references missing route decorator: ${control.target.id}`);
+    }
+    if (control.control_type === "throttle") {
+      if (control.target.kind !== "edge") {
+        throw new Error(`Throttle control ${control.id} must target an edge`);
+      }
+      const edge = edgeById.get(control.target.id);
+      const sourceNode = edge ? nodeById.get(edge.from) : undefined;
+      if (edge && sourceNode?.type !== "processor") {
+        throw new Error(
+          `Throttle control ${control.id} must target an outflow edge from a processor; ${edge.id} starts at ${edge.from}`
+        );
+      }
     }
   }
 }
