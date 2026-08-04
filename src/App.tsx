@@ -194,6 +194,12 @@ export default function App() {
   const demoControlApplies = useRef(new Set<string>());
   const demoControlGeneration = useRef(0);
 
+  function reloadArchitecture(): Promise<ArchitectureLoadResult> {
+    demoControlGeneration.current += 1;
+    demoControlApplies.current.clear();
+    return loadArchitecture();
+  }
+
   function applyLoadResult(result: ArchitectureLoadResult): void {
     setRuntimePayload(result.payload);
     setEditorBackend(result.editorBackend);
@@ -206,7 +212,7 @@ export default function App() {
     let events: EventSource | undefined;
 
     const refresh = () =>
-      loadArchitecture()
+      reloadArchitecture()
         .then((result) => {
           if (!cancelled) {
             applyLoadResult(result);
@@ -353,10 +359,8 @@ export default function App() {
   }
 
   async function resetDemoControls(): Promise<void> {
-    demoControlGeneration.current += 1;
-    demoControlApplies.current.clear();
     resetDemoThrottleValues();
-    applyLoadResult(await loadArchitecture());
+    applyLoadResult(await reloadArchitecture());
   }
 
   return (
@@ -371,7 +375,7 @@ export default function App() {
       onControlUpdated={
         editorBackend === "server"
           ? () =>
-              loadArchitecture()
+              reloadArchitecture()
                 .then(applyLoadResult)
                 .catch((loadError: unknown) => setError(loadErrorFor(loadError)))
           : undefined
@@ -387,7 +391,7 @@ export default function App() {
           onPreview={setPreview}
           onApplied={() => {
             setPreview(undefined);
-            void loadArchitecture()
+            void reloadArchitecture()
               .then(applyLoadResult)
               .catch((loadError: unknown) => setError(loadErrorFor(loadError)));
           }}
