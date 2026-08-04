@@ -17,6 +17,8 @@ import type { GraphModel, GraphNode, VisualEdge } from "../graphBuilder";
 import type { ResolvedEdgeOverlay, ResolvedNodeOverlay } from "../overlays";
 import { formatMetricChip } from "../overlayFormatting";
 import type { OverlayControl, OverlayControlValue } from "../zod";
+import type { OverlayControlValueUpdateRequest } from "../runtime/types";
+import { useOverlayControlApply } from "./controlApply";
 import {
   FLOW_FIT_VIEW_OPTIONS,
   FLOW_MAX_ZOOM,
@@ -470,6 +472,7 @@ function OverlayControlCard({
   const [priority, setPriority] = useState(control.state.priority === undefined ? "" : String(control.state.priority));
   const [status, setStatus] = useState<string>();
   const [loading, setLoading] = useState(false);
+  const onControlApply = useOverlayControlApply();
   const prioritySpec = control.spec.priority;
   const canEditPriority = Boolean(prioritySpec?.editable);
   const applying = control.state.apply.phase === "applying";
@@ -488,7 +491,7 @@ function OverlayControlCard({
     setLoading(true);
     setStatus(undefined);
     try {
-      const body: Record<string, unknown> = {
+      const body: OverlayControlValueUpdateRequest = {
         controlId: control.id,
         desiredValue: parseDesiredValue(control, desiredValue),
         source: "graph-control"
@@ -501,17 +504,20 @@ function OverlayControlCard({
         body.priority = parsedPriority;
       }
 
-      const response = await fetch("/api/overlays/control-value", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const responseBody = await response.json().catch(() => ({}));
-      if (!response.ok || (isRecord(responseBody) && responseBody.ok === false)) {
-        throw new Error(diagnosticsMessage(responseBody) ?? `Control update failed with ${response.status}`);
+      if (onControlApply) {
+        await onControlApply(body);
+      } else {
+        const response = await fetch("/api/overlays/control-value", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+        const responseBody = await response.json().catch(() => ({}));
+        if (!response.ok || (isRecord(responseBody) && responseBody.ok === false)) {
+          throw new Error(diagnosticsMessage(responseBody) ?? `Control update failed with ${response.status}`);
+        }
+        setStatus("Update accepted");
       }
-
-      setStatus("Applied");
       await onUpdated?.();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Unable to update control");

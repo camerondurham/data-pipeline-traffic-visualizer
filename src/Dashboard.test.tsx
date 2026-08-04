@@ -262,31 +262,27 @@ describe("Dashboard", () => {
     const edgeLabels = Array.from(container.querySelectorAll(".edge-label"));
     const partnerFeedLabel = edgeLabels.find((label) => label.textContent?.includes("partner feed"));
     expect(partnerFeedLabel).toBeTruthy();
-    expect(partnerFeedLabel).toHaveTextContent("throttle 500/s");
     expect(partnerFeedLabel).toHaveTextContent("schema partner-v3");
     expect(within(partnerFeedLabel as HTMLElement).getByLabelText("partner feed overlay labels")).toBeInTheDocument();
-    expect(screen.getAllByText("throttle 500/s").length).toBeGreaterThan(0);
     expect(screen.getAllByText("schema partner-v3").length).toBeGreaterThan(0);
 
-    expect(container.querySelector('[data-testid="selected-edge-annotation-partner-feed-throttle"]')).not.toBeInTheDocument();
-    expect(container.querySelectorAll('[data-testid="selected-edge-annotation-partner-source-downstream-throttle"]')).toHaveLength(0);
-    expect(screen.queryByText("Partner feed throttle")).not.toBeInTheDocument();
-    expect(screen.queryByText("Partner webhook throttle path")).not.toBeInTheDocument();
-    expect(container.querySelector('[data-id="edge.use1.sources.partner.to.partner.ingestion"] .topology-edge.is-warning')).toBeInTheDocument();
+    expect(container.querySelector('[data-testid="selected-edge-annotation-partner-feed-schema"]')).not.toBeInTheDocument();
+    expect(container.querySelectorAll('[data-testid="selected-edge-annotation-partner-source-schema-path"]')).toHaveLength(0);
+    expect(screen.queryByText("Partner feed schema")).not.toBeInTheDocument();
+    expect(screen.queryByText("Partner webhook schema path")).not.toBeInTheDocument();
 
     await user.click(edge as Element);
 
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
     expect(within(detailPanel).getByText("overlayDecorators")).toBeInTheDocument();
-    expect(within(detailPanel).getByText("partner-feed-throttle")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("partner-feed-schema")).toBeInTheDocument();
     expect(within(detailPanel).getByText("routeDecorators")).toBeInTheDocument();
-    expect(within(detailPanel).getByText("partner-source-downstream-throttle")).toBeInTheDocument();
+    expect(within(detailPanel).getByText("partner-source-schema-path")).toBeInTheDocument();
 
-    expect(within(detailPanel).getByTestId("selected-edge-annotation-partner-feed-throttle")).toBeInTheDocument();
-    expect(within(detailPanel).getAllByTestId("selected-edge-annotation-partner-source-downstream-throttle").length).toBeGreaterThan(0);
-    expect(within(detailPanel).getAllByText("Partner feed throttle").length).toBeGreaterThan(0);
-    expect(within(detailPanel).getAllByText("Partner webhook throttle path").length).toBeGreaterThan(0);
-    expect(within(detailPanel).getAllByText("throttle 500/s").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getByTestId("selected-edge-annotation-partner-feed-schema")).toBeInTheDocument();
+    expect(within(detailPanel).getAllByTestId("selected-edge-annotation-partner-source-schema-path").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("Partner feed schema").length).toBeGreaterThan(0);
+    expect(within(detailPanel).getAllByText("Partner webhook schema path").length).toBeGreaterThan(0);
     expect(within(detailPanel).getAllByText("schema partner-v3").length).toBeGreaterThan(0);
     expect(container.querySelector('[data-testid^="edge-annotation-"]')).not.toBeInTheDocument();
   });
@@ -368,7 +364,7 @@ describe("Dashboard", () => {
     vi.stubGlobal("fetch", fetchMock);
     const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: true, onControlUpdated });
     const edgeLabel = await waitFor(() => {
-      const element = container.querySelector('[aria-label="Select edge consume enriched events"]');
+      const element = container.querySelector('[aria-label="Select edge publish enriched orders"]');
       expect(element).toBeInTheDocument();
       return element;
     });
@@ -379,13 +375,12 @@ describe("Dashboard", () => {
     });
 
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
-    const control = within(detailPanel).getByTestId("edge-control-partner-token-aggregate-throttle");
-    expect(within(control).getByText("Partner route throttle")).toBeInTheDocument();
-    expect(within(control).getByText("token=partner-v3")).toBeInTheDocument();
+    const control = within(detailPanel).getByTestId("edge-control-orders-processor-outflow-throttle");
+    expect(within(control).getByText("Order Enrichment Service outflow throttle")).toBeInTheDocument();
+    expect(within(control).getByText("edge.use1.orders.processor.to.aggregate")).toBeInTheDocument();
     expect(within(control).getAllByText("500/s").length).toBeGreaterThan(0);
 
-    const desiredInput = within(control).getByLabelText("Partner route throttle desired value");
-    const priorityInput = within(control).getByLabelText("Partner route throttle priority");
+    const desiredInput = within(control).getByLabelText("Order Enrichment Service outflow throttle desired value");
     const applyButton = within(control).getByRole("button", { name: /Apply/i });
     await user.clear(desiredInput);
     await user.click(applyButton);
@@ -393,8 +388,6 @@ describe("Dashboard", () => {
     await waitFor(() => expect(within(control).getByRole("status")).toHaveTextContent("Desired value is required"));
 
     await user.type(desiredInput, "850");
-    await user.clear(priorityInput);
-    await user.type(priorityInput, "35");
     await user.click(applyButton);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
@@ -406,9 +399,8 @@ describe("Dashboard", () => {
       throw new Error("Missing control update request");
     }
     expect(JSON.parse(request.body as string)).toEqual({
-      controlId: "partner-token-aggregate-throttle",
+      controlId: "orders-processor-outflow-throttle",
       desiredValue: 850,
-      priority: 35,
       source: "graph-control"
     });
     await waitFor(() => expect(onControlUpdated).toHaveBeenCalled());
@@ -417,7 +409,7 @@ describe("Dashboard", () => {
   it("shows controls in visible-only mode but disables apply", async () => {
     const { container } = renderSeedDashboard({ controlControlsVisible: true, controlApplyEnabled: false });
     const edgeLabel = await waitFor(() => {
-      const element = container.querySelector('[aria-label="Select edge consume enriched events"]');
+      const element = container.querySelector('[aria-label="Select edge publish enriched orders"]');
       expect(element).toBeInTheDocument();
       return element;
     });
@@ -430,7 +422,7 @@ describe("Dashboard", () => {
     const detailPanel = screen.getByRole("complementary", { name: "Selected edge details" });
     expect(within(detailPanel).getByRole("heading", { name: "Config" })).toBeInTheDocument();
     expect(within(detailPanel).getByRole("heading", { name: "Controls" })).toBeInTheDocument();
-    const control = within(detailPanel).getByTestId("edge-control-partner-token-aggregate-throttle");
+    const control = within(detailPanel).getByTestId("edge-control-orders-processor-outflow-throttle");
     expect(within(control).getByRole("button", { name: /Apply/i })).toBeDisabled();
     expect(within(control).getByRole("status")).toHaveTextContent("Apply is disabled until backend integration is enabled");
   });
@@ -450,6 +442,7 @@ describe("Dashboard", () => {
         ...overlays.controls,
         {
           id: "hot-router-concurrency-cap",
+          control_type: "generic",
           target: { kind: "node", id: "use1.hot.router" },
           dimensions: { scope: "all" },
             label: "Hot router concurrency cap",

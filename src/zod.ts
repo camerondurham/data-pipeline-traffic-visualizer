@@ -145,6 +145,8 @@ export const OverlayControlTargetSchema = z
   })
   .strict();
 
+export const OverlayControlTypeSchema = z.enum(["generic", "throttle"]);
+
 export const OverlayControlDimensionsSchema = z.record(RequiredString, OverlayControlValueSchema).default({});
 
 export const OverlayControlPrioritySpecSchema = z
@@ -207,6 +209,7 @@ export const OverlayControlStateSchema = z
 export const OverlayControlSchema = z
   .object({
     id: RequiredString,
+    control_type: OverlayControlTypeSchema,
     target: OverlayControlTargetSchema,
     dimensions: OverlayControlDimensionsSchema,
     label: RequiredString,
@@ -259,6 +262,7 @@ export type RouteDecorator = z.infer<typeof RouteDecoratorSchema>;
 export type OverlayControlValue = z.infer<typeof OverlayControlValueSchema>;
 export type OverlayControlApplyPhase = z.infer<typeof OverlayControlApplyPhaseSchema>;
 export type OverlayControlApply = z.infer<typeof OverlayControlApplySchema>;
+export type OverlayControlType = z.infer<typeof OverlayControlTypeSchema>;
 export type OverlayControlTarget = z.infer<typeof OverlayControlTargetSchema>;
 export type OverlayControlDimensions = z.infer<typeof OverlayControlDimensionsSchema>;
 export type OverlayControlPrioritySpec = z.infer<typeof OverlayControlPrioritySpecSchema>;
